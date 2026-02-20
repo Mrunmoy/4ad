@@ -9,3 +9,8 @@
 
 # Phase tracker (user-local)
 .phase
+
+
+# Added by cargo
+
+/target
