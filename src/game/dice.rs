@@ -5,16 +5,25 @@ pub fn roll_d6() -> u8 {
     rand::thread_rng().gen_range(1..=6)
 }
 
+/// Rolls a pair of six-sided dice and returns their sum.
 pub fn roll_2d6() -> u8 {
     roll_d6() + roll_d6()
 }
 
+/// Rolls a d66, which is a special die used in some games 
+/// where the result is a two-digit number,
+/// where the first d6 represents the tens digit and
+/// the second d6 represents the ones digit.
 pub fn roll_d66() -> u8 {
     let tens = roll_d6();
     let ones = roll_d6();
     tens * 10 + ones
 }
 
+/// Rolls an "explosive" d6, which means that if you roll a 6,
+/// you add 6 to the total and roll again, repeating this process
+/// until you roll something other than 6.
+/// The final total is the sum of all rolls
 pub fn roll_explosive_d6() -> u16 {
     let mut total = 0;
     loop {
