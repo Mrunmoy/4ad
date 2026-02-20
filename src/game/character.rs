@@ -25,6 +25,20 @@ impl CharacterClass {
             CharacterClass::Halfling => 3,
         }
     }
+
+    pub fn roll_starting_gold(&self) -> u16 {
+        use crate::game::dice::*;
+        match self {
+            CharacterClass::Warrior => roll_2d6() as u16,
+            CharacterClass::Cleric => roll_d6() as u16,
+            CharacterClass::Rogue => (roll_d6() + roll_2d6()) as u16, // 3d6
+            CharacterClass::Wizard => (roll_2d6() + roll_2d6()) as u16, // 4d6
+            CharacterClass::Barbarian => roll_d6() as u16,
+            CharacterClass::Elf => roll_2d6() as u16,
+            CharacterClass::Dwarf => (roll_d6() + roll_2d6()) as u16, // 3d6
+            CharacterClass::Halfling => roll_2d6() as u16,
+        }
+    }
 }
 
 /// A player character in Four Against Darkness.
@@ -34,18 +48,21 @@ pub struct Character {
     pub name: String,
     pub class: CharacterClass,
     pub level: u8,
+    pub gold: u16,
     pub life: u8,
     pub max_life: u8,
 }
 
 impl Character {
     pub fn new(name: String, class: CharacterClass) -> Character {
-        let level = 1;
-        let max_life = class.base_life() + level;
+        let starting_level = 1;
+        let max_life = class.base_life() + starting_level;
+        let starting_gold = class.roll_starting_gold() as u16;
         Character {
             name,
             class,
-            level,
+            level: starting_level,
+            gold: starting_gold,
             life: max_life,
             max_life,
         }
@@ -104,5 +121,37 @@ mod tests {
         // Wizard: 2 + 1 = 3, Barbarian: 7 + 1 = 8
         assert_eq!(wizard.max_life, 3);
         assert_eq!(barbarian.max_life, 8);
+    }
+
+    #[test]
+    fn new_character_has_gold() {
+        // Every class starts with some gold (rolled via dice)
+        // Just verify it's present and > 0 over many rolls
+        for _ in 0..100 {
+            let rogue = Character::new("Slick".to_string(), CharacterClass::Rogue);
+            assert!(rogue.gold > 0, "Rogue should start with gold");
+        }
+    }
+
+    #[test]
+    fn starting_gold_is_in_range_for_class() {
+        // Warrior rolls 2d6 for gold, so range is 2..=12
+        for _ in 0..1000 {
+            let warrior = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+            assert!(
+                (2..=12).contains(&warrior.gold),
+                "Warrior gold {} outside 2d6 range",
+                warrior.gold
+            );
+        }
+        // Wizard rolls 4d6 for gold, so range is 4..=24
+        for _ in 0..1000 {
+            let wizard = Character::new("Gandalf".to_string(), CharacterClass::Wizard);
+            assert!(
+                (4..=24).contains(&wizard.gold),
+                "Wizard gold {} outside 4d6 range",
+                wizard.gold
+            );
+        }
     }
 }
