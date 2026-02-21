@@ -1,6 +1,62 @@
 use super::dice::*;
 use super::monster::{Monster, MonsterCategory};
 
+/// What the party finds when entering a room or corridor.
+/// From the rulebook p.31 - Room Contents Table (2d6).
+///
+/// NEW RUST CONCEPT: Enums with different data per variant!
+/// In C++ you'd need std::variant<Treasure, Monster, ...> or a tagged union.
+/// In Rust, each enum variant can carry its own unique data type.
+///
+/// Some variants carry a Monster (the encounter to fight),
+/// some carry nothing (Empty), and some we'll flesh out in Phase 2.
+#[derive(Debug, Clone)]
+pub enum RoomContents {
+    /// Roll 2: Treasure found! (TODO: roll on Treasure table in Phase 2)
+    Treasure,
+    /// Roll 3: Treasure protected by a trap (TODO: Trap + Treasure tables)
+    TreasureWithTrap,
+    /// Roll 4 (room only): Special event (TODO: Special Events table)
+    SpecialEvent,
+    /// Roll 5: Special feature (TODO: Special Feature table)
+    SpecialFeature,
+    /// Roll 6: Vermin encounter
+    Vermin(Monster),
+    /// Roll 7: Minions encounter
+    Minions(Monster),
+    /// Roll 10 (room only): Weird monster (TODO: Weird Monsters table)
+    WeirdMonster,
+    /// Roll 11: Boss encounter (TODO: Boss table + final boss check)
+    Boss,
+    /// Roll 12 (room only): Small dragon lair (TODO: Dragon rules)
+    SmallDragonLair,
+    /// Empty room/corridor — nothing here
+    Empty,
+}
+
+/// Look up the Room Contents Table (2d6) from the rulebook p.31.
+/// `roll` is the 2d6 result (2-12), `is_corridor` affects some results
+/// (corridors are empty where rooms would have encounters).
+///
+/// For Phase 1, vermin and minions return actual Monster data.
+/// Other encounter types return placeholder variants for now.
+pub fn roll_room_contents(roll: u8, is_corridor: bool) -> RoomContents {
+    match roll {
+        2 => RoomContents::Treasure,
+        3 => RoomContents::TreasureWithTrap,
+        4 => if is_corridor { RoomContents::Empty } else { RoomContents::SpecialEvent },
+        5 => RoomContents::SpecialFeature,
+        6 => RoomContents::Vermin(roll_vermin(roll_d6())),
+        7 => RoomContents::Minions(roll_minions(roll_d6())),
+        8 => if is_corridor { RoomContents::Empty } else { RoomContents::Minions(roll_minions(roll_d6())) },
+        9 => RoomContents::Empty,
+        10 => if is_corridor { RoomContents::Empty } else { RoomContents::WeirdMonster },
+        11 => RoomContents::Boss,
+        12 => if is_corridor { RoomContents::Empty } else { RoomContents::SmallDragonLair },
+        _ => unreachable!(),
+    }
+}
+
 /// Roll on the Vermin table (d6) and return a monster encounter.
 /// From the rulebook p.35:
 ///   1: 3d6 rats, level 1
@@ -47,6 +103,81 @@ pub fn roll_minions(roll: u8) -> Monster {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // --- Room contents table tests ---
+
+    #[test]
+    fn room_contents_treasure_on_roll_2() {
+        let contents = roll_room_contents(2, false);
+        assert!(matches!(contents, RoomContents::Treasure));
+    }
+
+    #[test]
+    fn room_contents_treasure_with_trap_on_roll_3() {
+        let contents = roll_room_contents(3, false);
+        assert!(matches!(contents, RoomContents::TreasureWithTrap));
+    }
+
+    #[test]
+    fn room_contents_special_event_on_roll_4_in_room() {
+        let contents = roll_room_contents(4, false);
+        assert!(matches!(contents, RoomContents::SpecialEvent));
+    }
+
+    #[test]
+    fn room_contents_empty_on_roll_4_in_corridor() {
+        let contents = roll_room_contents(4, true);
+        assert!(matches!(contents, RoomContents::Empty));
+    }
+
+    #[test]
+    fn room_contents_vermin_on_roll_6() {
+        let contents = roll_room_contents(6, false);
+        // Use the matches! macro to check the variant AND destructure it
+        assert!(matches!(contents, RoomContents::Vermin(_)));
+    }
+
+    #[test]
+    fn room_contents_minions_on_roll_7() {
+        let contents = roll_room_contents(7, false);
+        assert!(matches!(contents, RoomContents::Minions(_)));
+    }
+
+    #[test]
+    fn room_contents_minions_on_roll_8_in_room() {
+        let contents = roll_room_contents(8, false);
+        assert!(matches!(contents, RoomContents::Minions(_)));
+    }
+
+    #[test]
+    fn room_contents_empty_on_roll_8_in_corridor() {
+        let contents = roll_room_contents(8, true);
+        assert!(matches!(contents, RoomContents::Empty));
+    }
+
+    #[test]
+    fn room_contents_empty_on_roll_9() {
+        let contents = roll_room_contents(9, false);
+        assert!(matches!(contents, RoomContents::Empty));
+    }
+
+    #[test]
+    fn room_contents_boss_on_roll_11() {
+        let contents = roll_room_contents(11, false);
+        assert!(matches!(contents, RoomContents::Boss));
+    }
+
+    #[test]
+    fn room_contents_dragon_on_roll_12_in_room() {
+        let contents = roll_room_contents(12, false);
+        assert!(matches!(contents, RoomContents::SmallDragonLair));
+    }
+
+    #[test]
+    fn room_contents_empty_on_roll_12_in_corridor() {
+        let contents = roll_room_contents(12, true);
+        assert!(matches!(contents, RoomContents::Empty));
+    }
 
     // --- Vermin table tests ---
 
