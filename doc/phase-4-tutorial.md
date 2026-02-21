@@ -330,3 +330,36 @@ In C++, you'd write `for (int i = 0; i < party_size; i++) assign(players[i % num
 | `src/game/mod.rs` | Added `pub mod turn` |
 
 ---
+
+## Step 8: Wire Host/Join Modes and Integration
+
+**File:** `src/main.rs`
+
+### What We're Building
+
+Connecting the `--host` and `--join` CLI flags to the actual server and client code. When you run `4ad --host`, it starts a TCP game server and a UDP discovery beacon. When you run `4ad --join <addr>`, it connects as a client and prints events from the server.
+
+### Concepts Introduced
+
+**`tokio::runtime::Runtime::block_on()` — bridging sync and async.** Our `main()` is synchronous, but the server and client are async. Instead of making `main` async with `#[tokio::main]`, we create a tokio runtime manually and call `block_on()` only for the modes that need networking.
+
+```rust
+let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
+rt.block_on(async {
+    run_host_mode(port).await;
+});
+```
+
+This is more flexible than `#[tokio::main]` because only host/join modes pay the cost of an async runtime. Solo and text modes run purely synchronous.
+
+In C++ terms, `block_on()` is like calling `std::future::get()` — it blocks the current thread until the async operation completes. The difference is that inside `block_on`, any `.await` points cooperatively yield to other tasks on the runtime's thread pool.
+
+**`tokio::spawn` for background services.** The discovery beacon runs as a spawned task alongside the server. If the beacon encounters an error (e.g., broadcast not supported), it logs the error without killing the server. This fire-and-forget pattern is common for auxiliary services.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/main.rs` | Replaced host/join stubs with real `run_host_mode()` and `run_join_mode()`. Manual tokio runtime creation. Discovery beacon spawned alongside server. Client prints events in a loop. |
+
+---

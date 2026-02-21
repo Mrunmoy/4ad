@@ -52,18 +52,22 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    if cli.join.is_some() {
-        let addr = cli.join.as_deref().unwrap();
-        println!("Joining game at {}... (not yet implemented)", addr);
+    if let Some(addr) = cli.join {
+        // Join mode: connect to a hosted game as a client.
+        // Launches the tokio async runtime to handle networking.
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(async {
+            run_join_mode(&addr).await;
+        });
         return;
     }
 
-    if cli.host.is_some() {
-        let port = cli.host.unwrap();
-        println!(
-            "Hosting game on port {}... (not yet implemented)",
-            port
-        );
+    if let Some(port) = cli.host {
+        // Host mode: start a game server and wait for players.
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(async {
+            run_host_mode(port).await;
+        });
         return;
     }
 
@@ -300,4 +304,94 @@ fn run_text_mode(game: &mut GameState) {
     println!();
     println!("Rooms explored: {}", game.rooms_explored);
     println!("Thanks for playing!");
+}
+
+/// Host mode: start the game server and LAN discovery beacon.
+///
+/// ## Rust concept: `tokio::runtime::Runtime::block_on`
+///
+/// `main()` is synchronous, but the server is async. `block_on()` bridges
+/// the gap — it runs an async future on the current thread until it
+/// completes. Think of it as "enter the async world from sync land."
+///
+/// We create the runtime manually instead of using `#[tokio::main]`
+/// because the game has multiple modes (solo, text, host, join) and only
+/// some need async. `#[tokio::main]` would force all modes through async.
+async fn run_host_mode(port: u16) {
+    use network::discovery::{DiscoveryBeacon, run_beacon};
+    use network::server::run_server;
+
+    println!("=== Four Against Darkness — Host Mode ===");
+    println!("Starting server on port {}...", port);
+    println!("Press Ctrl+C to stop.");
+    println!();
+
+    // Start LAN discovery beacon in background
+    let beacon = DiscoveryBeacon::new("Host".to_string(), port, 0, 4);
+    tokio::spawn(async move {
+        if let Err(e) = run_beacon(beacon).await {
+            eprintln!("Discovery beacon error: {}", e);
+        }
+    });
+
+    // Run the server (blocks until Ctrl+C or error)
+    if let Err(e) = run_server(port).await {
+        eprintln!("Server error: {}", e);
+    }
+}
+
+/// Join mode: connect to a hosted game as a client.
+async fn run_join_mode(addr: &str) {
+    use network::client::{GameClient, ServerEvent};
+
+    println!("=== Four Against Darkness — Join Mode ===");
+    println!("Connecting to {}...", addr);
+
+    let mut client = match GameClient::connect(addr, "Player").await {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("Failed to connect: {}", e);
+            return;
+        }
+    };
+
+    println!("Connected! Waiting for game events...");
+    println!("(Press Ctrl+C to disconnect)");
+    println!();
+
+    // Simple event loop: print events as they arrive
+    while let Some(event) = client.events_rx.recv().await {
+        match event {
+            ServerEvent::Joined { player_id, .. } => {
+                println!("[Joined] You are player {}", player_id);
+            }
+            ServerEvent::StateUpdated(state) => {
+                println!(
+                    "[State] Room {} | {} rooms explored",
+                    state.current_room, state.rooms_explored
+                );
+            }
+            ServerEvent::TurnChanged {
+                player_name, ..
+            } => {
+                println!("[Turn] {}'s turn", player_name);
+            }
+            ServerEvent::Chat { from, text } => {
+                println!("[Chat] {}: {}", from, text);
+            }
+            ServerEvent::GameOver { result } => {
+                println!("[Game Over] {}", result);
+                break;
+            }
+            ServerEvent::Disconnected => {
+                println!("[Disconnected] Lost connection to server");
+                break;
+            }
+            ServerEvent::Pong => {}
+            ServerEvent::JoinRejected { reason } => {
+                println!("[Rejected] {}", reason);
+                break;
+            }
+        }
+    }
 }
