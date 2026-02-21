@@ -362,3 +362,91 @@ pub fn scroll_caster_level(class: CharacterClass, level: u8, spell: Spell) -> u8
 | `src/game/mod.rs` | Added `pub mod spell` |
 
 ---
+
+## Step 5: Treasure and Looting — Nested Enums and Statistical Testing
+
+**File:** `src/game/treasure.rs`
+
+### What We're Building
+
+The rulebook (p.34) defines two treasure tables:
+
+**Treasure table** (d6 + monster's treasure modifier):
+
+| Roll | Result |
+|------|--------|
+| 0- | Nothing |
+| 1 | d6 gold |
+| 2 | 2d6 gold |
+| 3 | Scroll (random spell) |
+| 4 | Gem (2d6 x 5 gp) |
+| 5 | Jewelry (3d6 x 10 gp) |
+| 6+ | Magic item |
+
+**Magic Treasure table** (d6):
+
+| Roll | Item | Uses |
+|------|------|------|
+| 1 | Wand of Sleep | 3 charges, wizards/elves only |
+| 2 | Ring of Teleportation | 1 use, auto-pass Defense roll |
+| 3 | Fools' Gold | 1 use, auto-bribe next monster |
+| 4 | Magic Weapon (+1 Attack) | Permanent (d6 for weapon type) |
+| 5 | Potion of Healing | 1 use, full heal |
+| 6 | Fireball Staff | 2 charges, wizards only |
+
+### Concepts Introduced
+
+**Nested enums.** `TreasureResult::MagicItem(MagicItem)` wraps one enum inside another. And `MagicItem::MagicWeapon(Weapon)` goes a level deeper — a `Weapon` enum inside a `MagicItem` inside a `TreasureResult`. Rust handles this naturally:
+
+```rust
+match result {
+    TreasureResult::MagicItem(MagicItem::MagicWeapon(weapon)) => {
+        // Three levels deep, compiler checks exhaustiveness at each
+    }
+    // ...
+}
+```
+
+In C++ you'd need nested `std::variant` with `std::visit`, which is verbose. Rust's nested pattern matching is concise and fully type-checked.
+
+**Statistical testing for random functions.** Functions like `roll_treasure()` involve dice, so we can't assert exact values. Instead we test *invariants*:
+
+```rust
+#[test]
+fn roll_treasure_with_zero_modifier_produces_valid_results() {
+    for _ in 0..200 {
+        let result = roll_treasure(0);
+        assert!(!matches!(result, TreasureResult::Nothing),
+            "Modifier 0 should never produce Nothing (d6 is 1-6)");
+    }
+}
+```
+
+This tests that modifier 0 can never produce "Nothing" (because d6 ranges 1-6, so the total is always >= 1). Similarly, modifier -6 should *always* produce Nothing, and modifier +5 should *always* produce a magic item. These boundary tests catch table mapping bugs without depending on specific dice rolls.
+
+**Separating deterministic and random concerns.** The `treasure_category(total)` function maps a roll total to a category string — fully deterministic, trivially testable. The `resolve_treasure(total)` function does the sub-rolls (gold amounts, spell types). And `roll_treasure(modifier)` combines both. This layering means the table mapping logic is testable independently of dice randomness.
+
+### Testing
+
+45 new tests covering:
+- Treasure category mapping for all 7 ranges (nothing through magic item)
+- Gold amount ranges (d6: 1-6, 2d6: 2-12)
+- Gem values (2d6 x 5: 10-60, must be multiple of 5)
+- Jewelry values (3d6 x 10: 30-180, must be multiple of 10)
+- Scroll produces valid spell
+- All 6 magic items from d6 roll
+- All 6 magic weapon subtypes from d6 sub-roll
+- Starting charges for each magic item type
+- Permanent vs consumable classification
+- Spellcaster requirement for Wand/Staff
+- Display formatting for all result types
+- Statistical boundary tests (modifier extremes)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/treasure.rs` | **New.** `TreasureResult` enum, `MagicItem` enum, treasure/magic tables, weapon subtype table, `roll_treasure()` |
+| `src/game/mod.rs` | Added `pub mod treasure` |
+
+---

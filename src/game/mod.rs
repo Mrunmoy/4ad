@@ -10,3 +10,4 @@ pub mod reaction;
 pub mod spell;
 pub mod state;
 pub mod tables;
+pub mod treasure;
