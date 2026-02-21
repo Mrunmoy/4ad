@@ -1036,6 +1036,64 @@ In C++, there's no equivalent restriction — you can freely mix `const&` and `&
 
 ---
 
+## Step 18: Backtracking and Door Connections — `Vec` as a Stack and `HashMap` with Tuple Keys
+
+**File:** `src/game/state.rs`, `src/main.rs`
+
+### Concepts Introduced
+
+**`Vec<T>` as a stack.** In C++ you'd use `std::stack<T>` (or just `std::vector` with `push_back`/`pop_back`). In Rust, `Vec<T>` serves the same purpose:
+
+```rust
+room_history: Vec<usize>,
+
+self.room_history.push(self.current_room);  // add to top
+let prev = self.room_history.pop()?;         // remove from top
+```
+
+- `.push(value)` — add to the end (like `push_back`)
+- `.pop()` → `Option<T>` — remove from the end, returns `None` if empty
+
+In C++, `std::stack::pop()` on an empty stack is undefined behavior. In Rust, `.pop()` returns `Option<T>`, forcing you to handle the empty case. Combined with `?`, it's one line: pop or return None.
+
+**`HashMap<(K1, K2), V>` — tuple keys.** In C++, using `std::pair` as a key in `std::unordered_map` requires writing a custom hash function. In Rust, any type that implements `Hash + Eq` can be a key, and tuples of hashable types are automatically hashable:
+
+```rust
+use std::collections::HashMap;
+
+door_connections: HashMap<(usize, usize), usize>,
+
+// Insert: (room_id, door_index) → connected_room_id
+self.door_connections.insert((from_room, door_index), room_id);
+
+// Lookup: returns Option<&usize>
+self.door_connections.get(&(self.current_room, door_index))
+```
+
+Note the `&` in `.get(&(self.current_room, door_index))` — `HashMap::get` takes a reference to the key, not the key itself.
+
+**`.copied()` — convert `Option<&T>` to `Option<T>`.** When `T` is `Copy` (like `usize`), `.copied()` dereferences the inner reference:
+
+```rust
+// .get() returns Option<&usize>, but we want Option<usize>
+self.door_connections.get(&(self.current_room, door_index)).copied()
+```
+
+In C++ terms: it's like dereferencing a `const*` to get the value by copy. Without `.copied()`, you'd return a reference tied to `self`, which causes borrow issues downstream.
+
+### What We Implemented
+
+- `room_history: Vec<usize>` — stack of visited rooms, `.push()` on enter, `.pop()` on go_back
+- `go_back()` — pops history, returns to previous room
+- `door_connections: HashMap<(usize, usize), usize>` — records which door leads where
+- `connected_room(door_index)` — checks if a door already connects to an explored room
+- `revisit_room(target)` — moves to an already-known room without generating
+- main.rs: `[b] Go back` option, `-> Room N` labels on explored doors, connected doors revisit instead of regenerating
+
+**Tests added:** 15 (total: 183)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -1089,6 +1147,9 @@ In C++, there's no equivalent restriction — you can freely mix `const&` and `&
 | Infinite loop | `while(true)` | `loop { }` with `break` / `continue` |
 | Tuple destructure in for | `auto [a, b] = pair` | `for (i, &(side, offset)) in vec.iter().enumerate()` |
 | Double-ref in filter | — | `filter(\|&&(s, _)\| ...)` — iter + filter gives `&&T` |
+| Vec as stack | `std::stack<T>` | `.push()` / `.pop()` → `Option<T>` |
+| HashMap tuple key | custom hash for `std::pair` | `HashMap<(K1, K2), V>` — tuples hash automatically |
+| Option dereference | `*ptr` | `.copied()` — `Option<&T>` → `Option<T>` for Copy types |
 
 ## Common C++ Habits to Break
 
@@ -1122,7 +1183,7 @@ src/map/
   dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 168 tests across 11 modules, all passing.
+**Test count:** 183 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash

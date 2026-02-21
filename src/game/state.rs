@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::map::dungeon::Dungeon;
 use super::encounter::{run_encounter, CombatEvent, EncounterOutcome};
 use super::monster::Monster;
@@ -25,6 +26,15 @@ pub struct GameState {
     pub boss_count: u8,
     pub current_monster: Option<Monster>,
     pub log: Vec<String>,
+    /// Stack of previously visited room IDs.
+    /// Used for backtracking when all doors from the current room are blocked.
+    /// `.push()` when entering a new room, `.pop()` when going back.
+    pub room_history: Vec<usize>,
+    /// Tracks which doors connect to which rooms.
+    /// Key: (room_id, door_index), Value: connected room ID.
+    /// When a door has been used to generate a room, going through it
+    /// again should revisit that room instead of trying to generate a new one.
+    pub door_connections: HashMap<(usize, usize), usize>,
 }
 
 impl GameState {
@@ -39,6 +49,8 @@ impl GameState {
             boss_count: 0,
             current_monster: None,
             log: Vec::new(),
+            room_history: Vec::new(),
+            door_connections: HashMap::new(),
         }
     }
 
@@ -123,7 +135,11 @@ impl GameState {
         if self.phase != GamePhase::Exploring {
             return None; // Can't enter new rooms if not exploring
         }
-        let room_id = self.dungeon.generate_room(self.current_room, door_index, d66_roll)?;
+        let from_room = self.current_room;
+        let room_id = self.dungeon.generate_room(from_room, door_index, d66_roll)?;
+        // Record that this door now connects to the new room
+        self.door_connections.insert((from_room, door_index), room_id);
+        self.room_history.push(from_room);
         self.current_room = room_id;
         self.rooms_explored = self.rooms_explored.saturating_add(1);
 
@@ -143,6 +159,60 @@ impl GameState {
         // Step 7: Log and return
         self.log.push(format!("Entered room {}.", room_id));
         Some(contents)
+    }
+
+    /// Go back to the previous room (backtracking).
+    /// Pops the room history stack and sets current_room to the popped value.
+    /// Returns Some(room_id) of the room we returned to, or None if:
+    ///   - We're at the entrance (no history)
+    ///   - We're in combat (can't backtrack while fighting)
+    ///
+    /// EXERCISE: Implement this using Vec's `.pop()` method.
+    /// `.pop()` returns Option<T> — Some(value) if the Vec had elements, None if empty.
+    /// Steps:
+    ///   1. Guard: only works in Exploring phase
+    ///   2. Pop from room_history
+    ///   3. Set current_room to the popped value
+    ///   4. Log and return
+    pub fn go_back(&mut self) -> Option<usize> {
+        if self.phase != GamePhase::Exploring {
+            return None; // Can't backtrack if not exploring
+        }
+        let prev_room = self.room_history.pop()?;
+        self.current_room = prev_room;
+        self.log.push(format!("Backtracked to room {}.", prev_room));
+        Some(prev_room)
+    }
+
+    /// Check if a door from the current room already connects to an existing room.
+    /// Returns the connected room ID, or None if the door is unexplored.
+    ///
+    /// Uses HashMap's `.get()` which returns Option<&V>.
+    /// `.copied()` converts Option<&usize> to Option<usize> — since usize is Copy,
+    /// this just dereferences the pointer. In C++ terms: it's like
+    /// dereferencing a const pointer to get the value by copy.
+    ///
+    /// EXERCISE: Look up (self.current_room, door_index) in self.door_connections.
+    /// Return the room ID if found, None if not.
+    pub fn connected_room(&self, door_index: usize) -> Option<usize> {
+        self.door_connections.get(&(self.current_room, door_index)).copied()
+    }
+
+    /// Move to an already-explored room through a known door.
+    /// Like enter_room but skips generation and content rolling —
+    /// the room already exists, we're just walking back through the door.
+    /// Returns true if the move succeeded, false if blocked (combat, etc).
+    ///
+    /// EXERCISE: Guard for Exploring phase, push current_room to history,
+    /// set current_room to target, log it.
+    pub fn revisit_room(&mut self, target: usize) -> bool {
+        if self.phase != GamePhase::Exploring {
+            return false; // Can't revisit rooms if not exploring
+        }
+        self.room_history.push(self.current_room);
+        self.current_room = target;
+        self.log.push(format!("Revisited room {}.", target));
+        true
     }
 }
 
@@ -389,5 +459,147 @@ mod tests {
         state.start_encounter(make_rat());
         let contents = state.enter_room(0, 44, 9);
         assert!(contents.is_none());
+    }
+
+    // --- Room history / backtracking tests ---
+
+    #[test]
+    fn new_game_has_empty_room_history() {
+        let state = make_game();
+        assert!(state.room_history.is_empty());
+    }
+
+    #[test]
+    fn enter_room_pushes_previous_room_to_history() {
+        let mut state = make_game_with_entrance();
+        assert_eq!(state.current_room, 0); // entrance
+        state.enter_room(0, 44, 9);
+        // After entering room 1, room 0 (entrance) should be in history
+        assert_eq!(state.room_history.len(), 1);
+        assert_eq!(state.room_history[0], 0);
+    }
+
+    #[test]
+    fn go_back_returns_previous_room_id() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance → room 1
+        let prev = state.go_back();
+        assert_eq!(prev, Some(0)); // went back to entrance
+    }
+
+    #[test]
+    fn go_back_updates_current_room() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance → room 1
+        state.go_back();
+        assert_eq!(state.current_room, 0); // back at entrance
+    }
+
+    #[test]
+    fn go_back_returns_none_at_entrance() {
+        let mut state = make_game_with_entrance();
+        // At entrance, no history to go back to
+        let prev = state.go_back();
+        assert_eq!(prev, None);
+    }
+
+    #[test]
+    fn go_back_pops_history_stack() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance → room 1
+        assert_eq!(state.room_history.len(), 1);
+        state.go_back();
+        assert!(state.room_history.is_empty()); // history popped
+    }
+
+    #[test]
+    fn go_back_blocked_during_combat() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9);
+        state.start_encounter(make_rat());
+        let prev = state.go_back();
+        assert_eq!(prev, None); // can't backtrack while fighting
+    }
+
+    // --- Door connections tests ---
+
+    #[test]
+    fn new_game_has_no_door_connections() {
+        let state = make_game();
+        assert!(state.door_connections.is_empty());
+    }
+
+    #[test]
+    fn enter_room_records_door_connection() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance door 0 → room 1
+        // Connection should be recorded: (0, 0) → 1
+        assert_eq!(state.door_connections.get(&(0, 0)), Some(&1));
+    }
+
+    #[test]
+    fn connected_room_returns_target_for_used_door() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // door 0 of entrance → room 1
+        state.go_back(); // back to entrance
+        // Door 0 should be connected to room 1
+        assert_eq!(state.connected_room(0), Some(1));
+    }
+
+    #[test]
+    fn connected_room_returns_none_for_unused_door() {
+        let state = make_game_with_entrance();
+        // No rooms entered yet, door 0 is unexplored
+        assert_eq!(state.connected_room(0), None);
+    }
+
+    #[test]
+    fn revisit_room_updates_current_room() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance → room 1
+        state.go_back(); // back to entrance
+        let ok = state.revisit_room(1);
+        assert!(ok);
+        assert_eq!(state.current_room, 1);
+    }
+
+    #[test]
+    fn revisit_room_pushes_to_history() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // entrance → room 1
+        state.go_back(); // back to entrance, history is empty
+        state.revisit_room(1);
+        // Entrance (room 0) should be pushed to history
+        assert_eq!(state.room_history.len(), 1);
+        assert_eq!(state.room_history[0], 0);
+    }
+
+    #[test]
+    fn revisit_room_blocked_during_combat() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9);
+        state.start_encounter(make_rat());
+        let ok = state.revisit_room(0);
+        assert!(!ok);
+    }
+
+    #[test]
+    fn multiple_go_backs_traverse_history() {
+        let mut state = make_game_with_entrance();
+        // entrance (0) → room 1 → room 2
+        state.enter_room(0, 44, 9); // enter room 1
+        // Now enter room 2 through one of room 1's doors
+        state.enter_room(0, 44, 9); // enter room 2
+        assert_eq!(state.room_history.len(), 2);
+
+        // Go back to room 1
+        state.go_back();
+        assert_eq!(state.current_room, 1);
+        assert_eq!(state.room_history.len(), 1);
+
+        // Go back to entrance
+        state.go_back();
+        assert_eq!(state.current_room, 0);
+        assert!(state.room_history.is_empty());
     }
 }

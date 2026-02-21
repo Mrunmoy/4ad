@@ -92,37 +92,47 @@ fn main() {
             .map(|d| (d.side, d.offset))
             .collect();
 
-        if doors.is_empty() {
+        if doors.is_empty() && game.room_history.is_empty() {
             println!("Dead end! No doors to go through.");
             break;
         }
 
-        println!("Doors:");
+        if !doors.is_empty() {
+            println!("Doors:");
+        }
         for (i, &(side, offset)) in doors.iter().enumerate() {
-            // If multiple doors share the same wall, add a position hint
-            // so the player can tell them apart.
+            // Build the direction label, with position hint if same-wall doors exist
             let same_wall = doors.iter().filter(|&&(s, _)| s == side).count();
-            if same_wall > 1 {
-                let label = match side {
+            let position = if same_wall > 1 {
+                match side {
                     DoorSide::North | DoorSide::South => {
                         if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            "right"
+                            " (right)"
                         } else {
-                            "left"
+                            " (left)"
                         }
                     }
                     DoorSide::East | DoorSide::West => {
                         if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            "lower"
+                            " (lower)"
                         } else {
-                            "upper"
+                            " (upper)"
                         }
                     }
-                };
-                println!("  [{}] {} ({})", i, side, label);
+                }
             } else {
-                println!("  [{}] {}", i, side);
+                ""
+            };
+
+            // Show whether this door leads to an already-explored room
+            if let Some(room_id) = game.connected_room(i) {
+                println!("  [{}] {}{} -> Room {}", i, side, position, room_id);
+            } else {
+                println!("  [{}] {}{}", i, side, position);
             }
+        }
+        if !game.room_history.is_empty() {
+            println!("  [b] Go back");
         }
         println!("  [q] Quit");
 
@@ -145,6 +155,15 @@ fn main() {
             break;
         }
 
+        if input == "b" || input == "B" {
+            if let Some(_prev) = game.go_back() {
+                println!();
+                println!("You retrace your steps...");
+                println!();
+            }
+            continue;
+        }
+
         // Parse the input as a number.
         // `parse::<usize>()` returns Result<usize, ParseIntError>.
         // In C++ you'd use std::stoi() which throws on failure.
@@ -164,7 +183,16 @@ fn main() {
             continue;
         }
 
-        // Enter the new room — rolls dice for shape and contents
+        // Check if this door already connects to an explored room
+        if let Some(target) = game.connected_room(door_index) {
+            game.revisit_room(target);
+            println!();
+            println!("You return to room {}.", target);
+            println!();
+            continue;
+        }
+
+        // Unexplored door — generate a new room
         let d66_roll = dice::roll_d66();
         let contents_roll = dice::roll_2d6();
         match game.enter_room(door_index, d66_roll, contents_roll) {
