@@ -903,3 +903,188 @@ pub fn requires_combat(&self) -> bool {
 | `src/game/mod.rs` | Added `pub mod quest` |
 
 ---
+
+## Step 14: Fleeing — Attack Distribution and Combat Exit Conditions
+
+**File:** `src/game/fleeing.rs`
+
+### What We're Building
+
+When combat goes badly, the party can escape (p.55). Two options:
+
+| Option | Requirement | Defense | Shield | Monsters After |
+|--------|-------------|---------|--------|----------------|
+| Withdrawal | Room has a door | +1 bonus | Normal | Stay in room (return = fight again) |
+| Flight | Always available | Normal | No bonus | N/A (party moves to previous room) |
+
+During **withdrawal**, monsters attack once but characters get +1 Defense.
+During **flight**, every monster attacks once, shields don't help, and if there are fewer monsters than characters the attacks target those with the lowest life first.
+
+When **monsters flee** (from failed morale), each character gets one parting attack at +1.
+
+### Concepts Introduced
+
+**Mutable slice mutation with index sorting.** The `distribute_flight_attacks()` function takes a `&[u8]` slice of party life totals and distributes a limited number of monster attacks. It needs to sort character indices by their life values without rearranging the original party:
+
+```rust
+let mut indices: Vec<usize> = (0..party_size).collect();
+indices.sort_by_key(|&i| party_life[i]);
+```
+
+This creates a separate vector of indices, then sorts *those* by each character's life points. The original party order is preserved — we just use the sorted indices to assign attacks. In C++, you'd use `std::iota` to fill a vector with 0..N, then `std::sort` with a custom comparator. In Rust, `sort_by_key` takes a closure that extracts the sort key.
+
+**`vec![value; count]` initialization.** `vec![0u8; party_size]` creates a zero-initialized vector of the right length — Rust's equivalent of `std::vector<uint8_t>(size, 0)` in C++.
+
+**Enum for combat outcomes.** `CombatEndReason` has five variants covering every possible combat ending. The game state machine uses this to determine what happens next (loot? mark room? game over?). Encoding outcomes as enum variants means the compiler checks all cases.
+
+### Testing
+
+15 new tests covering:
+- FleeType display strings
+- Withdrawal requires a door; no door = can't withdraw
+- Defense bonus (+1) during withdrawal
+- Shield bonus removed during flight
+- Attack distribution: equal monsters/party, more monsters, fewer monsters
+- Lowest-life targeting when fewer monsters than characters
+- Edge cases: no monsters, empty party, single monster
+- Parting attack bonus vs fleeing monsters (+1)
+- All 5 CombatEndReason variants displayed
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/fleeing.rs` | **New.** `FleeType` enum, `CombatEndReason` enum, `distribute_flight_attacks()`, withdrawal/flight constants |
+| `src/game/mod.rs` | Added `pub mod fleeing` |
+
+---
+
+## Step 15: Fallen Heroes — Resurrection Mechanics and Resource Constants
+
+**File:** `src/game/fallen_hero.rs`
+
+### What We're Building
+
+When a character dies (pp.44-45), the party faces several decisions:
+
+- **Carry the body**: One character carries the corpse. They can't attack or defend — any hit auto-damages them. The body goes to the rear of the marching order.
+- **Leave the body**: Equipment stays. 5-in-6 chance treasure is stolen.
+- **Resurrection**: Pay 1000 gp at a church. Roll d6: if <= character level, success. Otherwise, money spent, character permanently lost.
+- **Petrification**: Blessing cures it. Otherwise, leave for a rescue mission (hire a level-1 cleric for 100 gp + 100 gp per Blessing cast). Carrying a petrified character requires 2 people and increases wandering monster chance to 2-in-6.
+
+### Concepts Introduced
+
+**Constants as rule documentation.** This module is heavy on `pub const` values:
+
+```rust
+pub const RESURRECTION_COST: u16 = 1000;
+pub const CARRIERS_FOR_PETRIFIED: u8 = 2;
+pub const TREASURE_THEFT_CHANCE: u8 = 5;
+pub const NORMAL_WANDERING_CHANCE: u8 = 1;
+pub const PETRIFIED_WANDERING_CHANCE: u8 = 2;
+```
+
+These serve double duty: they're used by the game logic AND they document the rules in the type system. When the game state needs to check resurrection cost, it reads `RESURRECTION_COST` — no magic numbers, and a search for "resurrection" across the codebase finds this constant immediately.
+
+In C++, you'd use `constexpr` for the same pattern. The difference is that Rust's `const` is *always* compile-time evaluated — there's no possibility of runtime initialization order issues (a classic C++ gotcha with `static` variables).
+
+**Pure predicates for dice outcomes.** `attempt_resurrection(d6_roll, character_level)` and `treasure_stolen(d6_roll)` are simple boolean functions. Note that resurrection uses `<=` (roll at or below level) while level-up uses `>` (roll above level) — the rulebook defines different thresholds for different mechanics, and keeping each as a separate function makes the distinction explicit.
+
+### Testing
+
+17 new tests covering:
+- FallenStatus display (Dead, Petrified)
+- Resurrection cost is 1000 gp
+- Resurrection succeeds when roll <= level (boundary cases for level 1 and 5)
+- Resurrection fails when roll > level
+- Carrier restrictions (can't attack, can't defend)
+- Petrified character requires 2 carriers
+- Wandering monster chance increases when carrying petrified (1→2 in 6)
+- Treasure theft probability (5 in 6, safe on roll 6)
+- Rescue mission cost calculation (base + per-blessing)
+- Blessing cures petrification
+- Replacement character starts at level 1
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/fallen_hero.rs` | **New.** `FallenStatus` enum, `BodyDecision` enum, resurrection/theft/rescue mechanics, carrying constants |
+| `src/game/mod.rs` | Added `pub mod fallen_hero` |
+
+---
+
+## Step 16: Wandering Monsters — Threshold Parameters and Surprise Mechanics
+
+**File:** `src/game/wandering.rs`
+
+### What We're Building
+
+Wandering monsters (pp.41, 54, 57) are the dungeon's security guards:
+
+- When retracing through visited rooms, roll d6. On a 1, wandering monsters attack.
+- Carrying a petrified character increases the trigger to 1-2.
+- Wandering monster type depends on a d6 sub-roll:
+
+| Roll | Monster Type |
+|------|-------------|
+| 1-2 | Vermin |
+| 3-4 | Minions |
+| 5 | Weird monster |
+| 6 | Boss (reroll dragons; cannot be final boss) |
+
+Special rules:
+- Always surprise the party (attack first, from the rear)
+- No shield bonus on the first defense roll
+- After the first turn in a room, combat is normal
+- Never carry treasure
+- Always test morale
+
+### Concepts Introduced
+
+**Parameterized thresholds.** Instead of hardcoding `d6_roll == 1`, the function takes a `trigger_threshold` parameter:
+
+```rust
+pub fn wandering_monsters_appear(d6_roll: u8, trigger_threshold: u8) -> bool {
+    d6_roll <= trigger_threshold
+}
+```
+
+This handles both the normal case (threshold=1) and the petrified-carry case (threshold=2) with one function. The caller passes the appropriate threshold based on game state. This is a common pattern: make the rule configurable at the call site rather than embedding conditions inside the function.
+
+In C++, you might use a default parameter: `bool appears(uint8_t roll, uint8_t threshold = 1)`. Rust doesn't have default parameters — instead, you pass the appropriate constant (`WANDERING_MONSTER_TRIGGER` or `PETRIFIED_WANDERING_CHANCE`). This is more explicit about which rule variant is being used.
+
+**String-based reroll checks.** `is_reroll_required(monster_name)` checks if a wandering boss is a dragon (which must be rerolled). Matching on `&str` is simple and readable:
+
+```rust
+pub fn is_reroll_required(monster_name: &str) -> bool {
+    monster_name == "Small Dragon"
+}
+```
+
+**Position-based surprise attacks.** In a corridor, wandering monsters attack the rear two characters. In a room, all characters can be targeted. The `surprise_attack_positions()` function computes the valid target positions based on party size and location.
+
+### Testing
+
+22 new tests covering:
+- Trigger on roll 1, no trigger on 2-6
+- Increased threshold triggers on 1 and 2 (petrified carry)
+- All 4 monster types from d6 roll (vermin, minion, weird, boss)
+- Panic on invalid rolls (0, 7)
+- Display strings for all types
+- Surprise, no-shield, no-treasure, morale-test flags
+- Wandering boss cannot be final boss
+- Dragon reroll requirement
+- Non-dragon bosses don't require reroll
+- Corridor surprise attacks rear 2 (or all if party <= 2)
+- Room surprise attacks all characters
+- Edge cases: empty party, single character, 3-person party
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/wandering.rs` | **New.** `WanderingMonsterType` enum, trigger check, surprise positions, reroll rules, combat property constants |
+| `src/game/mod.rs` | Added `pub mod wandering` |
+
+---
