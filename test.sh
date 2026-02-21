@@ -2,7 +2,7 @@
 # Run tests grouped by module with visual separators
 set -e
 
-MODULES=("dice" "character" "party" "monster" "combat" "tables" "encounter")
+MODULES=("dice" "character" "party" "monster" "combat" "tables" "encounter" "state")
 
 for mod in "${MODULES[@]}"; do
     echo ""

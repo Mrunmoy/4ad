@@ -410,6 +410,78 @@ The `%` modulo operator wraps the index to stay within bounds.
 
 ---
 
+## Step 9: Game State — `Option<T>` (No More Null)
+
+**File:** `src/game/state.rs`
+
+### Concepts Introduced
+
+**`Option<T>`.** Rust has no null pointers. Instead, it uses a built-in enum to represent "maybe a value":
+
+```rust
+enum Option<T> {
+    Some(T),    // there IS a value
+    None,       // there is NO value
+}
+```
+
+Like C++ `std::optional<T>`, but the compiler **forces** you to check before using it. You can't accidentally dereference null.
+
+In the game state, the current encounter might or might not have a monster:
+
+```rust
+pub struct GameState {
+    pub current_monster: Option<Monster>,
+    // ...
+}
+```
+
+**Checking an Option:**
+
+```rust
+// .is_some() / .is_none() — quick boolean check
+if self.current_monster.is_some() { ... }
+
+// match — handle both cases, extract the value
+match &self.current_monster {
+    Some(monster) => println!("Fighting {}!", monster.name),
+    None => println!("Room is clear"),
+}
+
+// if let — shorthand when you only care about one case
+if let Some(monster) = &self.current_monster {
+    println!("Monster: {}", monster.name);
+}
+```
+
+**`.take()` on Option.** Replaces the Option's contents with `None` and returns the old value. Like `std::exchange(opt, std::nullopt)` in C++:
+
+```rust
+let mut monster = self.current_monster.take().unwrap();
+// self.current_monster is now None, monster has the value
+```
+
+**`.unwrap()` on Option.** Extracts the inner value, panicking if it's `None`. Safe here because we checked `is_none()` first. In production code, prefer `match` or `if let` over `unwrap()`.
+
+**`use` inside a function body.** Imports can go at the top of the file OR inside a function. Useful when only one function needs a particular import:
+
+```rust
+pub fn should_final_boss_appear(&self) -> bool {
+    use super::dice::roll_d6;
+    (roll_d6() + self.boss_count) >= 6
+}
+```
+
+**`format!()` macro.** Creates a formatted `String`. Like C++ `std::format()` or `sprintf`:
+
+```rust
+self.log.push(format!("Explored room {}.", self.rooms_explored));
+```
+
+The `{}` placeholder works like `%d` in printf — Rust infers the type.
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -429,13 +501,17 @@ The `%` modulo operator wraps the index to stay within bounds.
 | Overflow-safe math | — | `.saturating_sub()`, `.saturating_add()` |
 | Test framework | Google Test, etc. | Built-in: `#[test]` + `cargo test` |
 | Tuple return | `std::pair/tuple` | `(A, B, C)` |
+| Nullable type | `std::optional<T>` | `Option<T>` — `Some(val)` or `None` |
+| Null check | `if (ptr != nullptr)` | `.is_some()` / `if let Some(x)` |
+| Take ownership | `std::exchange(opt, nullopt)` | `.take()` on `Option<T>` |
+| String formatting | `std::format()` | `format!("Room {}.", n)` |
 
 ## Common C++ Habits to Break
 
 1. **Semicolons in structs** — Rust struct fields use commas: `{ field: Type, }`
 2. **Implicit copies** — Nothing copies implicitly. Use `.clone()` when you need a copy.
 3. **Integer types** — No implicit widening. Cast with `as`: `x as u16`.
-4. **Null pointers** — There is no null. Use `Option<T>` instead (coming in Phase 2).
+4. **Null pointers** — There is no null. Use `Option<T>` instead.
 5. **Exceptions** — There are none. Use `Result<T, E>` instead (coming in Phase 2).
 6. **Inheritance** — There is none. Use traits and composition instead.
 
@@ -453,9 +529,10 @@ src/game/
   combat.rs       — attack/defense resolution (deterministic, roll passed in)
   tables.rs       — vermin/minions tables, room contents table (2d6)
   encounter.rs    — full combat loop, party vs monster group, event logging
+  state.rs        — game state with Option<Monster>, phase tracking, room/boss counters
 ```
 
-**Test count:** 61 tests across 7 modules, all passing.
+**Test count:** 76 tests across 8 modules, all passing.
 
 **Key commands:**
 ```bash
