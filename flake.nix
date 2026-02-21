@@ -94,7 +94,7 @@
           echo -e "  \033[36m--- Phase $PHASE_ICON: $PHASE_NAME ---\033[0m"
           echo -e "  \033[2m$PHASE_DESC\033[0m"
           echo -e "\033[32m$ROOM_ART\033[0m"
-          echo -e "  \033[2mRust $RUST_V | cargo build | cargo test | cargo run\033[0m"
+          echo -e "  \033[2mRust $RUST_V | cargo build | cargo nextest run | cargo run\033[0m"
           echo -e "  \033[2mAdvance phase: echo N > .phase  (N = 1..4)\033[0m"
           echo ""
 
@@ -106,6 +106,7 @@
           buildInputs = [
             rustToolchain
             pkgs.pkg-config
+            pkgs.cargo-nextest
           ];
           inherit shellHook;
         };

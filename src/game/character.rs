@@ -79,6 +79,28 @@ impl Character {
     pub fn heal(&mut self, amount: u8) {
         self.life = self.life.saturating_add(amount).min(self.max_life);
     }
+
+    //   Returns the base attack bonus for this character.
+    //   Warrior, Barbarian, Elf, Dwarf: level
+    //   Cleric: level / 2 (integer division rounds down automatically in Rust)
+    //   Rogue, Wizard, Halfling: 0
+    pub fn attack_bonus(&self) -> u8 {
+        match self.class {
+            CharacterClass::Warrior | CharacterClass::Barbarian | CharacterClass::Elf | CharacterClass::Dwarf => self.level,
+            CharacterClass::Cleric => self.level / 2,
+            CharacterClass::Rogue | CharacterClass::Wizard | CharacterClass::Halfling => 0,
+        }
+    }
+
+    //   Returns the base defense bonus for this character.
+    //   Rogue: level
+    //   Everyone else: 0
+    pub fn defense_bonus(&self) -> u8 {
+        match self.class {
+            CharacterClass::Rogue => self.level,
+            _ => 0,
+        }
+    }
 }
 
 
@@ -181,6 +203,38 @@ mod tests {
         // Healing past max should cap at max
         cleric.heal(100);
         assert_eq!(cleric.life, 5);
+    }
+
+    #[test]
+    fn attack_bonus_by_class() {
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        let cleric = Character::new("C".to_string(), CharacterClass::Cleric);
+        let rogue = Character::new("R".to_string(), CharacterClass::Rogue);
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        let barbarian = Character::new("B".to_string(), CharacterClass::Barbarian);
+        let elf = Character::new("E".to_string(), CharacterClass::Elf);
+        let dwarf = Character::new("D".to_string(), CharacterClass::Dwarf);
+        let halfling = Character::new("H".to_string(), CharacterClass::Halfling);
+
+        // At level 1: warrior/barbarian/elf/dwarf get +1, cleric gets +0 (1/2 rounded down)
+        assert_eq!(warrior.attack_bonus(), 1);
+        assert_eq!(barbarian.attack_bonus(), 1);
+        assert_eq!(elf.attack_bonus(), 1);
+        assert_eq!(dwarf.attack_bonus(), 1);
+        assert_eq!(cleric.attack_bonus(), 0); // 1/2 = 0
+        assert_eq!(rogue.attack_bonus(), 0);
+        assert_eq!(wizard.attack_bonus(), 0);
+        assert_eq!(halfling.attack_bonus(), 0);
+    }
+
+    #[test]
+    fn defense_bonus_by_class() {
+        let rogue = Character::new("R".to_string(), CharacterClass::Rogue);
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+
+        // Only rogue gets defense bonus (equal to level)
+        assert_eq!(rogue.defense_bonus(), 1);
+        assert_eq!(warrior.defense_bonus(), 0);
     }
 
     #[test]
