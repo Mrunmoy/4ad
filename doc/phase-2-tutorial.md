@@ -111,3 +111,68 @@ This chains three operations: iterate, filter+transform, aggregate. In C++ you'd
 | `src/game/mod.rs` | Added `pub mod equipment` |
 
 ---
+
+## Step 2: Monster Reactions — Newtype Pattern and Lookup Tables
+
+**File:** `src/game/reaction.rs`
+
+### What We're Building
+
+The rulebook (pp. 22-24, 35-38) defines that every monster type has a **reaction table** — when the party encounters monsters and lets them act first, you roll d6 to determine their behavior. Possible reactions include:
+
+- **Flee**: monster disappears, you get their treasure
+- **Flee if outnumbered**: flee only if fewer monsters than party members
+- **Bribe**: pay gold to avoid combat (amount per monster or fixed total)
+- **Fight**: monsters attack first, may test morale at 50% losses
+- **Fight to the death**: no morale checks, relentless combat
+- **Puzzle**: roll d6 + wizard level >= puzzle level to solve
+- **Quest**: monster offers a quest from the quest table
+- **Magic Challenge**: wizard duels monster (d6 + level vs monster level)
+- **Sleeping**: party gets surprise round with bonuses (dragon only)
+- **Peaceful / Offer food**: non-hostile encounters
+
+Each of the 24 monster types (6 vermin + 6 minions + 6 bosses + 6 weird) has its own unique d6 reaction table.
+
+### Concepts Introduced
+
+**Newtype pattern.** `ReactionTable` wraps a `[MonsterReaction; 6]` array:
+
+```rust
+pub struct ReactionTable([MonsterReaction; 6]);
+```
+
+This is a "newtype" — a single-field struct that gives a meaningful name and dedicated methods to a generic type. In C++ you'd use `using ReactionTable = std::array<Reaction, 6>` but that's just an alias, not a distinct type. In Rust, `ReactionTable` is a *different type* from `[MonsterReaction; 6]` — the compiler won't let you accidentally interchange them.
+
+The `lookup(&self, roll: u8)` method handles the 1-based d6 roll to 0-based array index conversion.
+
+**`match` on `&str` for string-based dispatch.** The `reaction_table_for()` function maps monster names to their reaction tables using pattern matching on string slices:
+
+```rust
+pub fn reaction_table_for(monster_name: &str) -> Option<ReactionTable> {
+    match monster_name {
+        "Rats" => Some(rats_reactions()),
+        "Goblins" => Some(goblins_reactions()),
+        "Skeletons" | "Zombies" => Some(skeletons_reactions()),
+        _ => None,
+    }
+}
+```
+
+The `|` operator matches multiple patterns (skeletons and zombies share a table). The `_` wildcard catches unknown names and returns `None`.
+
+### Testing
+
+54 new tests covering:
+- ReactionTable lookup mechanics (valid rolls, panic on out-of-range)
+- All 24 monster reaction tables verified against rulebook entries
+- Name-based lookup for all monster types
+- Display trait for all reaction variants
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/reaction.rs` | **New.** `MonsterReaction` enum (12 variants), `ReactionTable` newtype, 24 monster-specific tables, name-based lookup |
+| `src/game/mod.rs` | Added `pub mod reaction` |
+
+---

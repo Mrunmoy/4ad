@@ -6,5 +6,6 @@ pub mod equipment;
 pub mod monster;
 pub mod party;
 pub mod party_creation;
+pub mod reaction;
 pub mod state;
 pub mod tables;
