@@ -2,13 +2,23 @@
 # Run tests grouped by module with visual separators
 set -e
 
-MODULES=("dice" "character" "party" "monster" "combat" "tables" "encounter" "state")
+GAME_MODULES=("dice" "character" "party" "monster" "combat" "tables" "encounter" "state")
+MAP_MODULES=("grid")
 
-for mod in "${MODULES[@]}"; do
+for mod in "${GAME_MODULES[@]}"; do
     echo ""
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  $mod"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     cargo test "game::${mod}" -- --color=always 2>&1 | grep -E "^test |^running |^test result"
+    echo ""
+done
+
+for mod in "${MAP_MODULES[@]}"; do
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  $mod"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    cargo test "map::${mod}" -- --color=always 2>&1 | grep -E "^test |^running |^test result"
     echo ""
 done

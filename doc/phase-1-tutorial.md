@@ -482,6 +482,78 @@ The `{}` placeholder works like `%d` in printf — Rust infers the type.
 
 ---
 
+## Step 10: Dungeon Grid — `Copy` Trait, 2D Vectors, and `impl Display`
+
+**File:** `src/map/grid.rs`
+
+### Concepts Introduced
+
+**`Copy` trait.** Some types are so small and cheap they should copy by value automatically — like integers. Adding `Copy` to a derive means the type gets copied instead of moved:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Tile {
+    Unexplored,
+    Floor,
+    Wall,
+    Door,
+}
+```
+
+With `Copy`, you can use a value multiple times without `.clone()`. Without it, the first use would *move* and the second would be a compile error. Only for small, simple types — you can't derive `Copy` on structs containing `String` or `Vec`.
+
+In C++ terms: `Copy` is like having a trivially-copyable type. Rust makes you opt in explicitly.
+
+**`Vec<Vec<T>>` — 2D grid.** Nested vectors form a 2D array. Like C++ `vector<vector<Tile>>`:
+
+```rust
+tiles: Vec<Vec<Tile>>    // tiles[row][col]
+```
+
+Initialize with nested `vec!` macro: `vec![vec![Tile::Unexplored; width]; height]`.
+
+**`impl fmt::Display` — your first trait!** A trait is like a C++ interface/concept. `Display` lets you print with `println!("{}", grid)`:
+
+```rust
+impl fmt::Display for DungeonGrid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for row in &self.tiles {
+            for tile in row {
+                let ch = match tile {
+                    Tile::Unexplored => '░',
+                    Tile::Floor => '.',
+                    Tile::Wall => '#',
+                    Tile::Door => 'D',
+                };
+                write!(f, "{}", ch)?;
+            }
+            writeln!(f)?;
+        }
+        Ok(())
+    }
+}
+```
+
+- `write!(f, ...)` writes to the formatter (like `fprintf`)
+- `?` after each write propagates errors (full `Result` coverage in Phase 2)
+- `Ok(())` means success — the `Result` type's success variant
+
+**Module directories.** When a module gets its own directory, it needs a `mod.rs` file:
+
+```
+src/map/
+  mod.rs          — pub mod grid;
+  grid.rs         — the actual code
+```
+
+And the parent (`main.rs`) declares `mod map;`.
+
+**Off-by-one in bounds checks.** Two different questions need different checks:
+- "Is position X valid?" → `x < size` (for indexing)
+- "Does a span of length L at X fit?" → `x + L <= size` (for room placement)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -505,6 +577,11 @@ The `{}` placeholder works like `%d` in printf — Rust infers the type.
 | Null check | `if (ptr != nullptr)` | `.is_some()` / `if let Some(x)` |
 | Take ownership | `std::exchange(opt, nullopt)` | `.take()` on `Option<T>` |
 | String formatting | `std::format()` | `format!("Room {}.", n)` |
+| Trivial copy | Trivially copyable | `#[derive(Copy)]` — no `.clone()` needed |
+| 2D array | `vector<vector<T>>` | `Vec<Vec<T>>` |
+| Trait impl | Virtual/interface | `impl TraitName for Type { }` |
+| Print custom type | `operator<<` | `impl fmt::Display for Type { }` |
+| Error propagation | `if (err) return err` | `?` operator on `Result` |
 
 ## Common C++ Habits to Break
 
@@ -530,9 +607,13 @@ src/game/
   tables.rs       — vermin/minions tables, room contents table (2d6)
   encounter.rs    — full combat loop, party vs monster group, event logging
   state.rs        — game state with Option<Monster>, phase tracking, room/boss counters
+
+src/map/
+  mod.rs          — module declarations
+  grid.rs         — 2D tile grid, room placement, Display trait for ASCII rendering
 ```
 
-**Test count:** 76 tests across 8 modules, all passing.
+**Test count:** 93 tests across 9 modules, all passing.
 
 **Key commands:**
 ```bash
