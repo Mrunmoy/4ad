@@ -943,6 +943,99 @@ Tuple variants are like `std::tuple` — data is positional. Struct variants are
 
 ---
 
+## Step 17: Text Game Loop — stdin/stdout, `loop`, and Tuple Destructuring in Iterators
+
+**File:** `src/main.rs`
+
+### Concepts Introduced
+
+**`std::io::stdin().read_line()` — reading user input.** Rust's stdin reads a full line into a `String`, including the trailing newline:
+
+```rust
+use std::io::{self, Write};
+
+let mut input = String::new();
+io::stdin().read_line(&mut input).unwrap();
+let input = input.trim();   // remove the '\n'
+```
+
+In C++, `std::getline(std::cin, input)` strips the newline for you. In Rust, `read_line` keeps it — you must `.trim()` to remove whitespace from both ends.
+
+**`print!()` + `flush()` — prompting without newline.** `println!` adds a newline, but `print!` doesn't. Since stdout is line-buffered, the text won't appear until you flush:
+
+```rust
+print!("> ");
+io::stdout().flush().unwrap();
+```
+
+In C++ you'd use `std::cout << "> " << std::flush;`. Same idea — without flushing, the prompt stays in the buffer and the cursor appears before the text.
+
+**`str::parse::<T>()` — string to number.** Returns `Result<T, ParseIntError>`, forcing you to handle the error case:
+
+```rust
+let door_index: usize = match input.parse() {
+    Ok(n) => n,
+    Err(_) => {
+        println!("Pick a door number.");
+        continue;
+    }
+};
+```
+
+In C++, `std::stoi()` throws on failure. In Rust, `Result` forces you to handle it — no uncaught exceptions.
+
+**`loop` / `break` / `continue` — game loop control.** `loop` is Rust's infinite loop (like C++ `while(true)`):
+
+```rust
+loop {
+    if game_over { break; }     // exit the loop
+    if invalid { continue; }    // skip to next iteration
+    // ... normal game logic
+}
+```
+
+**Tuple destructuring in iterator chains.** When iterating over a `Vec<(DoorSide, usize)>`, you can destructure the tuple directly in the `for` binding:
+
+```rust
+for (i, &(side, offset)) in doors.iter().enumerate() {
+```
+
+This unpacks two levels: `enumerate()` gives `(index, &item)`, and `&item` is `&(DoorSide, usize)` which unpacks to `(side, offset)`. Since `DoorSide` is `Copy`, the `&` pattern gives you owned values, not references.
+
+**Double-reference in `filter` closures.** When you chain `.iter().filter()`, the closure receives `&&T` — a reference to a reference:
+
+```rust
+doors.iter().filter(|&&(s, _)| s == side).count()
+//            ^^
+//            &&  because iter() yields &T, and filter gives &(&T)
+```
+
+The `&&` destructures both layers. The `_` wildcard ignores the offset field.
+
+**The borrow trick — copy data before mutable borrow.** When you need to read from `game.dungeon` (immutable borrow) and later call `game.enter_room()` (mutable borrow), you can't hold both borrows at once. Solution: copy the data you need, dropping the immutable borrow:
+
+```rust
+// Borrow game.dungeon immutably to read door info
+let doors: Vec<_> = room.shape.doors.iter()
+    .map(|d| (d.side, d.offset))
+    .collect();       // ← data copied into Vec, immutable borrow ends
+
+// Now safe to borrow game mutably
+game.enter_room(door_index, d66_roll, contents_roll);
+```
+
+In C++, there's no equivalent restriction — you can freely mix `const&` and `&` access. In Rust, the borrow checker enforces that mutable and immutable borrows don't overlap. Copying the data you need into a local variable is the simplest workaround.
+
+### What We Implemented
+
+- Full text-mode game loop in `main.rs`: party creation, dungeon entry, room exploration, combat resolution
+- Door disambiguation: when multiple doors share the same wall, labels show "North (left)" / "North (right)" or "East (upper)" / "East (lower)"
+- Player input handling with error recovery (invalid input loops back)
+
+**Tests added:** 0 (main.rs game loop is tested by playing)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -990,6 +1083,12 @@ Tuple variants are like `std::tuple` — data is positional. Struct variants are
 | write! macro | `os << "text"` | `write!(f, "{}", val)` — format to Formatter |
 | Trait composition | — | `{}` in write! calls Display on nested types |
 | Struct variant destructure | — | `Variant { field1, field2 } =>` names must match |
+| Read stdin line | `std::getline(cin, s)` | `io::stdin().read_line(&mut s)` — keeps `\n` |
+| Flush stdout | `std::flush` | `io::stdout().flush().unwrap()` |
+| String to number | `std::stoi()` (throws) | `s.parse::<usize>()` → `Result` |
+| Infinite loop | `while(true)` | `loop { }` with `break` / `continue` |
+| Tuple destructure in for | `auto [a, b] = pair` | `for (i, &(side, offset)) in vec.iter().enumerate()` |
+| Double-ref in filter | — | `filter(\|&&(s, _)\| ...)` — iter + filter gives `&&T` |
 
 ## Common C++ Habits to Break
 
