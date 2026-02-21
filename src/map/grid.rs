@@ -55,7 +55,13 @@ impl DungeonGrid {
     /// Walls around the perimeter, floor inside.
     /// Minimum size is 3x3 (so there's at least 1 floor tile inside).
     /// Returns false if the room doesn't fit within the grid.
-    pub fn place_rect_room(&mut self, row: usize, col: usize, room_width: usize, room_height: usize) -> bool {
+    pub fn place_rect_room(
+        &mut self,
+        row: usize,
+        col: usize,
+        room_width: usize,
+        room_height: usize,
+    ) -> bool {
         if room_width < 3 || room_height < 3 {
             return false; // Room too small
         }
@@ -121,7 +127,6 @@ impl fmt::Display for DungeonGrid {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,9 +163,9 @@ mod tests {
     #[test]
     fn in_bounds_returns_false_for_invalid_position() {
         let grid = DungeonGrid::new(10, 8);
-        assert!(!grid.in_bounds(8, 0));   // row too high
-        assert!(!grid.in_bounds(0, 10));  // col too high
-        assert!(!grid.in_bounds(8, 10));  // both too high
+        assert!(!grid.in_bounds(8, 0)); // row too high
+        assert!(!grid.in_bounds(0, 10)); // col too high
+        assert!(!grid.in_bounds(8, 10)); // both too high
     }
 
     // --- Get and set ---
@@ -190,10 +195,10 @@ mod tests {
     #[test]
     fn tile_is_copyable() {
         let a = Tile::Floor;
-        let b = a;       // Copy — a is still valid!
-        let c = a;       // Can use a again — no move!
+        let b = a; // Copy — a is still valid!
+        let c = a; // Can use a again — no move!
         assert_eq!(b, c);
-        assert_eq!(a, Tile::Floor);  // a still works
+        assert_eq!(a, Tile::Floor); // a still works
     }
 
     // --- Room placement ---

@@ -1,6 +1,6 @@
-use std::fmt;
 use super::dice::*;
 use super::monster::{Monster, MonsterCategory};
+use std::fmt;
 
 /// What the party finds when entering a room or corridor.
 /// From the rulebook p.31 - Room Contents Table (2d6).
@@ -61,8 +61,9 @@ impl fmt::Display for RoomContents {
             RoomContents::WeirdMonster => write!(f, "A weird creature!"),
             RoomContents::Boss => write!(f, "A boss blocks the way!"),
             RoomContents::SmallDragonLair => write!(f, "A dragon's lair!"),
-            RoomContents::Vermin(monster) | RoomContents::Minions(monster) =>
-                write!(f, "{} {}!", monster.count, monster.name),
+            RoomContents::Vermin(monster) | RoomContents::Minions(monster) => {
+                write!(f, "{} {}!", monster.count, monster.name)
+            }
         }
     }
 }
@@ -77,15 +78,39 @@ pub fn roll_room_contents(roll: u8, is_corridor: bool) -> RoomContents {
     match roll {
         2 => RoomContents::Treasure,
         3 => RoomContents::TreasureWithTrap,
-        4 => if is_corridor { RoomContents::Empty } else { RoomContents::SpecialEvent },
+        4 => {
+            if is_corridor {
+                RoomContents::Empty
+            } else {
+                RoomContents::SpecialEvent
+            }
+        }
         5 => RoomContents::SpecialFeature,
         6 => RoomContents::Vermin(roll_vermin(roll_d6())),
         7 => RoomContents::Minions(roll_minions(roll_d6())),
-        8 => if is_corridor { RoomContents::Empty } else { RoomContents::Minions(roll_minions(roll_d6())) },
+        8 => {
+            if is_corridor {
+                RoomContents::Empty
+            } else {
+                RoomContents::Minions(roll_minions(roll_d6()))
+            }
+        }
         9 => RoomContents::Empty,
-        10 => if is_corridor { RoomContents::Empty } else { RoomContents::WeirdMonster },
+        10 => {
+            if is_corridor {
+                RoomContents::Empty
+            } else {
+                RoomContents::WeirdMonster
+            }
+        }
         11 => RoomContents::Boss,
-        12 => if is_corridor { RoomContents::Empty } else { RoomContents::SmallDragonLair },
+        12 => {
+            if is_corridor {
+                RoomContents::Empty
+            } else {
+                RoomContents::SmallDragonLair
+            }
+        }
         _ => unreachable!(),
     }
 }
@@ -131,7 +156,6 @@ pub fn roll_minions(roll: u8) -> Monster {
         _ => unreachable!(),
     }
 }
-
 
 #[cfg(test)]
 mod tests {

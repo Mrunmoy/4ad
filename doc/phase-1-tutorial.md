@@ -1094,6 +1094,75 @@ In C++ terms: it's like dereferencing a `const*` to get the value by copy. Witho
 
 ---
 
+## Step 19: Ratatui TUI, Room Retry Logic, and Current Room Highlight
+
+**Files:** `Cargo.toml`, `src/map/renderer.rs`, `src/tui/mod.rs`, `src/tui/app.rs`, `src/main.rs`, `src/game/state.rs`, `src/map/dungeon.rs`, `src/map/room.rs`
+
+### Concepts Introduced
+
+**Lifetime parameters.** `DungeonMapWidget<'a>` borrows a `&DungeonGrid`. The `'a` lifetime tells the compiler: "this widget cannot outlive the grid it points to." In C++ terms, it's like storing a `const DungeonGrid&` member — but Rust *proves at compile time* that the reference stays valid:
+
+```rust
+pub struct DungeonMapWidget<'a> {
+    grid: &'a DungeonGrid,
+    highlight: Option<(usize, usize, usize, usize)>,
+}
+```
+
+**The Widget trait.** `fn render(self, area: Rect, buf: &mut Buffer)` — notice `self` (not `&self`). The widget is *consumed* (moved) when rendered. Like a C++ functor used once. This is fine because our widget is cheap (just a reference).
+
+**Builder pattern with `self` return.** `with_highlight` takes `mut self` and returns `Self`, enabling chained calls:
+
+```rust
+pub fn with_highlight(mut self, row: usize, col: usize, width: usize, height: usize) -> Self {
+    self.highlight = Some((row, col, width, height));
+    self
+}
+
+// Usage: method chaining
+let widget = DungeonMapWidget::new(&grid)
+    .with_highlight(room.row, room.col, room.shape.width, room.shape.height);
+```
+
+**`Option::or_else()` chains.** Lazy fallback logic — if the Option is `Some`, return it immediately (short-circuit). If `None`, evaluate the closure to try the next option:
+
+```rust
+let room_id = self.dungeon.generate_room(from_room, door_index, d66_roll)
+    .or_else(|| self.dungeon.generate_room(from_room, door_index, dice::roll_d66()))
+    .or_else(|| self.dungeon.generate_room(from_room, door_index, dice::roll_d66()))
+    .or_else(|| {
+        self.dungeon.generate_room_with_shape(from_room, door_index, fallback_room())
+    })?;
+```
+
+In C++ you'd need nested `if (!result) { result = try_next(); }`. The `.or_else()` chain is cleaner and each closure is only called if needed.
+
+**`ratatui::init()` / `ratatui::restore()`.** Terminal setup/teardown:
+1. Enables crossterm "raw mode" — keypresses arrive instantly (like ncurses `cbreak`)
+2. Enters alternate screen — your shell scrollback is preserved
+3. Installs a panic hook that restores the terminal before printing errors
+
+**`std::env::args().any()`.** Check CLI arguments without a full argument parser:
+
+```rust
+let use_text = std::env::args().any(|a| a == "--text");
+```
+
+`.any()` is like `std::any_of` in C++. The `|a|` is a closure (anonymous function).
+
+### What We Implemented
+
+- `src/map/renderer.rs` — `DungeonMapWidget<'a>` implementing ratatui's Widget trait with unicode characters (`█` walls, `·` floors, `▒` doors) and current room highlighting
+- `src/tui/app.rs` — `App` struct with event loop, 60/40 split-pane layout (map + party/log/controls), keyboard input handling
+- `src/main.rs` — refactored for TUI (default) vs `--text` mode via `--text` flag
+- `src/game/state.rs` — `enter_room` retries with `.or_else()` chain: original roll → 2 random retries → 3x3 fallback room
+- `src/map/dungeon.rs` — extracted `generate_room_with_shape()` for passing arbitrary shapes
+- `src/map/room.rs` — `fallback_room()` minimal 3x3 room for last-resort placement
+
+**Tests added:** 6 (total: 189)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -1150,6 +1219,12 @@ In C++ terms: it's like dereferencing a `const*` to get the value by copy. Witho
 | Vec as stack | `std::stack<T>` | `.push()` / `.pop()` → `Option<T>` |
 | HashMap tuple key | custom hash for `std::pair` | `HashMap<(K1, K2), V>` — tuples hash automatically |
 | Option dereference | `*ptr` | `.copied()` — `Option<&T>` → `Option<T>` for Copy types |
+| Lifetime parameter | `const T&` member | `struct Foo<'a> { bar: &'a T }` — compiler-proven reference validity |
+| Widget trait | Virtual render method | `impl Widget for T { fn render(self, ...) }` — consumed on use |
+| Builder pattern | Fluent interface | `fn with_x(mut self, x: T) -> Self` — chainable config |
+| Lazy fallback | `if (!result) try_next()` | `.or_else(\|\| ...)` — only evaluates closure if `None` |
+| CLI args check | `argc/argv` loop | `std::env::args().any(\|a\| a == "--flag")` |
+| Event-driven loop | ncurses `getch()` | `crossterm::event::read()` blocks for keypresses |
 
 ## Common C++ Habits to Break
 
@@ -1179,11 +1254,16 @@ src/game/
 src/map/
   mod.rs          — module declarations
   grid.rs         — 2D tile grid, room placement, Display trait for ASCII rendering
-  room.rs         — room shapes, door positions, entrance room table, Display
-  dungeon.rs      — dungeon builder, room placement with HashMap tracking
+  room.rs         — room shapes, door positions, entrance room table, fallback room, Display
+  dungeon.rs      — dungeon builder, room placement with HashMap tracking, shape-based generation
+  renderer.rs     — ratatui DungeonMapWidget with unicode tiles and room highlighting
+
+src/tui/
+  mod.rs          — module declarations
+  app.rs          — TUI application: event loop, split-pane layout, keyboard input
 ```
 
-**Test count:** 183 tests across 11 modules, all passing.
+**Test count:** 189 tests across 13 modules, all passing.
 
 **Key commands:**
 ```bash

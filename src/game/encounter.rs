@@ -1,9 +1,9 @@
-use std::fmt;
 use super::character::Character;
-use super::combat::{resolve_attack, resolve_defense, AttackResult, DefenseResult};
+use super::combat::{AttackResult, DefenseResult, resolve_attack, resolve_defense};
 use super::dice::roll_d6;
 use super::monster::Monster;
 use super::party::Party;
+use std::fmt;
 
 /// The outcome of a full combat encounter between the party and a monster group.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,10 +41,14 @@ pub enum CombatEvent {
 impl fmt::Display for CombatEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            CombatEvent::Attack { character, kills } => write!(f, "{} attacks, kills {}!", character, kills),
+            CombatEvent::Attack { character, kills } => {
+                write!(f, "{} attacks, kills {}!", character, kills)
+            }
             CombatEvent::AttackMiss { character } => write!(f, "{} misses.", character),
             CombatEvent::Defense { character } => write!(f, "{} blocks the attack.", character),
-            CombatEvent::Wounded { character, damage } => write!(f, "{} takes {} damage!", character, damage),
+            CombatEvent::Wounded { character, damage } => {
+                write!(f, "{} takes {} damage!", character, damage)
+            }
             CombatEvent::CharacterDied { character } => write!(f, "{} has fallen!", character),
             CombatEvent::MonstersDefeated { name } => write!(f, "All {} defeated!", name),
             CombatEvent::PartyWiped => write!(f, "The party has been wiped out."),
@@ -61,7 +65,10 @@ impl fmt::Display for CombatEvent {
 ///   2. Each surviving monster attacks one party member (roll d6 + defense_bonus vs monster.level)
 ///      - Failed defense = 1 wound
 ///   3. Repeat until one side is eliminated
-pub fn run_encounter(party: &mut Party, monster: &mut Monster) -> (EncounterOutcome, Vec<CombatEvent>) {
+pub fn run_encounter(
+    party: &mut Party,
+    monster: &mut Monster,
+) -> (EncounterOutcome, Vec<CombatEvent>) {
     let mut log = Vec::new();
 
     while !monster.is_defeated() && !party.is_wiped() {
@@ -92,7 +99,9 @@ pub fn run_encounter(party: &mut Party, monster: &mut Monster) -> (EncounterOutc
         }
 
         if monster.is_defeated() {
-            log.push(CombatEvent::MonstersDefeated { name: monster.name.clone() });
+            log.push(CombatEvent::MonstersDefeated {
+                name: monster.name.clone(),
+            });
             break;
         }
 
@@ -141,7 +150,6 @@ pub fn run_encounter(party: &mut Party, monster: &mut Monster) -> (EncounterOutc
     (outcome, log)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,7 +158,10 @@ mod tests {
 
     fn make_test_party() -> Party {
         let mut party = Party::new();
-        party.add_member(Character::new("Warrior".to_string(), CharacterClass::Warrior));
+        party.add_member(Character::new(
+            "Warrior".to_string(),
+            CharacterClass::Warrior,
+        ));
         party.add_member(Character::new("Cleric".to_string(), CharacterClass::Cleric));
         party.add_member(Character::new("Rogue".to_string(), CharacterClass::Rogue));
         party.add_member(Character::new("Wizard".to_string(), CharacterClass::Wizard));
@@ -189,7 +200,10 @@ mod tests {
 
         // Should have at least one Attack or AttackMiss event
         let has_attack = log.iter().any(|e| {
-            matches!(e, CombatEvent::Attack { .. } | CombatEvent::AttackMiss { .. })
+            matches!(
+                e,
+                CombatEvent::Attack { .. } | CombatEvent::AttackMiss { .. }
+            )
         });
         assert!(has_attack, "Log should contain attack events");
     }
@@ -200,9 +214,9 @@ mod tests {
         let mut monster = Monster::new("Rat".to_string(), 1, 1, MonsterCategory::Vermin);
         let (_outcome, log) = run_encounter(&mut party, &mut monster);
 
-        let has_defeated = log.iter().any(|e| {
-            matches!(e, CombatEvent::MonstersDefeated { .. })
-        });
+        let has_defeated = log
+            .iter()
+            .any(|e| matches!(e, CombatEvent::MonstersDefeated { .. }));
         assert!(has_defeated, "Log should record monsters defeated");
     }
 
@@ -249,7 +263,10 @@ mod tests {
 
     #[test]
     fn combat_event_display_attack() {
-        let event = CombatEvent::Attack { character: "Warrior".to_string(), kills: 2 };
+        let event = CombatEvent::Attack {
+            character: "Warrior".to_string(),
+            kills: 2,
+        };
         let s = format!("{}", event);
         assert!(s.contains("Warrior"), "Should contain character name");
         assert!(s.contains("2"), "Should contain kill count");
@@ -257,21 +274,28 @@ mod tests {
 
     #[test]
     fn combat_event_display_miss() {
-        let event = CombatEvent::AttackMiss { character: "Wizard".to_string() };
+        let event = CombatEvent::AttackMiss {
+            character: "Wizard".to_string(),
+        };
         let s = format!("{}", event);
         assert!(s.contains("Wizard"), "Should contain character name");
     }
 
     #[test]
     fn combat_event_display_defense() {
-        let event = CombatEvent::Defense { character: "Rogue".to_string() };
+        let event = CombatEvent::Defense {
+            character: "Rogue".to_string(),
+        };
         let s = format!("{}", event);
         assert!(s.contains("Rogue"), "Should contain character name");
     }
 
     #[test]
     fn combat_event_display_wounded() {
-        let event = CombatEvent::Wounded { character: "Cleric".to_string(), damage: 1 };
+        let event = CombatEvent::Wounded {
+            character: "Cleric".to_string(),
+            damage: 1,
+        };
         let s = format!("{}", event);
         assert!(s.contains("Cleric"), "Should contain character name");
         assert!(s.contains("1"), "Should contain damage amount");
@@ -279,14 +303,18 @@ mod tests {
 
     #[test]
     fn combat_event_display_died() {
-        let event = CombatEvent::CharacterDied { character: "Wizard".to_string() };
+        let event = CombatEvent::CharacterDied {
+            character: "Wizard".to_string(),
+        };
         let s = format!("{}", event);
         assert!(s.contains("Wizard"), "Should contain character name");
     }
 
     #[test]
     fn combat_event_display_monsters_defeated() {
-        let event = CombatEvent::MonstersDefeated { name: "Rats".to_string() };
+        let event = CombatEvent::MonstersDefeated {
+            name: "Rats".to_string(),
+        };
         let s = format!("{}", event);
         assert!(s.contains("Rats"), "Should contain monster name");
     }

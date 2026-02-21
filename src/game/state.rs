@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-use crate::map::dungeon::Dungeon;
-use super::encounter::{run_encounter, CombatEvent, EncounterOutcome};
+use super::dice;
+use super::encounter::{CombatEvent, EncounterOutcome, run_encounter};
 use super::monster::Monster;
 use super::party::Party;
-use super::tables::{roll_room_contents, RoomContents};
+use super::tables::{RoomContents, roll_room_contents};
+use crate::map::dungeon::Dungeon;
+use crate::map::room::fallback_room;
+use std::collections::HashMap;
 
 /// The current phase of the game.
 #[derive(Debug, Clone, PartialEq)]
@@ -93,7 +95,8 @@ impl GameState {
             return; // Can't explore rooms if not exploring
         }
         self.rooms_explored = self.rooms_explored.saturating_add(1);
-        self.log.push(format!("Explored room {}.", self.rooms_explored));
+        self.log
+            .push(format!("Explored room {}.", self.rooms_explored));
     }
 
     /// Check if the final boss should appear.
@@ -118,14 +121,23 @@ impl GameState {
     /// and triggers encounters if monsters are found.
     /// Returns the room contents, or None if the move fails.
     ///
-    /// Steps:
-    ///   1. Guard: only works in Exploring phase
-    ///   2. Generate room via dungeon.generate_room()
-    ///   3. Update current_room and rooms_explored
-    ///   4. Check if room is a corridor (room.shape.is_corridor())
-    ///   5. Roll room contents using contents_roll
-    ///   6. If Vermin or Minions: start_encounter with monster.clone()
-    ///   7. Log and return contents
+    /// ## Room placement with retries
+    ///
+    /// If the rolled d66 room doesn't fit (overlaps existing rooms or goes
+    /// out of bounds), we retry:
+    ///   1. Try the original d66 roll
+    ///   2. Try 2 more random d66 rolls (different room shapes)
+    ///   3. Try a minimal 3x3 fallback room as a last resort
+    ///   4. Only return None if nothing fits at all
+    ///
+    /// ## Rust concept: `.or_else()` chains
+    ///
+    /// `Option::or_else(|| ...)` is lazy fallback logic:
+    ///   - If the Option is Some, return it immediately (short-circuit)
+    ///   - If None, evaluate the closure to try the next option
+    ///
+    /// This chains like a series of "try this, else try that" without
+    /// nested if-else. In C++ you'd need a series of `if (!result) { ... }`.
     pub fn enter_room(
         &mut self,
         door_index: usize,
@@ -136,19 +148,38 @@ impl GameState {
             return None; // Can't enter new rooms if not exploring
         }
         let from_room = self.current_room;
-        let room_id = self.dungeon.generate_room(from_room, door_index, d66_roll)?;
+
+        // Try the passed-in d66 roll, then retry with random rolls,
+        // then fall back to a minimal 3x3 room.
+        let room_id = self
+            .dungeon
+            .generate_room(from_room, door_index, d66_roll)
+            .or_else(|| {
+                self.dungeon
+                    .generate_room(from_room, door_index, dice::roll_d66())
+            })
+            .or_else(|| {
+                self.dungeon
+                    .generate_room(from_room, door_index, dice::roll_d66())
+            })
+            .or_else(|| {
+                self.dungeon
+                    .generate_room_with_shape(from_room, door_index, fallback_room())
+            })?;
+
         // Record that this door now connects to the new room
-        self.door_connections.insert((from_room, door_index), room_id);
+        self.door_connections
+            .insert((from_room, door_index), room_id);
         self.room_history.push(from_room);
         self.current_room = room_id;
         self.rooms_explored = self.rooms_explored.saturating_add(1);
 
-        // Step 4-5: Check room type and roll contents
+        // Check room type and roll contents
         let room = self.dungeon.get_room(room_id)?;
         let is_corridor = room.shape.is_corridor();
         let contents = roll_room_contents(contents_roll, is_corridor);
 
-        // Step 6: If monsters, start an encounter
+        // If monsters, start an encounter
         match &contents {
             RoomContents::Vermin(monster) | RoomContents::Minions(monster) => {
                 self.start_encounter(monster.clone());
@@ -156,7 +187,6 @@ impl GameState {
             _ => {}
         }
 
-        // Step 7: Log and return
         self.log.push(format!("Entered room {}.", room_id));
         Some(contents)
     }
@@ -195,7 +225,9 @@ impl GameState {
     /// EXERCISE: Look up (self.current_room, door_index) in self.door_connections.
     /// Return the room ID if found, None if not.
     pub fn connected_room(&self, door_index: usize) -> Option<usize> {
-        self.door_connections.get(&(self.current_room, door_index)).copied()
+        self.door_connections
+            .get(&(self.current_room, door_index))
+            .copied()
     }
 
     /// Move to an already-explored room through a known door.
@@ -216,7 +248,6 @@ impl GameState {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -226,7 +257,10 @@ mod tests {
 
     fn make_test_party() -> Party {
         let mut party = Party::new();
-        party.add_member(Character::new("Warrior".to_string(), CharacterClass::Warrior));
+        party.add_member(Character::new(
+            "Warrior".to_string(),
+            CharacterClass::Warrior,
+        ));
         party.add_member(Character::new("Cleric".to_string(), CharacterClass::Cleric));
         party.add_member(Character::new("Rogue".to_string(), CharacterClass::Rogue));
         party.add_member(Character::new("Wizard".to_string(), CharacterClass::Wizard));

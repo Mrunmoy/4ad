@@ -100,7 +100,7 @@ impl Character {
     pub fn new(name: String, class: CharacterClass) -> Character {
         let starting_level = 1;
         let max_life = class.base_life() + starting_level;
-        let starting_gold = class.roll_starting_gold() as u16;
+        let starting_gold = class.roll_starting_gold();
         Character {
             name,
             class,
@@ -129,7 +129,10 @@ impl Character {
     //   Rogue, Wizard, Halfling: 0
     pub fn attack_bonus(&self) -> u8 {
         match self.class {
-            CharacterClass::Warrior | CharacterClass::Barbarian | CharacterClass::Elf | CharacterClass::Dwarf => self.level,
+            CharacterClass::Warrior
+            | CharacterClass::Barbarian
+            | CharacterClass::Elf
+            | CharacterClass::Dwarf => self.level,
             CharacterClass::Cleric => self.level / 2,
             CharacterClass::Rogue | CharacterClass::Wizard | CharacterClass::Halfling => 0,
         }
@@ -145,7 +148,6 @@ impl Character {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

@@ -10,7 +10,7 @@ pub fn roll_2d6() -> u8 {
     roll_d6() + roll_d6()
 }
 
-/// Rolls a d66, which is a special die used in some games 
+/// Rolls a d66, which is a special die used in some games
 /// where the result is a two-digit number,
 /// where the first d6 represents the tens digit and
 /// the second d6 represents the ones digit.
@@ -27,7 +27,7 @@ pub fn roll_3d6() -> u8 {
 
 /// Rolls a d3 (half a d6, rounded up). Maps d6 results: 1-2→1, 3-4→2, 5-6→3.
 pub fn roll_d3() -> u8 {
-    (roll_d6() + 1) / 2
+    roll_d6().div_ceil(2)
 }
 
 /// Rolls an "explosive" d6, which means that if you roll a 6,
@@ -90,7 +90,10 @@ mod tests {
         // So the result can NEVER be exactly 6.
         for _ in 0..10000 {
             let result = roll_explosive_d6();
-            assert!(result != 6, "roll_explosive_d6() should never return exactly 6");
+            assert!(
+                result != 6,
+                "roll_explosive_d6() should never return exactly 6"
+            );
         }
     }
 

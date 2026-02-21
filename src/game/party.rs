@@ -34,7 +34,6 @@ impl Party {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

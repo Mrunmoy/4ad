@@ -25,7 +25,9 @@ pub enum DefenseResult {
 pub fn resolve_attack(roll: u8, character: &Character, monster: &Monster) -> AttackResult {
     let total = roll + character.attack_bonus();
     if total >= monster.level {
-        AttackResult::Hit { kills: total / monster.level }
+        AttackResult::Hit {
+            kills: total / monster.level,
+        }
     } else {
         AttackResult::Miss
     }
@@ -45,7 +47,6 @@ pub fn resolve_defense(roll: u8, character: &Character, monster: &Monster) -> De
         DefenseResult::Wounded { damage: 1 }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

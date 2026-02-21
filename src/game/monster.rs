@@ -37,19 +37,13 @@ impl Monster {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn new_monster_has_correct_stats() {
-        let goblins = Monster::new(
-            "Goblin".to_string(),
-            3,
-            4,
-            MonsterCategory::Minion,
-        );
+        let goblins = Monster::new("Goblin".to_string(), 3, 4, MonsterCategory::Minion);
         assert_eq!(goblins.name, "Goblin");
         assert_eq!(goblins.level, 3);
         assert_eq!(goblins.count, 4);
@@ -58,12 +52,7 @@ mod tests {
 
     #[test]
     fn kill_one_reduces_count() {
-        let mut rats = Monster::new(
-            "Rats".to_string(),
-            1,
-            3,
-            MonsterCategory::Vermin,
-        );
+        let mut rats = Monster::new("Rats".to_string(), 1, 3, MonsterCategory::Vermin);
         assert_eq!(rats.count, 3);
         rats.kill_one();
         assert_eq!(rats.count, 2);
@@ -71,12 +60,7 @@ mod tests {
 
     #[test]
     fn monster_defeated_when_count_zero() {
-        let mut skeleton = Monster::new(
-            "Skeleton".to_string(),
-            3,
-            1,
-            MonsterCategory::Minion,
-        );
+        let mut skeleton = Monster::new("Skeleton".to_string(), 3, 1, MonsterCategory::Minion);
         assert!(!skeleton.is_defeated());
         skeleton.kill_one();
         assert!(skeleton.is_defeated());
@@ -84,12 +68,7 @@ mod tests {
 
     #[test]
     fn kill_one_cannot_go_below_zero() {
-        let mut boss = Monster::new(
-            "Dragon".to_string(),
-            6,
-            1,
-            MonsterCategory::Boss,
-        );
+        let mut boss = Monster::new("Dragon".to_string(), 6, 1, MonsterCategory::Boss);
         boss.kill_one();
         boss.kill_one(); // already at 0
         assert_eq!(boss.count, 0);

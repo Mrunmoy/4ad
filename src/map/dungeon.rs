@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use super::grid::DungeonGrid;
 use super::room::{DoorSide, RoomShape, d66_room, entrance_room};
+use std::collections::HashMap;
 
 /// A room that has been placed on the dungeon grid.
 #[derive(Debug, Clone)]
@@ -41,10 +41,11 @@ impl Dungeon {
     /// Place a room on the grid. Stamps walls, floor, and doors.
     /// Returns the room ID, or None if the area isn't clear.
     pub fn place_room(&mut self, row: usize, col: usize, shape: RoomShape) -> Option<usize> {
-        if ! self.grid.area_is_clear(row, col, shape.width, shape.height) {
+        if !self.grid.area_is_clear(row, col, shape.width, shape.height) {
             return None; // Can't place here
         }
-        self.grid.place_rect_room(row, col, shape.width, shape.height);
+        self.grid
+            .place_rect_room(row, col, shape.width, shape.height);
         for i in 0..shape.doors.len() {
             if let Some((dr, dc)) = shape.door_grid_pos(i, row, col) {
                 self.grid.place_door(dr, dc);
@@ -52,13 +53,25 @@ impl Dungeon {
         }
         let id = self.next_id;
         self.next_id += 1;
-        self.rooms.insert(id, PlacedRoom { id, row, col, shape });
+        self.rooms.insert(
+            id,
+            PlacedRoom {
+                id,
+                row,
+                col,
+                shape,
+            },
+        );
         Some(id)
     }
 
     /// Get the grid cell just outside a door (one step through it).
     /// Returns (row, col, door_side) or None if it would leave the grid.
-    pub fn door_exit_pos(&self, room_id: usize, door_index: usize) -> Option<(usize, usize, DoorSide)> {
+    pub fn door_exit_pos(
+        &self,
+        room_id: usize,
+        door_index: usize,
+    ) -> Option<(usize, usize, DoorSide)> {
         let room = self.get_room(room_id)?;
         let door = room.shape.doors.get(door_index)?;
         let (dr, dc) = room.shape.door_grid_pos(door_index, room.row, room.col)?;
@@ -66,8 +79,8 @@ impl Dungeon {
         let (er, ec) = match door.side {
             DoorSide::North => (dr.checked_sub(1)?, dc),
             DoorSide::South => (dr + 1, dc),
-            DoorSide::East  => (dr, dc + 1),
-            DoorSide::West  => (dr, dc.checked_sub(1)?),
+            DoorSide::East => (dr, dc + 1),
+            DoorSide::West => (dr, dc.checked_sub(1)?),
         };
 
         if self.grid.in_bounds(er, ec) {
@@ -85,19 +98,30 @@ impl Dungeon {
         self.place_room(row, col, shape)
     }
 
-    /// Generate a new room through an existing door.
-    /// Steps through `door_index` of `from_room`, rolls d66 for shape,
-    /// and places the new room adjacent to the door exit.
-    /// Also stamps a connecting door on the new room's wall.
-    /// Returns the new room's ID, or None if placement fails.
+    /// Generate a new room through an existing door using a d66 roll.
+    /// Convenience wrapper around `generate_room_with_shape`.
     pub fn generate_room(
         &mut self,
         from_room: usize,
         door_index: usize,
         d66_roll: u8,
     ) -> Option<usize> {
-        let (exit_row, exit_col, direction) = self.door_exit_pos(from_room, door_index)?;
         let shape = d66_room(d66_roll);
+        self.generate_room_with_shape(from_room, door_index, shape)
+    }
+
+    /// Generate a new room through an existing door using a specific shape.
+    /// Steps through `door_index` of `from_room`, positions the shape
+    /// adjacent to the door exit, and places it on the grid.
+    /// Also stamps a connecting door on the new room's wall.
+    /// Returns the new room's ID, or None if placement fails.
+    pub fn generate_room_with_shape(
+        &mut self,
+        from_room: usize,
+        door_index: usize,
+        shape: RoomShape,
+    ) -> Option<usize> {
+        let (exit_row, exit_col, direction) = self.door_exit_pos(from_room, door_index)?;
         let (room_row, room_col) = anchor_position(exit_row, exit_col, direction, &shape)?;
         let id = self.place_room(room_row, room_col, shape)?;
         self.grid.place_door(exit_row, exit_col);
@@ -122,9 +146,9 @@ fn anchor_position(
 
     let (r, c) = match direction {
         DoorSide::North => (er - h + 1, ec - w / 2),
-        DoorSide::South => (er,         ec - w / 2),
-        DoorSide::East  => (er - h / 2, ec),
-        DoorSide::West  => (er - h / 2, ec - w + 1),
+        DoorSide::South => (er, ec - w / 2),
+        DoorSide::East => (er - h / 2, ec),
+        DoorSide::West => (er - h / 2, ec - w + 1),
     };
 
     if r >= 0 && c >= 0 {
@@ -133,7 +157,6 @@ fn anchor_position(
         None
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -144,10 +167,17 @@ mod tests {
     /// Helper: a 4x3 room with a north door and a south door.
     fn test_room() -> RoomShape {
         RoomShape {
-            width: 4, height: 3,
+            width: 4,
+            height: 3,
             doors: vec![
-                DoorPosition { side: DoorSide::North, offset: 2 },
-                DoorPosition { side: DoorSide::South, offset: 1 },
+                DoorPosition {
+                    side: DoorSide::North,
+                    offset: 2,
+                },
+                DoorPosition {
+                    side: DoorSide::South,
+                    offset: 1,
+                },
             ],
         }
     }
@@ -279,8 +309,12 @@ mod tests {
         // Room at row 0 with a north door — exit would be row -1
         let mut dungeon = Dungeon::new(20, 20);
         let edge_room = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::North, offset: 1 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::North,
+                offset: 1,
+            }],
         };
         dungeon.place_room(0, 0, edge_room);
         assert_eq!(dungeon.door_exit_pos(0, 0), None);
@@ -323,8 +357,12 @@ mod tests {
     fn generate_room_through_north_door() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::North, offset: 2 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::North,
+                offset: 2,
+            }],
         };
         dungeon.place_room(10, 8, base);
         // Door at (10, 10). Exit at (9, 10, North).
@@ -341,8 +379,12 @@ mod tests {
     fn generate_room_through_south_door() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::South, offset: 1 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::South,
+                offset: 1,
+            }],
         };
         dungeon.place_room(5, 8, base);
         // Door at (7, 9). Exit at (8, 9, South).
@@ -359,8 +401,12 @@ mod tests {
     fn generate_room_through_east_door() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::East, offset: 1 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::East,
+                offset: 1,
+            }],
         };
         dungeon.place_room(5, 5, base);
         // Door at (6, 8). Exit at (6, 9, East).
@@ -377,8 +423,12 @@ mod tests {
     fn generate_room_through_west_door() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::West, offset: 1 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::West,
+                offset: 1,
+            }],
         };
         dungeon.place_room(5, 8, base);
         // Door at (6, 8). Exit at (6, 7, West).
@@ -395,8 +445,12 @@ mod tests {
     fn generate_room_stamps_connecting_door() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::North, offset: 2 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::North,
+                offset: 2,
+            }],
         };
         dungeon.place_room(10, 8, base);
         dungeon.generate_room(0, 0, 44);
@@ -408,8 +462,12 @@ mod tests {
     fn generate_room_increments_room_count() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::North, offset: 2 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::North,
+                offset: 2,
+            }],
         };
         dungeon.place_room(10, 8, base);
         assert_eq!(dungeon.room_count(), 1);
@@ -421,12 +479,20 @@ mod tests {
     fn generate_room_fails_if_area_occupied() {
         let mut dungeon = Dungeon::new(20, 20);
         let base = RoomShape {
-            width: 4, height: 3,
-            doors: vec![DoorPosition { side: DoorSide::North, offset: 2 }],
+            width: 4,
+            height: 3,
+            doors: vec![DoorPosition {
+                side: DoorSide::North,
+                offset: 2,
+            }],
         };
         dungeon.place_room(10, 8, base);
         // Block where the new room would go (7, 9)
-        let blocker = RoomShape { width: 3, height: 3, doors: vec![] };
+        let blocker = RoomShape {
+            width: 3,
+            height: 3,
+            doors: vec![],
+        };
         dungeon.place_room(7, 9, blocker);
         assert_eq!(dungeon.generate_room(0, 0, 44), None);
     }
