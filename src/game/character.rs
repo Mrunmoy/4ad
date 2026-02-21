@@ -67,6 +67,18 @@ impl Character {
             max_life,
         }
     }
+
+    pub fn take_damage(&mut self, damage: u8) {
+        self.life = self.life.saturating_sub(damage);
+    }
+
+    pub fn is_alive(&self) -> bool {
+        self.life > 0
+    }
+
+    pub fn heal(&mut self, amount: u8) {
+        self.life = self.life.saturating_add(amount).min(self.max_life);
+    }
 }
 
 
@@ -131,6 +143,44 @@ mod tests {
             let rogue = Character::new("Slick".to_string(), CharacterClass::Rogue);
             assert!(rogue.gold > 0, "Rogue should start with gold");
         }
+    }
+
+    #[test]
+    fn take_damage_reduces_life() {
+        let mut warrior = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        assert_eq!(warrior.life, 7);
+        warrior.take_damage(3);
+        assert_eq!(warrior.life, 4);
+    }
+
+    #[test]
+    fn take_damage_cannot_go_below_zero() {
+        let mut wizard = Character::new("Gandalf".to_string(), CharacterClass::Wizard);
+        assert_eq!(wizard.life, 3);
+        // Take more damage than life remaining
+        wizard.take_damage(10);
+        assert_eq!(wizard.life, 0);
+    }
+
+    #[test]
+    fn is_alive_reflects_life() {
+        let mut rogue = Character::new("Slick".to_string(), CharacterClass::Rogue);
+        assert!(rogue.is_alive());
+        rogue.take_damage(100);
+        assert!(!rogue.is_alive());
+    }
+
+    #[test]
+    fn heal_restores_life_up_to_max() {
+        let mut cleric = Character::new("Aldric".to_string(), CharacterClass::Cleric);
+        assert_eq!(cleric.life, 5); // 4 + 1
+        cleric.take_damage(3);
+        assert_eq!(cleric.life, 2);
+        cleric.heal(2);
+        assert_eq!(cleric.life, 4);
+        // Healing past max should cap at max
+        cleric.heal(100);
+        assert_eq!(cleric.life, 5);
     }
 
     #[test]
