@@ -4,6 +4,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::Widget;
 
 use super::grid::{DungeonGrid, Tile};
+use crate::tui::theme::Theme;
 
 /// A ratatui Widget that renders a DungeonGrid into a terminal buffer.
 ///
@@ -123,10 +124,10 @@ impl<'a> Widget for DungeonMapWidget<'a> {
                         && col >= hc
                         && col < hc + hw
                     {
-                        style = style.bg(Color::DarkGray);
+                        style = style.bg(Theme::MAP_CURRENT_BG);
                     } else if in_visited && tile == Tile::Floor {
                         // Visited rooms get dimmer floor
-                        style = Style::default().fg(Color::DarkGray);
+                        style = Style::default().fg(Theme::MAP_VISITED_FLOOR);
                     }
 
                     let x = area.x + offset_x + col as u16;
@@ -147,7 +148,7 @@ impl<'a> Widget for DungeonMapWidget<'a> {
             let y = area.y + offset_y + pr as u16;
             if x < area.x + area.width && y < area.y + area.height {
                 let party_style = Style::default()
-                    .fg(Color::Yellow)
+                    .fg(Theme::PARTY_TOKEN)
                     .add_modifier(Modifier::BOLD);
                 buf[(x, y)].set_char('@').set_style(party_style);
             }
@@ -164,9 +165,9 @@ impl<'a> Widget for DungeonMapWidget<'a> {
 fn tile_style(tile: Tile) -> (char, Style) {
     match tile {
         Tile::Unexplored => (' ', Style::default()),
-        Tile::Floor => ('·', Style::default().fg(Color::Gray)),
-        Tile::Wall => ('█', Style::default().fg(Color::White)),
-        Tile::Door => ('▒', Style::default().fg(Color::Yellow)),
+        Tile::Floor => ('·', Style::default().fg(Theme::MAP_FLOOR)),
+        Tile::Wall => ('█', Style::default().fg(Theme::MAP_WALL)),
+        Tile::Door => ('▒', Style::default().fg(Theme::MAP_DOOR)),
     }
 }
 
