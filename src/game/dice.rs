@@ -20,6 +20,16 @@ pub fn roll_d66() -> u8 {
     tens * 10 + ones
 }
 
+/// Rolls 3d6 (three six-sided dice) and returns their sum.
+pub fn roll_3d6() -> u8 {
+    roll_d6() + roll_d6() + roll_d6()
+}
+
+/// Rolls a d3 (half a d6, rounded up). Maps d6 results: 1-2→1, 3-4→2, 5-6→3.
+pub fn roll_d3() -> u8 {
+    (roll_d6() + 1) / 2
+}
+
 /// Rolls an "explosive" d6, which means that if you roll a 6,
 /// you add 6 to the total and roll again, repeating this process
 /// until you roll something other than 6.
