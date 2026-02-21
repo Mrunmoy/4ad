@@ -21,4 +21,5 @@ pub mod state;
 pub mod tables;
 pub mod trap;
 pub mod treasure;
+pub mod turn;
 pub mod wandering;

@@ -283,3 +283,50 @@ UDP-based LAN game discovery. When a player hosts a game, the server broadcasts 
 | `src/network/mod.rs` | Added `pub mod discovery` |
 
 ---
+
+## Step 7: Turn Management and Player-Character Assignment
+
+**File:** `src/game/turn.rs`
+
+### What We're Building
+
+A `TurnManager` that tracks whose turn it is and which characters each player controls in a multiplayer game. This is pure game logic (no networking) — it lives in `src/game/` so it can be unit tested without async runtimes or TCP connections.
+
+### Concepts Introduced
+
+**Round-robin assignment with `Iterator::cycle()`.** Distributing 4 characters among N players uses a cycling iterator:
+
+```rust
+for (char_idx, player_id) in turn_order.iter().cycle().enumerate().take(party_size) {
+    assignments.entry(*player_id).or_default().push(char_idx);
+}
+```
+
+`.cycle()` repeats the iterator forever: `[0, 1] -> [0, 1, 0, 1, 0, 1, ...]`. Combined with `.enumerate()` and `.take(4)`, it naturally distributes characters round-robin:
+- 2 players, 4 chars: player 0 gets [0, 2], player 1 gets [1, 3]
+- 3 players, 4 chars: player 0 gets [0, 3], player 1 gets [1], player 2 gets [2]
+
+In C++, you'd write `for (int i = 0; i < party_size; i++) assign(players[i % num_players], i)`. Rust's iterator composition does the same thing declaratively.
+
+**`HashMap::entry().or_default()`** is the idiomatic way to build a map where values are collections. `entry()` checks if the key exists: if yes, returns a mutable reference; if no, inserts the default value (empty Vec) and returns a reference. In C++ you'd use `map[key].push_back(value)` which auto-inserts — Rust's `entry` API makes this explicit.
+
+**Separation of concerns: game logic vs networking.** `TurnManager` has no `async`, no `TcpStream`, no `Arc<Mutex<T>>`. It's a plain synchronous struct that the server wraps in its shared state. This means the tricky multiplayer turn logic is thoroughly testable with simple `#[test]` functions.
+
+### Testing
+
+16 new tests covering:
+- Character distribution: 4 players (1 each), 2 players (2 each), 1 player (all 4), 3 players (uneven)
+- All character indices assigned (no gaps)
+- Turn rotation: starts at first, cycles through all, wraps around, single player stays
+- Player controls: owns correct characters, unknown player controls nothing
+- Player removal: count decreases, turn adjusts, characters unassigned
+- Serde roundtrip
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/turn.rs` | **New.** `TurnManager` struct with assignment, rotation, removal. 16 tests |
+| `src/game/mod.rs` | Added `pub mod turn` |
+
+---
