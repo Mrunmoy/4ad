@@ -558,3 +558,71 @@ The Special Events table (d6, p.33) produces narrative encounters:
 | `src/game/mod.rs` | Added `pub mod event` |
 
 ---
+
+## Step 8: Traps — Enum Methods as Data Tables and Target Types
+
+**File:** `src/game/trap.rs`
+
+### What We're Building
+
+The Traps table (d6, p.62) defines six trap types that trigger when entering rooms:
+
+| Roll | Trap | Level | Target | Damage | Special |
+|------|------|-------|--------|--------|---------|
+| 1 | Dart | 2 | 1 random | 1 | — |
+| 2 | Poison Gas | 3 | All | 1 | Ignores armor and shield |
+| 3 | Trapdoor | 4 | Leader | 1 | Armor penalty; need rescue if alone |
+| 4 | Bear Trap | 4 | Leader | 1 | -1 Attack/Defense until healed |
+| 5 | Spears | 5 | 2 random | 1 | — |
+| 6 | Giant Stone | 5 | Last | 2 | Shield doesn't count |
+
+A rogue leading the marching order gets a disarm attempt: d6 + rogue_level > trap_level (or natural 6) to avoid the trap entirely.
+
+### Concepts Introduced
+
+**Methods as data tables.** Each trap property (`level()`, `damage()`, `targets()`, etc.) is a method that matches on `self` and returns the appropriate value. This pattern turns the Trap enum into a self-describing data table:
+
+```rust
+impl Trap {
+    pub fn level(&self) -> u8 {
+        match self {
+            Trap::Dart => 2,
+            Trap::PoisonGas => 3,
+            // ...
+        }
+    }
+}
+```
+
+The compiler enforces exhaustiveness — if you add `Trap::PitOfDoom` later, every match must be updated. This is the enum equivalent of a database row, with compile-time guarantees.
+
+**Separate target enum.** `TrapTarget` describes *who* gets hit (random one, random two, all, marching leader, marching last). This is cleaner than a string or integer because the game logic can match on it directly:
+
+```rust
+match trap.targets() {
+    TrapTarget::AllCharacters => { /* damage everyone */ }
+    TrapTarget::MarchingLeader => { /* damage position 1 */ }
+    // ...
+}
+```
+
+### Testing
+
+29 new tests covering:
+- All 6 traps from d6 roll mapping
+- Trap levels match rulebook (2, 3, 4, 4, 5, 5)
+- Target types for each trap
+- Damage values (1 for most, 2 for Giant Stone)
+- Armor/shield ignoring rules (Poison Gas ignores both, Giant Stone ignores shield)
+- Lasting effects (Bear Trap and Trapdoor)
+- Rogue disarm mechanics (natural 6, total beats level, equals level, fails)
+- Display formatting
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/trap.rs` | **New.** `Trap` enum (6 variants), `TrapTarget` enum, `rogue_disarm()` function |
+| `src/game/mod.rs` | Added `pub mod trap` |
+
+---
