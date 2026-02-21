@@ -1,6 +1,7 @@
 use std::fmt;
 
 use super::equipment::{self, Armor, Item, Weapon};
+use super::spell::{self, ClericPowers, SpellBook};
 
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
@@ -113,15 +114,25 @@ impl fmt::Display for Character {
 }
 
 /// A player character in Four Against Darkness.
-/// Each character has a name, class, level, life total, and inventory.
+/// Each character has a name, class, level, life total, inventory,
+/// and class-specific magic abilities.
 ///
-/// ## Phase 2 addition: inventory
+/// ## Phase 2 additions
 ///
-/// Characters now carry equipment in a `Vec<Item>`. Starting equipment
-/// is assigned during construction based on the character's class.
-/// The inventory affects combat modifiers (weapon attack bonus, armor
-/// defense bonus) through the `weapon_attack_modifier()` and
-/// `armor_defense_modifier()` methods.
+/// **Inventory** (Step 1): Characters carry equipment in a `Vec<Item>`.
+/// Starting equipment is assigned during construction based on class.
+///
+/// **Spells** (Step 5): Wizards and Elves have a `SpellBook` to track
+/// prepared spells. Clerics have `ClericPowers` for Blessing/Healing
+/// charges. These are `Option` fields — `None` for classes without magic.
+///
+/// ## Rust concept: `Option<T>` for conditional fields
+///
+/// Not every character has magic. Rather than giving everyone a useless
+/// empty spell book, we use `Option<SpellBook>` — it's either `Some(book)`
+/// for casters or `None` for non-casters. This is Rust's alternative to
+/// nullable pointers in C++, but it's checked at compile time: you must
+/// handle both `Some` and `None` cases, which prevents null dereference bugs.
 #[derive(Debug, Clone)]
 pub struct Character {
     pub name: String,
@@ -131,6 +142,10 @@ pub struct Character {
     pub life: u8,
     pub max_life: u8,
     pub inventory: Vec<Item>,
+    /// Wizard/Elf spell book. None for non-casters.
+    pub spell_book: Option<SpellBook>,
+    /// Cleric Blessing + Healing charges. None for non-clerics.
+    pub cleric_powers: Option<ClericPowers>,
 }
 
 impl Character {
@@ -139,6 +154,21 @@ impl Character {
         let max_life = class.base_life() + starting_level;
         let starting_gold = class.roll_starting_gold();
         let inventory = equipment::starting_equipment(class);
+
+        // Spell book for Wizard/Elf (empty — spells chosen before adventure)
+        let spell_book = match class {
+            CharacterClass::Wizard | CharacterClass::Elf => {
+                Some(SpellBook::new(spell::spell_slots(class, starting_level)))
+            }
+            _ => None,
+        };
+
+        // Cleric powers (3 Blessing + 3 Healing charges)
+        let cleric_powers = match class {
+            CharacterClass::Cleric => Some(ClericPowers::new()),
+            _ => None,
+        };
+
         Character {
             name,
             class,
@@ -147,6 +177,8 @@ impl Character {
             life: max_life,
             max_life,
             inventory,
+            spell_book,
+            cleric_powers,
         }
     }
 
@@ -540,5 +572,65 @@ mod tests {
         warrior.inventory.clear(); // strip all equipment
         assert_eq!(warrior.weapon_attack_modifier(), 0);
         assert!(warrior.equipped_weapon().is_none());
+    }
+
+    // --- Spell integration tests (Phase 2, Step 5) ---
+
+    #[test]
+    fn wizard_has_spell_book() {
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert!(wizard.spell_book.is_some());
+        let book = wizard.spell_book.unwrap();
+        assert_eq!(book.capacity(), 3); // 2 + level 1 = 3 slots
+        assert_eq!(book.spell_count(), 0); // empty until spells chosen
+    }
+
+    #[test]
+    fn elf_has_spell_book() {
+        let elf = Character::new("E".to_string(), CharacterClass::Elf);
+        assert!(elf.spell_book.is_some());
+        let book = elf.spell_book.unwrap();
+        assert_eq!(book.capacity(), 1); // 1 per level, level 1
+    }
+
+    #[test]
+    fn cleric_has_cleric_powers() {
+        let cleric = Character::new("C".to_string(), CharacterClass::Cleric);
+        assert!(cleric.cleric_powers.is_some());
+        assert!(cleric.spell_book.is_none()); // no spell book
+        let powers = cleric.cleric_powers.unwrap();
+        assert_eq!(powers.blessing_charges, 3);
+        assert_eq!(powers.healing_charges, 3);
+    }
+
+    #[test]
+    fn warrior_has_no_magic() {
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert!(warrior.spell_book.is_none());
+        assert!(warrior.cleric_powers.is_none());
+    }
+
+    #[test]
+    fn non_casters_have_no_spell_book_or_powers() {
+        let classes = [
+            CharacterClass::Warrior,
+            CharacterClass::Rogue,
+            CharacterClass::Barbarian,
+            CharacterClass::Dwarf,
+            CharacterClass::Halfling,
+        ];
+        for class in classes {
+            let c = Character::new("X".to_string(), class);
+            assert!(
+                c.spell_book.is_none(),
+                "{} should have no spell book",
+                class
+            );
+            assert!(
+                c.cleric_powers.is_none(),
+                "{} should have no cleric powers",
+                class
+            );
+        }
     }
 }

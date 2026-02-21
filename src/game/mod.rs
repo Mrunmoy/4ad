@@ -7,5 +7,6 @@ pub mod monster;
 pub mod party;
 pub mod party_creation;
 pub mod reaction;
+pub mod spell;
 pub mod state;
 pub mod tables;

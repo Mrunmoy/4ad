@@ -254,3 +254,111 @@ pub fn kill_one(&mut self) {
 | `src/game/state.rs` | Updated encounter matching for new `Boss`/`WeirdMonster`/`SmallDragonLair` variants |
 
 ---
+
+## Step 4: Spells — Option Types and Consumable Resource Pools
+
+**Files:** `src/game/spell.rs`, `src/game/character.rs`
+
+### What We're Building
+
+The rulebook (pp. 49-50) defines six basic spells that wizards and elves can cast:
+
+| Spell | Type | Effect |
+|-------|------|--------|
+| Blessing | Automatic | Removes curse or condition (petrification, etc.) |
+| Fireball | Attack roll | Kills (total - monster_level) minions, min 1. No effect on dragons |
+| Lightning Bolt | Attack roll | Kills 1 minion or deals 2 boss HP |
+| Sleep | Attack roll | Defeats 1 boss or d6+L minions. No effect on undead/dragons |
+| Escape | Automatic | Teleport to first room. Can replace Defense roll |
+| Protect | Automatic | +1 Defense to one character for entire battle |
+
+Spellcasting rules:
+- **Wizard**: 2 + level spell slots (3 at level 1). Chooses any combination of the 6 spells.
+- **Elf**: 1 spell per level (1 at level 1). Must wear light armor, no shield.
+- **Cleric**: 3 Blessing charges + 3 Healing uses per adventure (Healing heals d6 + level HP).
+- **Scrolls**: Any class except Barbarian can use scrolls. Non-casters cast as level 1.
+
+### Concepts Introduced
+
+**`Option<T>` for conditional fields.** Not every character has magic. Instead of giving everyone a useless empty spell book, we use `Option<SpellBook>`:
+
+```rust
+pub struct Character {
+    // ...
+    pub spell_book: Option<SpellBook>,      // Some for Wizard/Elf, None for others
+    pub cleric_powers: Option<ClericPowers>, // Some for Cleric, None for others
+}
+```
+
+In C++ you'd use `std::optional<SpellBook>` (C++17) or a raw pointer that might be null. Rust's `Option` is checked at compile time — you must handle both `Some` and `None` cases, which prevents null dereference bugs. The pattern matching syntax is natural:
+
+```rust
+if let Some(book) = &mut self.spell_book {
+    book.cast(Spell::Fireball);
+}
+```
+
+**`Vec<T>` as a consumable resource pool.** A wizard's `SpellBook` stores prepared spells in a `Vec<Spell>`. Each spell is consumed when cast (removed from the vec). This naturally models "fire and forget" magic — once you use a Fireball, it's gone:
+
+```rust
+pub fn cast(&mut self, spell: Spell) -> bool {
+    if let Some(pos) = self.prepared.iter().position(|s| *s == spell) {
+        self.prepared.remove(pos);
+        true
+    } else {
+        false
+    }
+}
+```
+
+`position()` is like `std::find` in C++ — it searches for the first match and returns its index. `remove(index)` is like `std::vector::erase()`.
+
+**Pure functions for spell mechanics.** Damage calculations like `fireball_kills()` and `sleep_targets()` are standalone functions that take the dice results and return the outcome. They don't mutate any state — the caller decides what to do with the result. This makes them trivially testable:
+
+```rust
+pub fn fireball_kills(attack_total: u8, monster_level: u8) -> u8 {
+    if attack_total >= monster_level {
+        (attack_total - monster_level).max(1)
+    } else {
+        0
+    }
+}
+```
+
+**Scroll caster level dispatch.** Different classes get different bonuses when using scrolls. The `scroll_caster_level()` function centralizes this logic:
+
+```rust
+pub fn scroll_caster_level(class: CharacterClass, level: u8, spell: Spell) -> u8 {
+    match class {
+        CharacterClass::Wizard | CharacterClass::Elf => level,
+        CharacterClass::Cleric => {
+            if matches!(spell, Spell::Blessing) { level } else { 1 }
+        }
+        _ => 1,
+    }
+}
+```
+
+### Testing
+
+57 new tests across spell.rs and character.rs:
+- All 6 spell properties (attack, undead, dragons, monster turn, automatic)
+- Random Spell Table (d6 mapping, boundary panics)
+- Class casting restrictions (8 classes x 6 spells)
+- Scroll usage (Barbarian restriction, caster level dispatch)
+- Spell slot calculation (Wizard, Elf, all non-casters)
+- Fireball damage (rulebook example, exact hit, miss, high roll)
+- Sleep target count (d6 + level formula)
+- SpellBook operations (create, prepare, cast, count, capacity, display)
+- ClericPowers (blessing/healing charges, depletion, independence, display)
+- Character integration (Wizard/Elf get spell book, Cleric gets powers, others get None)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/spell.rs` | **New.** `Spell` enum (6 variants), `SpellBook` struct, `ClericPowers` struct, casting rules, scroll rules, damage calculation functions |
+| `src/game/character.rs` | Added `spell_book: Option<SpellBook>` and `cleric_powers: Option<ClericPowers>` fields; initialized in `Character::new()` |
+| `src/game/mod.rs` | Added `pub mod spell` |
+
+---
