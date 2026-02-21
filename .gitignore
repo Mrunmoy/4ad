@@ -1,0 +1,16 @@
+# Rust
+/target/
+
+# Nix
+/result
+
+# direnv
+.direnv/
+
+# Phase tracker (user-local)
+.phase
+
+
+# Added by cargo
+
+/target
