@@ -5,6 +5,7 @@ pub mod encounter;
 pub mod equipment;
 pub mod event;
 pub mod feature;
+pub mod marching;
 pub mod monster;
 pub mod party;
 pub mod party_creation;

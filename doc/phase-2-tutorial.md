@@ -626,3 +626,35 @@ match trap.targets() {
 | `src/game/mod.rs` | Added `pub mod trap` |
 
 ---
+
+## Step 9: Marching Order — Position-Based Combat Restrictions
+
+**File:** `src/game/marching.rs`
+
+### What We're Building
+
+The marching order (pp. 51-53) determines who can fight and who gets attacked:
+
+- **Corridors**: Only positions 1-2 can melee. Positions 3-4 must use ranged weapons or spells.
+- **Rooms**: All positions can melee freely.
+- **Wandering monsters**: Attack from the rear (positions 3-4 hit first).
+- Players can change marching order in empty rooms/corridors but NOT during combat.
+
+### Concepts Introduced
+
+**Pure functions for spatial rules.** Each marching rule is a simple predicate: `can_melee_in_corridor(position)` returns bool. No state, no mutation — the game state machine calls these to enforce restrictions. This separation means the rules are testable independently of the combat system.
+
+**`Vec` construction via iterator.** `(1..=party_size).rev().collect()` creates a vector of positions in reverse order. The range `1..=4` generates `[1, 2, 3, 4]`, `.rev()` reverses it to `[4, 3, 2, 1]`, and `.collect()` materializes it into a `Vec<u8>`.
+
+### Testing
+
+17 new tests covering corridor melee restrictions, ranged attacks, room rules, wandering monster attack order, attackable counts, and front/rear position helpers.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/marching.rs` | **New.** Position-based combat restrictions, attack order, front/rear helpers |
+| `src/game/mod.rs` | Added `pub mod marching` |
+
+---
