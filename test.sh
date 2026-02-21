@@ -3,7 +3,7 @@
 set -e
 
 GAME_MODULES=("dice" "character" "party" "monster" "combat" "tables" "encounter" "state")
-MAP_MODULES=("grid")
+MAP_MODULES=("grid" "room")
 
 for mod in "${GAME_MODULES[@]}"; do
     echo ""

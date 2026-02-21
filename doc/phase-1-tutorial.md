@@ -554,6 +554,69 @@ And the parent (`main.rs`) declares `mod map;`.
 
 ---
 
+## Step 11: Room Shapes — Struct Composition and `.get()` on Vec
+
+**File:** `src/map/room.rs`
+
+### Concepts Introduced
+
+**Struct composition.** A struct can contain a `Vec` of other structs. `RoomShape` holds a list of `DoorPosition` structs:
+
+```rust
+#[derive(Debug, Clone)]
+pub struct DoorPosition {
+    pub side: DoorSide,
+    pub offset: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct RoomShape {
+    pub width: usize,
+    pub height: usize,
+    pub doors: Vec<DoorPosition>,
+}
+```
+
+In C++ terms: this is just a struct with a `vector<DoorPosition>` member. Rust is the same — no special syntax needed. The `Vec` owns its contents.
+
+**`.get()` on `Vec<T>`.** Returns `Option<&T>` — either a reference to the element or `None` if the index is out of bounds. Safer than direct indexing (`vec[i]` panics on out-of-bounds):
+
+```rust
+let door = self.doors.get(door_index)?;   // None propagates via ?
+```
+
+The `?` operator on `Option` works just like on `Result` — if it's `None`, the function returns `None` immediately. Combined with `.get()`, this gives safe bounds-checked access in one line.
+
+**Why not tuple destructuring?** `.get()` returns `&DoorPosition` (a reference to a struct), not a tuple. Access fields with dot notation:
+
+```rust
+// WRONG: let (side, offset) = self.doors.get(i)?;
+// RIGHT:
+let door = self.doors.get(i)?;
+door.side    // access field
+door.offset  // access field
+```
+
+Tuple destructuring only works on actual tuples `(A, B)`, not structs.
+
+**`#[should_panic]` test attribute.** Marks a test that is *expected* to panic. The test passes if the code panics, fails if it doesn't:
+
+```rust
+#[test]
+#[should_panic]
+fn entrance_room_panics_on_invalid_roll() {
+    entrance_room(7);   // should hit unreachable!()
+}
+```
+
+**`unreachable!()` vs `panic!()`.** Both crash the program, but communicate different intent:
+- `unreachable!()` — "this code path is logically impossible"
+- `panic!()` — "something went wrong"
+
+Use `unreachable!()` in exhaustive match arms where invalid input can't happen (like a d6 roll of 7).
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -582,6 +645,9 @@ And the parent (`main.rs`) declares `mod map;`.
 | Trait impl | Virtual/interface | `impl TraitName for Type { }` |
 | Print custom type | `operator<<` | `impl fmt::Display for Type { }` |
 | Error propagation | `if (err) return err` | `?` operator on `Result` |
+| Safe index access | `.at()` (throws) | `.get()` → `Option<&T>` |
+| Struct in struct | Member object | `Vec<MyStruct>` field |
+| Expected panic test | `EXPECT_DEATH` | `#[should_panic]` |
 
 ## Common C++ Habits to Break
 
@@ -611,9 +677,10 @@ src/game/
 src/map/
   mod.rs          — module declarations
   grid.rs         — 2D tile grid, room placement, Display trait for ASCII rendering
+  room.rs         — room shapes, door positions, entrance room table
 ```
 
-**Test count:** 93 tests across 9 modules, all passing.
+**Test count:** 105 tests across 10 modules, all passing.
 
 **Key commands:**
 ```bash
