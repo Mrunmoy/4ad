@@ -153,3 +153,52 @@ The trait bounds `W: AsyncWrite + Unpin` mean "any type that supports async writ
 | `src/network/protocol.rs` | **Replaced placeholder.** `Message` enum (11 variants), `Action` enum (8 variants), `write_message()` and `read_message()` async framing functions, 13 tests |
 
 ---
+
+## Step 4: Game Server
+
+**File:** `src/network/server.rs`
+
+### What We're Building
+
+A TCP game server that accepts client connections, manages player sessions, and acts as the authoritative source of game state. The server processes client actions, updates the game, and broadcasts state changes to all connected players.
+
+### Concepts Introduced
+
+**`Arc<Mutex<T>>` — the shared mutable state pattern.** This is the most important concurrency pattern in Rust. Two wrapping layers serve different purposes:
+
+- **`Arc`** (Atomic Reference Counted): shared ownership across async tasks. Like `std::shared_ptr<T>` in C++. Each task holds a clone of the `Arc`, and the inner data lives as long as at least one `Arc` exists.
+- **`Mutex`** (tokio's async version): exclusive access for mutation. When you call `mutex.lock().await`, the runtime parks your task if the lock is held, then wakes you up when it's available. Unlike C++'s `std::mutex`, Rust's `Mutex<T>` *wraps* the data — you literally can't access the `T` without going through the lock.
+
+```rust
+let state = Arc::new(Mutex::new(SharedState::new()));
+// Clone the Arc for a new task (cheap reference count bump)
+let state_clone = Arc::clone(&state);
+tokio::spawn(async move {
+    let mut guard = state_clone.lock().await; // acquire lock
+    guard.add_player("Alice".to_string());    // access data
+    // lock released when `guard` drops
+});
+```
+
+**`tokio::spawn` for per-client tasks.** Each TCP connection gets its own lightweight task. Tasks are like goroutines or C++20 coroutines — thousands can run on a few OS threads. The runtime multiplexes them cooperatively: when a task hits `.await`, it yields the thread for other tasks.
+
+**`broadcast` channel for fan-out.** `tokio::sync::broadcast` is a multi-producer, multi-consumer channel. The server sends a message once, and every subscribed client receives a copy. This decouples "what to send" from "sending it to each client." If a client falls behind (slow reader), the `Lagged` error lets them skip old messages instead of blocking the whole system.
+
+**`TcpStream::into_split()` for full-duplex.** A TCP connection is bidirectional. `into_split()` gives separate owned read/write halves. One task reads client messages while another writes server broadcasts — no locking needed between reads and writes.
+
+**`BufReader`/`BufWriter` for syscall efficiency.** Without buffering, every `read_exact(4)` and `write_all` would be a separate kernel syscall. Buffered wrappers coalesce small operations, reducing overhead.
+
+### Testing
+
+12 new tests:
+- SharedState unit tests: initial state, player add/remove, ID assignment, capacity limits, game start, turn cycling
+- Integration tests: real TCP connections verify JoinRequest/JoinAccepted flow and Ping/Pong response
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/network/server.rs` | **New.** `SharedState` struct, `PlayerInfo`, `run_server()`, `handle_client()`, player management, action processing, broadcast fan-out. 12 tests |
+| `src/network/mod.rs` | Added `pub mod server` |
+
+---
