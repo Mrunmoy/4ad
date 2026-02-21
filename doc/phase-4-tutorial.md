@@ -106,3 +106,50 @@ In C++ you'd use `getopt_long`, Boost.ProgramOptions, or a hand-rolled parser wi
 | `src/main.rs` | Replaced `std::env::args().any()` with clap `Cli` struct. Added `--host` and `--join` stubs. Three-way dispatch: join > host > text/tui. |
 
 ---
+
+## Step 3: Network Protocol
+
+**File:** `src/network/protocol.rs`
+
+### What We're Building
+
+The message format for multiplayer communication: a `Message` enum covering all client-to-server and server-to-client messages, an `Action` enum for player commands, and length-prefixed JSON framing functions for sending/receiving messages over TCP streams.
+
+### Concepts Introduced
+
+**Enum as protocol specification.** The `Message` enum defines every possible message type in the protocol. Because serde serializes enum variants with their names (`{"ChatMessage":"hello"}`), messages are self-describing — no separate message type field needed. Adding a new message type is just adding a new variant.
+
+**Length-prefixed framing over TCP.** TCP is a byte stream, not a message stream. If you write two JSON objects back-to-back, the receiver can't tell where one ends and the next begins. The solution: prefix each JSON payload with a 4-byte big-endian length.
+
+```text
+[4 bytes: u32 length][JSON payload bytes][4 bytes: u32 length][JSON payload bytes]...
+```
+
+The receiver reads 4 bytes to get the length, then reads exactly that many bytes for the JSON. This is the same framing used by databases (PostgreSQL), protocol buffers, and many game network protocols.
+
+In C++ you'd use `htonl()`/`ntohl()` for byte order. Rust uses `.to_be_bytes()` and `u32::from_be_bytes()`.
+
+**`async fn` and `AsyncRead`/`AsyncWrite` traits.** These are tokio's async versions of `std::io::Read`/`Write`. An `async fn` returns a `Future` that must be `.await`ed. The `.await` point is where the function can yield control — if the network hasn't received data yet, the runtime parks this task and runs another one instead of blocking the thread.
+
+The trait bounds `W: AsyncWrite + Unpin` mean "any type that supports async writing and can be safely moved." `TcpStream`, `Vec<u8>`, and `&[u8]` all implement these — which is why our tests can use in-memory buffers instead of real TCP connections.
+
+**`#[tokio::test]` for async tests.** Regular `#[test]` functions are synchronous. `#[tokio::test]` spawns a tokio runtime for each test, allowing `.await` in the test body. It's equivalent to wrapping the test in `#[tokio::main] async fn`.
+
+### Testing
+
+13 new tests covering:
+- JSON serialization roundtrips for all message types (JoinRequest, Chat, Actions, JoinRejected, Ping/Pong, GameOver)
+- All 8 Action variants serialize without error
+- Wire format: write then read through in-memory buffer
+- Empty stream returns None (clean EOF)
+- Multiple messages on the same stream read correctly in order
+- Oversized length prefix is rejected
+- JoinAccepted with full GameState roundtrips through the wire format
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/network/protocol.rs` | **Replaced placeholder.** `Message` enum (11 variants), `Action` enum (8 variants), `write_message()` and `read_message()` async framing functions, 13 tests |
+
+---
