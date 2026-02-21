@@ -658,3 +658,248 @@ The marching order (pp. 51-53) determines who can fight and who gets attacked:
 | `src/game/mod.rs` | Added `pub mod marching` |
 
 ---
+
+## Step 10: Searching — Result Enums and Signed Arithmetic
+
+**File:** `src/game/search.rs`
+
+### What We're Building
+
+When the party enters an empty room or corridor, they may search it (p.56). Each room can be searched once. Corridors have a -1 penalty. Results (d6 + modifier):
+
+| Roll | Result |
+|------|--------|
+| 1- | Wandering monsters attack! |
+| 2-4 | Nothing found |
+| 5-6 | Discovery: choose a clue, secret door, or hidden treasure |
+
+If they choose hidden treasure, they roll on the Complication table (d6, p.58):
+- 1-2: Alarm (attracts wandering monsters)
+- 3-5: Trap protects the gold (level = roll value)
+- 6: A ghost guards the gold (level d3+1)
+
+### Concepts Introduced
+
+**Signed arithmetic for modifiers.** The search total can go below 1 (corridor penalty makes a roll of 1 become 0 or -1), so `from_total()` takes `i8` instead of `u8`:
+
+```rust
+pub fn from_total(total: i8) -> SearchResult {
+    match total {
+        t if t <= 1 => SearchResult::WanderingMonsters,
+        2..=4 => SearchResult::Empty,
+        _ => SearchResult::Discovery,
+    }
+}
+```
+
+In C++, mixing signed and unsigned arithmetic is a common source of bugs. In Rust, the type system prevents implicit conversions — you must explicitly cast `d6 as i8 + modifier` where modifier is `i8`. The compiler catches mismatches at compile time.
+
+**Guard clauses in match arms.** The `t if t <= 1` syntax is a *match guard* — it binds the value to `t` and adds an extra condition. This is useful when ranges aren't sufficient (here, we need "1 or anything below 1").
+
+**Enum variants with data for complications.** `TreasureComplication::Trap { level: u8 }` and `Ghost { level: u8 }` carry context about the obstacle. The roll value determines both *what* happens and *how hard* it is — the trap's level equals the d6 result. This is a natural encoding in Rust enums.
+
+### Testing
+
+14 new tests covering:
+- Search totals for all ranges (monsters, empty, discovery)
+- Corridor penalty making monsters more likely
+- Display formatting for all result types
+- Discovery choice display strings
+- Complication table: alarm (1-2), trap with level (3-5), ghost with level (6)
+- Complication panic on invalid roll
+- Complication display formatting
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/search.rs` | **New.** `SearchResult` enum, `DiscoveryChoice` enum, `TreasureComplication` enum with `from_roll()` |
+| `src/game/mod.rs` | Added `pub mod search` |
+
+---
+
+## Step 11: Leveling — Constants, Pure Predicates, and Integer Division
+
+**File:** `src/game/leveling.rs`
+
+### What We're Building
+
+The leveling rules (pp. 46-47) define how characters gain experience:
+
+- **Boss kill**: 1 XP roll per boss (2 for a dragon final boss)
+- **10 minion encounters**: 1 XP roll
+- **XP roll**: roll d6 — if the result is HIGHER than the character's current level, they gain a level
+- **Max level**: 5
+- **Halfling Luck**: may NOT be used to reroll XP
+- **Vermin**: do not give XP
+
+### Concepts Introduced
+
+**Named constants for game parameters.** Instead of magic numbers scattered through the code, we define constants at the module level:
+
+```rust
+pub const MAX_LEVEL: u8 = 5;
+pub const MINION_ENCOUNTERS_PER_XP: u8 = 10;
+pub const LIFE_PER_LEVEL: u8 = 1;
+```
+
+In C++, you'd use `constexpr` for the same purpose. In Rust, `const` is always evaluated at compile time. The key benefit is readability — `current_level >= MAX_LEVEL` is self-documenting compared to `current_level >= 5`.
+
+**Pure predicates.** `attempt_level_up(d6_roll, current_level) -> bool` is a pure function with no side effects. The caller decides what to do when it returns true (increment level, add life, log it). This is the same pattern we used for puzzle solving and ghost saves — pure decisions, impure effects.
+
+**Integer division for thresholds.** `minion_xp_rolls(encounter_count) -> u8` uses integer division: `encounter_count / 10`. In Rust (and C++), integer division truncates: 15/10 = 1, 9/10 = 0. This naturally means "one XP roll per 10 encounters, rounded down."
+
+### Testing
+
+15 new tests covering:
+- Level up succeeds when roll > level (boundary: 2>1, 5>4)
+- Level up fails when roll equals level
+- Level up fails when roll below level
+- Max level (5) cannot level further, even with a 6
+- Level 1 levels up on rolls 2-6
+- Level 4 needs 5 or 6
+- Boss gives 1 XP roll, dragon final boss gives 2
+- Minion encounter thresholds (0-9 = 0 XP, 10 = 1, 15 = 1, 20 = 2)
+- Constants verified against rulebook values
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/leveling.rs` | **New.** `attempt_level_up()`, `xp_rolls_for_boss()`, `minion_xp_rolls()`, constants |
+| `src/game/mod.rs` | Added `pub mod leveling` |
+
+---
+
+## Step 12: Final Boss — Threshold Checks and Treasure Scaling
+
+**File:** `src/game/final_boss.rs`
+
+### What We're Building
+
+The final boss trigger (p.43) determines when the dungeon's last confrontation begins:
+
+- Roll d6 + number of bosses/weird monsters previously encountered
+- If the total >= 6, this boss is the **final boss**
+- Final boss gets: +1 life, +1 attack per turn, fights to the death
+- Treasure is tripled, or raised to 100 gp minimum (whichever is more)
+- If treasure includes a magic item, find two instead of one
+
+### Concepts Introduced
+
+**Widening to prevent overflow.** The `is_final_boss()` function casts `u8` to `u16` before adding:
+
+```rust
+pub fn is_final_boss(d6_roll: u8, bosses_encountered: u8) -> bool {
+    d6_roll as u16 + bosses_encountered as u16 >= 6
+}
+```
+
+In C++, implicit integer promotion would handle this. In Rust, you must explicitly widen. While overflow is unlikely here (d6 max is 6, bosses max is maybe 10), the explicit cast documents the intent and handles edge cases safely. The `as` keyword is Rust's cast operator — it's the equivalent of `static_cast<uint16_t>()`.
+
+**`.max()` for minimum guarantees.** Final boss treasure uses `(base * 3).max(100)` to ensure the tripled value is at least 100:
+
+```rust
+pub fn final_boss_treasure(base_gold: u16) -> u16 {
+    (base_gold * FINAL_BOSS_TREASURE_MULTIPLIER).max(FINAL_BOSS_MIN_TREASURE)
+}
+```
+
+`.max()` returns the larger of the two values. In C++, you'd use `std::max`. The chained call `(expr).max(val)` reads naturally: "the result is at least val."
+
+### Testing
+
+10 new tests covering:
+- First boss needs d6=6 to be final (0 previous bosses)
+- One previous boss needs d6=5
+- Three previous bosses needs d6=3
+- Five+ previous bosses: always final (1+5=6)
+- Treasure tripled when above 100 threshold
+- Treasure minimum 100 when tripled is less
+- Boundary: 34*3=102 > 100, 33*3=99 < 100
+- Zero base treasure gets minimum 100
+- Constants match rulebook values
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/final_boss.rs` | **New.** `is_final_boss()`, `final_boss_treasure()`, enhancement constants |
+| `src/game/mod.rs` | Added `pub mod final_boss` |
+
+---
+
+## Step 13: Quests and Epic Rewards — Rich Enums and Composite Queries
+
+**File:** `src/game/quest.rs`
+
+### What We're Building
+
+Quests (p.39) are offered by the Lady in White or by monsters with the Quest reaction:
+
+| Roll | Quest | Completion Condition |
+|------|-------|---------------------|
+| 1 | Bring Me His Head! | Kill a specific boss, bring head to quest room |
+| 2 | Bring Me Gold! | Deliver d6 x 50 gold to quest room |
+| 3 | I Want Him Alive! | Subdue boss non-lethally, bring back alive |
+| 4 | Bring Me That! | Find and deliver a specific magic item |
+| 5 | Let Peace Be Your Way! | Complete 3+ encounters non-violently |
+| 6 | Slay All the Monsters! | Clear every room in the dungeon |
+
+Completing a quest earns a roll on the Epic Rewards table (p.40) — each reward can only be received once per campaign.
+
+### Concepts Introduced
+
+**Enum variants with named data fields.** `Quest::BringMeGold { gold_required: u16 }` carries the exact amount needed. The `from_roll()` constructor computes it from the dice:
+
+```rust
+2 => Quest::BringMeGold {
+    gold_required: gold_roll as u16 * 50,
+},
+```
+
+Named fields in enum variants act like embedded structs — they're self-documenting and can be destructured in match arms:
+
+```rust
+if let Quest::BringMeGold { gold_required } = &quest {
+    println!("Need {} gold", gold_required);
+}
+```
+
+In C++, you'd need `std::variant` with a separate struct type for the data-carrying variant. Rust's inline named fields are more concise.
+
+**Composite queries on enum variants.** `requires_combat()` uses `matches!` to check multiple variants at once:
+
+```rust
+pub fn requires_combat(&self) -> bool {
+    matches!(
+        self,
+        Quest::BringMeHisHead | Quest::IWantHimAlive | Quest::SlayAllTheMonsters
+    )
+}
+```
+
+`matches!` is a Rust macro that returns `bool` — it's shorthand for a match expression that returns true/false. The `|` operator matches any of the listed patterns. In C++, you'd write `quest == BringHead || quest == WantAlive || quest == SlayAll`.
+
+**Separate enum for rewards.** `EpicReward` is its own enum rather than a variant inside `Quest`. This is a design choice — quests and rewards are conceptually different (quests are tasks, rewards are items), even though completing one yields the other. Keeping them separate means they can evolve independently (e.g., adding new rewards without touching the quest code).
+
+### Testing
+
+20 new tests covering:
+- All 6 quests from d6 roll
+- Gold amount range (d6 x 50: 50-300)
+- Combat quest classification (3 of 6 require combat)
+- Non-combat quest classification (3 of 6 are peaceful)
+- Quest display strings
+- All 6 epic rewards from d6 roll
+- Epic reward display strings
+- Panic on invalid rolls (0 or 7+)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/quest.rs` | **New.** `Quest` enum (6 variants), `EpicReward` enum (6 variants), `from_roll()` constructors, `requires_combat()` |
+| `src/game/mod.rs` | Added `pub mod quest` |
+
+---
