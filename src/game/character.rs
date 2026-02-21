@@ -1,5 +1,7 @@
 use std::fmt;
 
+use super::equipment::{self, Armor, Item, Weapon};
+
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,7 +113,15 @@ impl fmt::Display for Character {
 }
 
 /// A player character in Four Against Darkness.
-/// Each character has a name, class, level, and life total.
+/// Each character has a name, class, level, life total, and inventory.
+///
+/// ## Phase 2 addition: inventory
+///
+/// Characters now carry equipment in a `Vec<Item>`. Starting equipment
+/// is assigned during construction based on the character's class.
+/// The inventory affects combat modifiers (weapon attack bonus, armor
+/// defense bonus) through the `weapon_attack_modifier()` and
+/// `armor_defense_modifier()` methods.
 #[derive(Debug, Clone)]
 pub struct Character {
     pub name: String,
@@ -120,6 +130,7 @@ pub struct Character {
     pub gold: u16,
     pub life: u8,
     pub max_life: u8,
+    pub inventory: Vec<Item>,
 }
 
 impl Character {
@@ -127,6 +138,7 @@ impl Character {
         let starting_level = 1;
         let max_life = class.base_life() + starting_level;
         let starting_gold = class.roll_starting_gold();
+        let inventory = equipment::starting_equipment(class);
         Character {
             name,
             class,
@@ -134,6 +146,7 @@ impl Character {
             gold: starting_gold,
             life: max_life,
             max_life,
+            inventory,
         }
     }
 
@@ -172,6 +185,49 @@ impl Character {
             CharacterClass::Rogue => self.level,
             _ => 0,
         }
+    }
+
+    /// Return the first weapon found in inventory, or None.
+    ///
+    /// ## Rust concept: `find_map` iterator adapter
+    ///
+    /// `find_map` combines `find` and `map` — it iterates until a closure
+    /// returns `Some(value)`, then returns that value. Like a filtered search
+    /// that also transforms the result. In C++ you'd write a manual loop
+    /// with a conditional return.
+    pub fn equipped_weapon(&self) -> Option<Weapon> {
+        self.inventory.iter().find_map(|item| match item {
+            Item::Weapon(w) => Some(*w),
+            _ => None,
+        })
+    }
+
+    /// Attack modifier from the equipped weapon.
+    /// Returns 0 if no weapon is equipped.
+    pub fn weapon_attack_modifier(&self) -> i8 {
+        self.equipped_weapon()
+            .map(|w| w.attack_modifier())
+            .unwrap_or(0)
+    }
+
+    /// Total defense modifier from all armor pieces in inventory.
+    /// Armor bonuses stack: light armor (+1) + shield (+1) = +2.
+    ///
+    /// ## Rust concept: `filter_map` + `sum`
+    ///
+    /// We chain iterator adapters: filter for armor items, extract the
+    /// defense modifier, then sum them all. This is idiomatic Rust for
+    /// "compute an aggregate over a filtered collection". In C++ you'd
+    /// use `std::accumulate` with a lambda, but Rust's iterator chains
+    /// read more naturally.
+    pub fn armor_defense_modifier(&self) -> i8 {
+        self.inventory
+            .iter()
+            .filter_map(|item| match item {
+                Item::Armor(a) => Some(a.defense_modifier()),
+                _ => None,
+            })
+            .sum()
     }
 }
 
@@ -408,5 +464,81 @@ mod tests {
                 wizard.gold
             );
         }
+    }
+
+    // --- Equipment integration tests (Phase 2) ---
+
+    #[test]
+    fn new_character_has_starting_equipment() {
+        let warrior = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        assert!(
+            !warrior.inventory.is_empty(),
+            "Warrior should have starting gear"
+        );
+    }
+
+    #[test]
+    fn warrior_equipped_weapon_is_hand_weapon() {
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        let weapon = warrior.equipped_weapon();
+        assert!(weapon.is_some());
+        assert!(matches!(
+            weapon.unwrap(),
+            super::equipment::Weapon::HandWeapon(_)
+        ));
+    }
+
+    #[test]
+    fn wizard_equipped_weapon_is_light_hand_weapon() {
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        let weapon = wizard.equipped_weapon();
+        assert!(weapon.is_some());
+        assert!(matches!(
+            weapon.unwrap(),
+            super::equipment::Weapon::LightHandWeapon(_)
+        ));
+    }
+
+    #[test]
+    fn warrior_weapon_attack_modifier_is_zero() {
+        // Hand weapon has +0 attack modifier
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert_eq!(warrior.weapon_attack_modifier(), 0);
+    }
+
+    #[test]
+    fn wizard_weapon_attack_modifier_is_minus_one() {
+        // Light hand weapon has -1 attack modifier
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert_eq!(wizard.weapon_attack_modifier(), -1);
+    }
+
+    #[test]
+    fn warrior_armor_defense_modifier_is_two() {
+        // Light armor (+1) + shield (+1) = +2
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert_eq!(warrior.armor_defense_modifier(), 2);
+    }
+
+    #[test]
+    fn wizard_armor_defense_modifier_is_zero() {
+        // Wizard has no armor
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert_eq!(wizard.armor_defense_modifier(), 0);
+    }
+
+    #[test]
+    fn rogue_armor_defense_modifier_is_one() {
+        // Rogue has light armor only (+1)
+        let rogue = Character::new("R".to_string(), CharacterClass::Rogue);
+        assert_eq!(rogue.armor_defense_modifier(), 1);
+    }
+
+    #[test]
+    fn character_with_no_weapon_has_zero_attack_modifier() {
+        let mut warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        warrior.inventory.clear(); // strip all equipment
+        assert_eq!(warrior.weapon_attack_modifier(), 0);
+        assert!(warrior.equipped_weapon().is_none());
     }
 }
