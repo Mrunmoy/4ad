@@ -13,6 +13,7 @@ use crate::game::party_creation::{CreationPhase, PartyCreationState};
 use crate::game::state::{GamePhase, GameState};
 use crate::map::renderer::DungeonMapWidget;
 use crate::map::room::DoorSide;
+use super::theme::{self, Theme};
 
 /// Which screen the TUI is currently showing.
 ///
@@ -164,9 +165,7 @@ impl App {
         // Title: which character we're creating
         let title = Paragraph::new(Line::from(Span::styled(
             format!("  Character {} of 4", self.creation.slot + 1),
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            theme::bold(Theme::SELECTED),
         )));
         frame.render_widget(title, title_area);
 
@@ -208,9 +207,7 @@ impl App {
                         if i == self.creation.class_index {
                             Line::from(Span::styled(
                                 label,
-                                Style::default()
-                                    .fg(Color::Yellow)
-                                    .add_modifier(Modifier::BOLD),
+                                theme::bold(Theme::SELECTED),
                             ))
                         } else {
                             Line::from(label)
@@ -224,7 +221,7 @@ impl App {
                 let mut lines = vec![
                     Line::from(Span::styled(
                         format!("  Class: {}", class),
-                        Style::default().fg(Color::Green),
+                        theme::fg(Theme::HEALTH_HIGH),
                     )),
                     Line::from(""),
                     Line::from(format!("  Name: {}_", self.creation.name_input)),
@@ -233,7 +230,7 @@ impl App {
                 if !self.status_message.is_empty() {
                     lines.push(Line::from(Span::styled(
                         format!("  {}", self.status_message),
-                        Style::default().fg(Color::Red),
+                        theme::fg(Theme::ERROR),
                     )));
                 }
                 frame.render_widget(Paragraph::new(lines), inner);
@@ -262,7 +259,7 @@ impl App {
         for i in self.creation.characters.len()..4 {
             lines.push(Line::from(Span::styled(
                 format!("  {}. ---", i + 1),
-                Style::default().fg(Color::DarkGray),
+                theme::fg(Theme::MUTED),
             )));
         }
 
@@ -417,11 +414,26 @@ impl App {
             .iter()
             .map(|member| {
                 if member.is_alive() {
-                    Line::from(format!("  {}", member))
+                    let (hearts, health_color) = theme::health_bar(member.life, member.max_life);
+                    Line::from(vec![
+                        Span::styled(
+                            format!("  {:<10}", member.name),
+                            theme::bold(Theme::TITLE),
+                        ),
+                        Span::styled(
+                            format!("{:<3}", format!("L{}", member.level)),
+                            theme::fg(Theme::LEVEL),
+                        ),
+                        Span::styled(hearts, theme::fg(health_color)),
+                        Span::styled(
+                            format!(" {}", member.class),
+                            theme::fg(Theme::CLASS_NAME),
+                        ),
+                    ])
                 } else {
                     Line::from(vec![Span::styled(
-                        format!("  {} [DEAD]", member.name),
-                        Style::default().fg(Color::Red),
+                        format!("  {:<10} DEAD", member.name),
+                        theme::fg(Theme::DEAD),
                     )])
                 }
             })
@@ -437,7 +449,10 @@ impl App {
         let start = game.log.len().saturating_sub(max_lines);
         let lines: Vec<Line> = game.log[start..]
             .iter()
-            .map(|msg| Line::from(format!("  {}", msg)))
+            .map(|msg| {
+                let color = theme::log_color(msg);
+                Line::from(Span::styled(format!("  {}", msg), theme::fg(color)))
+            })
             .collect();
 
         let log = Paragraph::new(lines)
@@ -451,19 +466,19 @@ impl App {
 
         lines.push(Line::from(Span::styled(
             format!("  {}", self.status_message),
-            Style::default().fg(Color::Cyan),
+            theme::fg(Theme::CONTROL_HINT),
         )));
         lines.push(Line::from(""));
 
         if game.phase == GamePhase::GameOver {
             lines.push(Line::from(Span::styled(
                 "  GAME OVER - press q to quit",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                theme::bold(Theme::ERROR),
             )));
         } else if game.phase == GamePhase::InCombat {
             lines.push(Line::from(Span::styled(
                 "  Press SPACE to resolve combat",
-                Style::default().fg(Color::Yellow),
+                theme::bold(Theme::SELECTED),
             )));
         } else {
             if let Some(room) = game.dungeon.get_room(game.current_room) {
