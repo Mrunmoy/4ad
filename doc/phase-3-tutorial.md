@@ -156,3 +156,73 @@ Unlike the `Theme` struct (which uses a zero-size type as a namespace), these co
 | `src/tui/app.rs` | Added `MIN_WIDTH`/`MIN_HEIGHT` constants, `draw_size_warning()`, early-return size check in `draw()` |
 
 ---
+
+## Step 4: Dice Animation
+
+**Files:** `src/tui/dice_anim.rs`, `src/tui/app.rs`
+
+### What We're Building
+
+A brief dice rolling animation (~360ms) that shows random Unicode die faces cycling before revealing the actual result. When the party enters a new room, dice symbols flash in the controls panel. Any keypress skips the animation immediately.
+
+### Concepts Introduced
+
+**`std::time::Instant` and `Duration` for timing.** Instead of counting frames manually, we use wall-clock time:
+
+```rust
+pub struct DiceAnimation {
+    start: Instant,
+    total_frames: u8,
+    current_frame: u8,
+    // ...
+}
+
+pub fn tick(&mut self) -> bool {
+    let elapsed = self.start.elapsed();
+    let expected_frame = (elapsed.as_millis() / FRAME_DURATION.as_millis()) as u8;
+    self.current_frame = expected_frame.min(self.total_frames);
+    self.current_frame < self.total_frames
+}
+```
+
+`Instant::now()` captures a monotonic timestamp. `elapsed()` returns a `Duration` representing time since capture. We compute which frame we should be on based on elapsed time, not frame count — this makes the animation smooth regardless of event loop timing.
+
+In C++, this is equivalent to `std::chrono::steady_clock::now()` and `std::chrono::duration_cast`. Rust's API is cleaner — `Duration` has built-in `.as_millis()`, no template gymnastics needed.
+
+**`event::poll(Duration)` for non-blocking input.** The normal event loop uses `event::read()` which blocks forever. During animation, we switch to `event::poll(timeout)`:
+
+```rust
+if let Some(anim) = &mut self.dice_animation {
+    let timeout = anim.poll_duration();
+    if event::poll(timeout)? {
+        // Key was pressed — skip animation
+        self.dice_animation = None;
+    }
+    continue; // redraw animation frame
+}
+```
+
+`poll` returns `true` if an event is available within the timeout, `false` if the timeout expires. This gives us a ~60ms frame rate during animation while still responding instantly to user input. The `continue` statement restarts the loop to redraw with the updated animation frame.
+
+**Unicode die faces.** Characters U+2680 through U+2685 are standard Unicode die face symbols. The `die_face(value)` function maps 1-6 to the corresponding character.
+
+### Testing
+
+8 new tests covering:
+- Animation starts not done
+- Correct result stored
+- Animation completes after sufficient elapsed time
+- Done animation shows actual result (not random frame)
+- Label preserved
+- Die face Unicode mapping (1-6 valid, 0/7 returns ?)
+- Poll duration is reasonable (30-200ms)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/tui/dice_anim.rs` | **New.** `DiceAnimation` struct with timing, frame cycling, `tick()`/`display_value()`/`is_done()`, `die_face()` Unicode helper |
+| `src/tui/app.rs` | Added `dice_animation` field, modified event loop for `poll`-based animation frames, dice display in controls panel, animation trigger on room entry |
+| `src/tui/mod.rs` | Added `pub mod dice_anim` |
+
+---

@@ -1,4 +1,5 @@
 use std::io;
+use std::time::Duration;
 
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use ratatui::Frame;
@@ -13,6 +14,7 @@ use crate::game::party_creation::{CreationPhase, PartyCreationState};
 use crate::game::state::{GamePhase, GameState};
 use crate::map::renderer::DungeonMapWidget;
 use crate::map::room::DoorSide;
+use super::dice_anim::{self, DiceAnimation};
 use super::theme::{self, Theme};
 
 /// Which screen the TUI is currently showing.
@@ -77,6 +79,8 @@ pub struct App {
     pub status_message: String,
     /// Currently visible overlay (None = no overlay).
     pub overlay: Option<Overlay>,
+    /// Active dice animation (None = no animation running).
+    pub dice_animation: Option<DiceAnimation>,
 }
 
 impl App {
@@ -96,6 +100,7 @@ impl App {
             should_quit: false,
             status_message: String::new(),
             overlay: None,
+            dice_animation: None,
         }
     }
 
@@ -113,6 +118,28 @@ impl App {
 
             if self.should_quit {
                 break;
+            }
+
+            // During dice animation, use poll with timeout for smooth frames.
+            // Any keypress skips the animation immediately.
+            if let Some(anim) = &mut self.dice_animation {
+                let still_running = anim.tick();
+                if !still_running {
+                    // Animation complete — clear it
+                    self.dice_animation = None;
+                    continue; // redraw with final state
+                }
+                // Poll briefly — if a key comes, skip the animation
+                let timeout = anim.poll_duration();
+                if event::poll(timeout)? {
+                    if let Event::Key(key) = event::read()?
+                        && key.kind == KeyEventKind::Press
+                    {
+                        // Any key skips the animation
+                        self.dice_animation = None;
+                    }
+                }
+                continue; // redraw animation frame
             }
 
             if let Event::Key(key) = event::read()?
@@ -542,6 +569,27 @@ impl App {
     fn draw_controls(&self, frame: &mut Frame, area: Rect, game: &GameState) {
         let mut lines: Vec<Line> = Vec::new();
 
+        // Show dice animation if active
+        if let Some(anim) = &self.dice_animation {
+            let value = anim.display_value();
+            let face = dice_anim::die_face(value);
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                format!("  {} Rolling... {} {}", face, face, anim.label),
+                theme::bold(Theme::SELECTED),
+            )));
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(
+                "  (press any key to skip)",
+                theme::fg(Theme::MUTED),
+            )));
+
+            let controls = Paragraph::new(lines)
+                .block(Block::default().title(" Controls ").borders(Borders::ALL));
+            frame.render_widget(controls, area);
+            return;
+        }
+
         lines.push(Line::from(Span::styled(
             format!("  {}", self.status_message),
             theme::fg(Theme::CONTROL_HINT),
@@ -684,6 +732,14 @@ impl App {
                     // Unexplored door — generate a new room
                     let d66_roll = dice::roll_d66();
                     let contents_roll = dice::roll_2d6();
+
+                    // Start dice animation for room generation
+                    self.dice_animation = Some(DiceAnimation::new(
+                        contents_roll as u8,
+                        12,
+                        "Room contents".to_string(),
+                    ));
+
                     match game.enter_room(door_index, d66_roll, contents_roll) {
                         Some(contents) => {
                             self.status_message =
@@ -692,6 +748,7 @@ impl App {
                         None => {
                             self.status_message =
                                 "The passage is blocked. Try another door.".to_string();
+                            self.dice_animation = None; // cancel on failure
                         }
                     }
                 }
