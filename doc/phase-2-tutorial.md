@@ -516,3 +516,45 @@ This is cleaner than putting both possibilities in `SpecialFeature` because the 
 | `src/game/mod.rs` | Added `pub mod feature` |
 
 ---
+
+## Step 7: Special Events — Once-Per-Adventure Tracking and Save Rolls
+
+**File:** `src/game/event.rs`
+
+### What We're Building
+
+The Special Events table (d6, p.33) produces narrative encounters:
+
+| Roll | Event | Key Rule |
+|------|-------|----------|
+| 1 | Ghost | Save vs level 4 or lose 1 Life. Cleric adds level. |
+| 2 | Wandering Monsters | d6: 1-3 vermin, 4 minions, 5 weird, 6 boss |
+| 3 | Lady in White | Quest offer. Refuse = no more appearances. |
+| 4 | Trap! | Roll on Traps table. |
+| 5 | Wandering Healer | 10gp/Life healed. Once per adventure. |
+| 6 | Wandering Alchemist | Potions (50gp) or blade poison (30gp). Once per adventure. |
+
+### Concepts Introduced
+
+**Once-per-adventure tracking.** The Healer and Alchemist can only appear once. The `once_per_adventure()` method flags these events so the game state can track whether they've occurred and reroll if they come up again. This is a common pattern — flag the *rule* on the data type, enforce it in the *state machine*.
+
+**Save rolls.** The Ghost encounter introduces the "save" mechanic: roll d6 + bonus >= target. The `ghost_save(d6_roll, bonus)` function encapsulates this as a pure predicate. Only clerics get a bonus (their level), so the caller passes 0 for non-clerics.
+
+### Testing
+
+20 new tests covering:
+- All 6 events from d6 roll mapping
+- Combat-involving events (Ghost, Wandering Monsters)
+- Once-per-adventure flag (Healer, Alchemist)
+- Display strings contain expected keywords
+- Wandering monster type sub-table (d6 → vermin/minions/weird/boss)
+- Ghost save mechanics (threshold 4, cleric bonus, boundary cases)
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/event.rs` | **New.** `SpecialEvent` enum (6 variants), `wandering_monster_type()`, `ghost_save()` |
+| `src/game/mod.rs` | Added `pub mod event` |
+
+---

@@ -3,6 +3,7 @@ pub mod combat;
 pub mod dice;
 pub mod encounter;
 pub mod equipment;
+pub mod event;
 pub mod feature;
 pub mod monster;
 pub mod party;
