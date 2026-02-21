@@ -202,3 +202,48 @@ tokio::spawn(async move {
 | `src/network/mod.rs` | Added `pub mod server` |
 
 ---
+
+## Step 5: Game Client
+
+**File:** `src/network/client.rs`
+
+### What We're Building
+
+A TCP client that connects to a game server, performs the join handshake, and provides a channel-based interface for the TUI to send actions and receive state updates. Two background tasks handle network I/O asynchronously.
+
+### Concepts Introduced
+
+**`mpsc` channel (multi-producer, single-consumer).** `tokio::sync::mpsc` is a channel where one or more senders push messages to a single receiver. The client uses two channels:
+
+```text
+[TUI] --action_tx--> [Writer Task] --TCP--> [Server]
+[TUI] <--events_rx-- [Reader Task] <--TCP-- [Server]
+```
+
+The TUI calls `client.send_action()` which pushes into `action_tx`. A background task reads from the channel and writes to TCP. Conversely, a reader task receives TCP messages and pushes `ServerEvent`s into `events_rx` for the TUI to consume.
+
+In C++ you'd use a thread-safe queue or a condition variable. Rust's `mpsc` is lock-free and async-aware — senders can be cloned and moved between tasks cheaply.
+
+**`ServerEvent` enum — translating protocol to UI events.** The raw `Message` enum is a protocol concern. `ServerEvent` is a UI concern — it maps server messages to events the TUI cares about (state changed, turn changed, chat received, disconnected). This separation keeps network protocol details out of the TUI code.
+
+**`pub(crate)` visibility.** The `handle_client` function in server.rs was originally private (`fn`). The client tests need it to spin up a test server. `pub(crate)` makes it visible within the crate but not to external users — a middle ground between `pub` (everyone) and private (only the module).
+
+### Testing
+
+6 new async integration tests using real TCP connections:
+- Client connects and receives a player ID
+- Client receives the initial Joined event through the events channel
+- Client can send chat messages
+- Client can send ping and receive pong
+- Client can send game actions
+- Connection to a bad address fails cleanly
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/network/client.rs` | **New.** `GameClient` struct with `connect()`, `send_action()`, `send_chat()`, `send_ping()`. `ServerEvent` enum. Reader/writer background tasks. 6 tests |
+| `src/network/server.rs` | Changed `handle_client` from `fn` to `pub(crate) fn` for test access |
+| `src/network/mod.rs` | Added `pub mod client` |
+
+---

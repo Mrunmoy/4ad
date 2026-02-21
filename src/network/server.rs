@@ -200,7 +200,7 @@ pub async fn run_server(port: u16) -> std::io::Result<()> {
 /// We wrap the halves in `BufReader`/`BufWriter` for efficiency. Without
 /// buffering, each `write_all` call would be a separate syscall. With
 /// buffering, small writes are coalesced and flushed together.
-async fn handle_client(
+pub(crate) async fn handle_client(
     stream: TcpStream,
     state: Arc<Mutex<SharedState>>,
     broadcast_tx: broadcast::Sender<Message>,
