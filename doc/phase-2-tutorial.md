@@ -450,3 +450,69 @@ This tests that modifier 0 can never produce "Nothing" (because d6 ranges 1-6, s
 | `src/game/mod.rs` | Added `pub mod treasure` |
 
 ---
+
+## Step 6: Special Features — Enum Variants with Data and Decision Points
+
+**File:** `src/game/feature.rs`
+
+### What We're Building
+
+The Special Feature table (d6, p.32) gives the party interactive room encounters:
+
+| Roll | Feature | Effect |
+|------|---------|--------|
+| 1 | Fountain | All wounded characters heal 1 Life (first time only) |
+| 2 | Blessed Temple | +1 Attack vs undead/demons for one character |
+| 3 | Armory | All characters may change weapons |
+| 4 | Cursed Altar | Random character cursed (-1 Defense) |
+| 5 | Statue | Touch it? d6 1-3: awakens as boss; 4-6: breaks for gold |
+| 6 | Puzzle Room | Level d6 puzzle box; failed attempts cost 1 Life |
+
+### Concepts Introduced
+
+**Enum variants with embedded data.** `PuzzleRoom` carries its level directly in the variant:
+
+```rust
+pub enum SpecialFeature {
+    Fountain,
+    PuzzleRoom { level: u8 },  // named field inside a variant
+    // ...
+}
+```
+
+In C++ you'd need a separate struct or a union. In Rust, named fields in enum variants are natural — the compiler tracks which fields exist for which variant through pattern matching.
+
+**Separate result types for branching outcomes.** The Statue has two completely different outcomes (combat vs treasure), so we model it as its own enum:
+
+```rust
+pub enum StatueResult {
+    Awakens,                    // triggers combat with a special boss
+    Breaks { gold: u16 },       // reveals treasure
+}
+```
+
+This is cleaner than putting both possibilities in `SpecialFeature` because the outcomes have different data and trigger different game logic.
+
+**Pure puzzle-solving function.** `attempt_puzzle(d6_roll, bonus, level)` is a one-liner that returns bool — trivially testable with no side effects. The caller handles the consequences (damage on failure, treasure on success).
+
+### Testing
+
+23 new tests covering:
+- All 6 features from d6 roll mapping
+- Puzzle room level matches the roll parameter
+- Harmful feature classification (only Cursed Altar)
+- Choice-requiring features (Statue, Puzzle Room)
+- Display formatting for all features
+- Statue awakens (d6 1-3) vs breaks (d6 4-6) with gold calculation
+- Statue gold range (30-180 gp)
+- Puzzle solving at boundary conditions (exact, exceed, below)
+- Wizard/rogue level bonus in puzzle solving
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/feature.rs` | **New.** `SpecialFeature` enum (6 variants), `StatueResult` enum, `attempt_puzzle()` function |
+| `src/game/mod.rs` | Added `pub mod feature` |
+
+---
