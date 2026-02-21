@@ -876,6 +876,73 @@ The `|` means "or" — match Vermin OR Minions. Both variants carry a `Monster`,
 
 ---
 
+## Step 16: Display Trait — Making Types Printable
+
+**Files:** `src/game/character.rs`, `src/map/room.rs`, `src/game/tables.rs`, `src/game/encounter.rs`
+
+### Concepts Introduced
+
+**The `Display` trait — Rust's `operator<<`.** In C++, you overload `operator<<` as a free function to make types printable with `std::cout`. In Rust, you implement the `Display` trait:
+
+```rust
+// C++
+std::ostream& operator<<(std::ostream& os, const CharacterClass& c) {
+    os << "Warrior"; return os;
+}
+
+// Rust
+impl fmt::Display for CharacterClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Warrior")
+    }
+}
+```
+
+Once you implement `Display`, you unlock `{}` in format strings:
+```rust
+println!("{}", CharacterClass::Warrior);   // uses Display → "Warrior"
+println!("{:?}", CharacterClass::Warrior); // uses Debug   → "Warrior"
+```
+
+`Debug` (from `#[derive(Debug)]`) uses `{:?}` and is meant for developers. `Display` uses `{}` and is meant for users.
+
+**`write!()` macro.** Works exactly like `format!()` but writes to a `Formatter` instead of creating a new `String`. Returns `fmt::Result` — formatting can theoretically fail, so it returns `Result<(), fmt::Error>`.
+
+**Trait composition.** `Character`'s Display uses `CharacterClass`'s Display automatically:
+```rust
+write!(f, "{} ({} L{}) HP: {}/{}", self.name, self.class, self.level, self.life, self.max_life)
+//                                              ^^^^^^^^^^
+//                                    calls CharacterClass::fmt() via {}
+```
+
+When `write!()` sees `{}` for `self.class`, it calls the `Display::fmt()` you implemented for `CharacterClass`. One trait impl building on another — composable behavior without inheritance.
+
+**Tuple variants vs struct variants in destructuring.** Rust enums can have two kinds of data:
+
+```rust
+// Tuple variant — positional data, you pick the variable name
+Vermin(Monster)                    // definition
+RoomContents::Vermin(monster) =>   // destructure: "monster" is your choice
+
+// Struct variant — named fields, you must use the field names
+Attack { character: String, kills: u8 }    // definition
+CombatEvent::Attack { character, kills } => // destructure: names must match
+```
+
+Tuple variants are like `std::tuple` — data is positional. Struct variants are like anonymous structs — fields have names. Both are destructured in match arms, but struct variants require exact field names.
+
+### What We Implemented
+
+- `Display for CharacterClass` — match → class name ("Warrior", "Cleric", ...)
+- `Display for Character` — format string with 7 fields ("Bruggo (Warrior L1) HP: 7/7 ATK:+1 DEF:+0")
+- `Display for DoorSide` — match → direction name ("North", "South", ...)
+- `Display for RoomContents` — mixed: fixed strings for simple variants, destructuring for Vermin/Minions
+- `Display for CombatEvent` — 7-variant match with struct destructuring ("Warrior attacks, kills 2!")
+
+**Tests added:** 18 (total: 168)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -919,6 +986,10 @@ The `|` means "or" — match Vermin OR Minions. Both variants carry a `Monster`,
 | OR pattern in match | chained `if/else` | `Variant(x) \| Other(x) =>` |
 | Match by reference | — | `match &val` — borrow, don't move |
 | Clone from reference | Copy from `const&` | `ref.clone()` — owned copy from `&T` |
+| Display trait | `operator<<(ostream&)` | `impl fmt::Display for Type` |
+| write! macro | `os << "text"` | `write!(f, "{}", val)` — format to Formatter |
+| Trait composition | — | `{}` in write! calls Display on nested types |
+| Struct variant destructure | — | `Variant { field1, field2 } =>` names must match |
 
 ## Common C++ Habits to Break
 
@@ -937,22 +1008,22 @@ The `|` means "or" — match Vermin OR Minions. Both variants carry a `Monster`,
 src/game/
   mod.rs          — module declarations
   dice.rs         — d6, 2d6, 3d6, d3, d66, explosive d6
-  character.rs    — 8 classes, stats, damage/heal, attack/defense bonuses
+  character.rs    — 8 classes, stats, damage/heal, attack/defense bonuses, Display
   party.rs        — Vec-based party of up to 4 characters
   monster.rs      — monster struct with categories and defeat tracking
   combat.rs       — attack/defense resolution (deterministic, roll passed in)
-  tables.rs       — vermin/minions tables, room contents table (2d6)
-  encounter.rs    — full combat loop, party vs monster group, event logging
+  tables.rs       — vermin/minions tables, room contents table (2d6), Display
+  encounter.rs    — full combat loop, party vs monster group, event logging, Display
   state.rs        — game state with dungeon integration, phase tracking, room exploration
 
 src/map/
   mod.rs          — module declarations
   grid.rs         — 2D tile grid, room placement, Display trait for ASCII rendering
-  room.rs         — room shapes, door positions, entrance room table
+  room.rs         — room shapes, door positions, entrance room table, Display
   dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 150 tests across 11 modules, all passing.
+**Test count:** 168 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash

@@ -1,3 +1,4 @@
+use std::fmt;
 use super::character::Character;
 use super::combat::{resolve_attack, resolve_defense, AttackResult, DefenseResult};
 use super::dice::roll_d6;
@@ -23,6 +24,32 @@ pub enum CombatEvent {
     CharacterDied { character: String },
     MonstersDefeated { name: String },
     PartyWiped,
+}
+
+/// Display shows combat events as readable log lines:
+///   Attack { "Warrior", 2 }      → "Warrior attacks, kills 2!"
+///   AttackMiss { "Wizard" }       → "Wizard misses."
+///   Defense { "Rogue" }           → "Rogue blocks the attack."
+///   Wounded { "Cleric", 1 }       → "Cleric takes 1 damage!"
+///   CharacterDied { "Wizard" }    → "Wizard has fallen!"
+///   MonstersDefeated { "Rats" }   → "All Rats defeated!"
+///   PartyWiped                    → "The party has been wiped out."
+///
+/// EXERCISE: Match on `self` and destructure each variant.
+/// This is the most complex Display — it has 7 variants, some with data.
+/// Use the `write!(f, "...", var)` format string syntax.
+impl fmt::Display for CombatEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CombatEvent::Attack { character, kills } => write!(f, "{} attacks, kills {}!", character, kills),
+            CombatEvent::AttackMiss { character } => write!(f, "{} misses.", character),
+            CombatEvent::Defense { character } => write!(f, "{} blocks the attack.", character),
+            CombatEvent::Wounded { character, damage } => write!(f, "{} takes {} damage!", character, damage),
+            CombatEvent::CharacterDied { character } => write!(f, "{} has fallen!", character),
+            CombatEvent::MonstersDefeated { name } => write!(f, "All {} defeated!", name),
+            CombatEvent::PartyWiped => write!(f, "The party has been wiped out."),
+        }
+    }
 }
 
 /// Run a full combat encounter: party vs monster group.
@@ -216,5 +243,58 @@ mod tests {
             _ => false,
         });
         assert!(!dead_attacked, "Dead characters should not attack");
+    }
+
+    // --- Display trait tests ---
+
+    #[test]
+    fn combat_event_display_attack() {
+        let event = CombatEvent::Attack { character: "Warrior".to_string(), kills: 2 };
+        let s = format!("{}", event);
+        assert!(s.contains("Warrior"), "Should contain character name");
+        assert!(s.contains("2"), "Should contain kill count");
+    }
+
+    #[test]
+    fn combat_event_display_miss() {
+        let event = CombatEvent::AttackMiss { character: "Wizard".to_string() };
+        let s = format!("{}", event);
+        assert!(s.contains("Wizard"), "Should contain character name");
+    }
+
+    #[test]
+    fn combat_event_display_defense() {
+        let event = CombatEvent::Defense { character: "Rogue".to_string() };
+        let s = format!("{}", event);
+        assert!(s.contains("Rogue"), "Should contain character name");
+    }
+
+    #[test]
+    fn combat_event_display_wounded() {
+        let event = CombatEvent::Wounded { character: "Cleric".to_string(), damage: 1 };
+        let s = format!("{}", event);
+        assert!(s.contains("Cleric"), "Should contain character name");
+        assert!(s.contains("1"), "Should contain damage amount");
+    }
+
+    #[test]
+    fn combat_event_display_died() {
+        let event = CombatEvent::CharacterDied { character: "Wizard".to_string() };
+        let s = format!("{}", event);
+        assert!(s.contains("Wizard"), "Should contain character name");
+    }
+
+    #[test]
+    fn combat_event_display_monsters_defeated() {
+        let event = CombatEvent::MonstersDefeated { name: "Rats".to_string() };
+        let s = format!("{}", event);
+        assert!(s.contains("Rats"), "Should contain monster name");
+    }
+
+    #[test]
+    fn combat_event_display_party_wiped() {
+        let event = CombatEvent::PartyWiped;
+        let s = format!("{}", event);
+        assert!(!s.is_empty(), "Should have display text");
     }
 }

@@ -1,3 +1,4 @@
+use std::fmt;
 use super::dice::*;
 use super::monster::{Monster, MonsterCategory};
 
@@ -32,6 +33,38 @@ pub enum RoomContents {
     SmallDragonLair,
     /// Empty room/corridor — nothing here
     Empty,
+}
+
+/// Display shows what's in the room as readable text:
+///   Empty           → "Empty"
+///   Vermin(monster)  → "3 Rats!" (count + name)
+///   Minions(monster) → "5 Goblins!" (count + name)
+///   Treasure         → "Treasure!"
+///   TreasureWithTrap → "Trapped treasure!"
+///   SpecialEvent     → "Something strange happens..."
+///   SpecialFeature   → "Something unusual here..."
+///   WeirdMonster     → "A weird creature!"
+///   Boss             → "A boss blocks the way!"
+///   SmallDragonLair  → "A dragon's lair!"
+///
+/// EXERCISE: Match on `self`. For Vermin/Minions, destructure the Monster
+/// and use `write!(f, "{} {}!", monster.count, monster.name)`.
+/// For other variants, write a fixed string.
+impl fmt::Display for RoomContents {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RoomContents::Empty => write!(f, "Empty"),
+            RoomContents::Treasure => write!(f, "Treasure!"),
+            RoomContents::TreasureWithTrap => write!(f, "Trapped treasure!"),
+            RoomContents::SpecialEvent => write!(f, "Something strange happens..."),
+            RoomContents::SpecialFeature => write!(f, "Something unusual here..."),
+            RoomContents::WeirdMonster => write!(f, "A weird creature!"),
+            RoomContents::Boss => write!(f, "A boss blocks the way!"),
+            RoomContents::SmallDragonLair => write!(f, "A dragon's lair!"),
+            RoomContents::Vermin(monster) | RoomContents::Minions(monster) =>
+                write!(f, "{} {}!", monster.count, monster.name),
+        }
+    }
 }
 
 /// Look up the Room Contents Table (2d6) from the rulebook p.31.
@@ -245,5 +278,44 @@ mod tests {
         assert_eq!(monster.name, "Fungi Folk");
         assert_eq!(monster.level, 3);
         assert!((2..=12).contains(&monster.count)); // 2d6 range
+    }
+
+    // --- Display trait tests ---
+
+    #[test]
+    fn room_contents_display_empty() {
+        let contents = RoomContents::Empty;
+        assert_eq!(format!("{}", contents), "Empty");
+    }
+
+    #[test]
+    fn room_contents_display_vermin() {
+        use crate::game::monster::Monster;
+        let monster = Monster::new("Rats".to_string(), 1, 3, MonsterCategory::Vermin);
+        let contents = RoomContents::Vermin(monster);
+        let s = format!("{}", contents);
+        assert!(s.contains("3"), "Should contain monster count");
+        assert!(s.contains("Rats"), "Should contain monster name");
+    }
+
+    #[test]
+    fn room_contents_display_minions() {
+        use crate::game::monster::Monster;
+        let monster = Monster::new("Goblins".to_string(), 3, 5, MonsterCategory::Minion);
+        let contents = RoomContents::Minions(monster);
+        let s = format!("{}", contents);
+        assert!(s.contains("5"), "Should contain monster count");
+        assert!(s.contains("Goblins"), "Should contain monster name");
+    }
+
+    #[test]
+    fn room_contents_display_treasure() {
+        assert_eq!(format!("{}", RoomContents::Treasure), "Treasure!");
+    }
+
+    #[test]
+    fn room_contents_display_boss() {
+        let s = format!("{}", RoomContents::Boss);
+        assert!(!s.is_empty(), "Boss should have display text");
     }
 }

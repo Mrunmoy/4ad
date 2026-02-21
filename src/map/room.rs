@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// Which wall of a room a door is on.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DoorSide {
@@ -15,6 +17,20 @@ impl DoorSide {
             DoorSide::South => DoorSide::North,
             DoorSide::East => DoorSide::West,
             DoorSide::West => DoorSide::East,
+        }
+    }
+}
+
+/// Display shows the direction name: "North", "South", "East", "West".
+///
+/// EXERCISE: This one is very similar to CharacterClass — match and write.
+impl fmt::Display for DoorSide {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DoorSide::North => write!(f, "North"),
+            DoorSide::South => write!(f, "South"),
+            DoorSide::East => write!(f, "East"),
+            DoorSide::West => write!(f, "West"),
         }
     }
 }
@@ -462,6 +478,16 @@ mod tests {
             doors: vec![],
         };
         assert_eq!(room.door_grid_pos(0, 0, 0), None);
+    }
+
+    // --- DoorSide::Display ---
+
+    #[test]
+    fn door_side_display_shows_direction() {
+        assert_eq!(format!("{}", DoorSide::North), "North");
+        assert_eq!(format!("{}", DoorSide::South), "South");
+        assert_eq!(format!("{}", DoorSide::East), "East");
+        assert_eq!(format!("{}", DoorSide::West), "West");
     }
 
     // --- DoorSide::opposite ---

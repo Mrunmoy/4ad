@@ -1,3 +1,5 @@
+use std::fmt;
+
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
 #[derive(Debug, Clone, PartialEq)]
@@ -38,6 +40,47 @@ impl CharacterClass {
             CharacterClass::Dwarf => (roll_d6() + roll_2d6()) as u16, // 3d6
             CharacterClass::Halfling => roll_2d6() as u16,
         }
+    }
+}
+
+/// Display shows the class name: "Warrior", "Cleric", etc.
+/// Used with `{}` in format strings: `println!("{}", CharacterClass::Warrior)`
+///
+/// EXERCISE: Match on `self` and write the class name.
+/// Hint: `write!(f, "Warrior")` writes "Warrior" to the formatter.
+impl fmt::Display for CharacterClass {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CharacterClass::Warrior => write!(f, "Warrior"),
+            CharacterClass::Cleric => write!(f, "Cleric"),
+            CharacterClass::Rogue => write!(f, "Rogue"),
+            CharacterClass::Wizard => write!(f, "Wizard"),
+            CharacterClass::Barbarian => write!(f, "Barbarian"),
+            CharacterClass::Elf => write!(f, "Elf"),
+            CharacterClass::Dwarf => write!(f, "Dwarf"),
+            CharacterClass::Halfling => write!(f, "Halfling"),
+        }
+    }
+}
+
+/// Display shows a compact character summary:
+///   "Bruggo (Warrior L1) HP: 7/7 ATK:+1 DEF:+0"
+///
+/// EXERCISE: Use write!() with `self.name`, `self.class` (uses Display you just wrote),
+/// `self.level`, `self.life`, `self.max_life`, `self.attack_bonus()`, `self.defense_bonus()`.
+impl fmt::Display for Character {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} ({} L{}) HP: {}/{} ATK:+{} DEF:+{}",
+            self.name,
+            self.class,
+            self.level,
+            self.life,
+            self.max_life,
+            self.attack_bonus(),
+            self.defense_bonus()
+        )
     }
 }
 
@@ -235,6 +278,52 @@ mod tests {
         // Only rogue gets defense bonus (equal to level)
         assert_eq!(rogue.defense_bonus(), 1);
         assert_eq!(warrior.defense_bonus(), 0);
+    }
+
+    // --- Display trait tests ---
+
+    #[test]
+    fn character_class_display_shows_name() {
+        // Display uses {} (not {:?} which is Debug)
+        assert_eq!(format!("{}", CharacterClass::Warrior), "Warrior");
+        assert_eq!(format!("{}", CharacterClass::Cleric), "Cleric");
+        assert_eq!(format!("{}", CharacterClass::Rogue), "Rogue");
+        assert_eq!(format!("{}", CharacterClass::Wizard), "Wizard");
+        assert_eq!(format!("{}", CharacterClass::Barbarian), "Barbarian");
+        assert_eq!(format!("{}", CharacterClass::Elf), "Elf");
+        assert_eq!(format!("{}", CharacterClass::Dwarf), "Dwarf");
+        assert_eq!(format!("{}", CharacterClass::Halfling), "Halfling");
+    }
+
+    #[test]
+    fn character_display_contains_name_and_class() {
+        let c = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        let s = format!("{}", c);
+        assert!(s.contains("Bruggo"), "Should contain character name");
+        assert!(s.contains("Warrior"), "Should contain class name");
+    }
+
+    #[test]
+    fn character_display_contains_hp() {
+        let c = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        let s = format!("{}", c);
+        // Warrior at L1: max_life = 6 + 1 = 7
+        assert!(s.contains("7/7"), "Should show current/max HP");
+    }
+
+    #[test]
+    fn character_display_contains_level() {
+        let c = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        let s = format!("{}", c);
+        assert!(s.contains("L1"), "Should show level");
+    }
+
+    #[test]
+    fn character_display_shows_damage() {
+        let mut c = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        c.take_damage(3);
+        let s = format!("{}", c);
+        assert!(s.contains("4/7"), "Should show reduced HP after damage");
     }
 
     #[test]
