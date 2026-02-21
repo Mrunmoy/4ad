@@ -247,3 +247,39 @@ In C++ you'd use a thread-safe queue or a condition variable. Rust's `mpsc` is l
 | `src/network/mod.rs` | Added `pub mod client` |
 
 ---
+
+## Step 6: LAN Discovery
+
+**File:** `src/network/discovery.rs`
+
+### What We're Building
+
+UDP-based LAN game discovery. When a player hosts a game, the server broadcasts a beacon every 2 seconds. Players looking to join listen for beacons and see available games without typing IP addresses.
+
+### Concepts Introduced
+
+**UDP vs TCP.** TCP is a reliable, ordered byte stream — perfect for game state and actions where every message matters. UDP is fire-and-forget — packets might get lost, arrive out of order, or be duplicated. That's fine for discovery beacons: if a client misses one, it catches the next. The simplicity and low overhead of UDP makes it ideal for periodic announcements.
+
+**`UdpSocket::set_broadcast(true)`.** By default, UDP sockets can only send to specific addresses. Enabling broadcast mode lets us send to `255.255.255.255`, which delivers the packet to every device on the LAN. This is the simplest discovery mechanism — no multicast groups, no DNS-SD, no mDNS.
+
+**Protocol identifier for filtering.** The beacon includes `"game": "4AD"` so the listener can ignore UDP traffic from other applications on the same port. `is_valid()` checks this field along with basic sanity checks.
+
+**`DiscoveredGame` combines beacon + source address.** The beacon itself carries the TCP port but not the host's IP address (since the host might not know its own LAN IP reliably). We extract the IP from the UDP packet's source address and combine it with the beacon's port to form the TCP connection address.
+
+### Testing
+
+9 new tests:
+- Beacon JSON serialization and roundtrip
+- Validation checks (valid game, wrong game name, zero port, zero max players)
+- Garbage data returns None
+- Connect address construction from discovered game
+- UDP integration test: send and receive beacon through real sockets on localhost
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/network/discovery.rs` | **New.** `DiscoveryBeacon` struct, `DiscoveredGame`, `send_beacon()`, `run_beacon()`, `listen_for_beacons()`. 9 tests |
+| `src/network/mod.rs` | Added `pub mod discovery` |
+
+---
