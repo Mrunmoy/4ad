@@ -5,7 +5,7 @@ use ratatui::Frame;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use crate::game::character::CharacterClass;
 use crate::game::dice;
@@ -35,6 +35,25 @@ pub enum AppScreen {
     Dungeon,
 }
 
+/// Which overlay is currently displayed on top of the main screen.
+///
+/// ## Rust concept: Option-like enum for modal state
+///
+/// Overlays are drawn *on top of* the main screen. When `overlay` is
+/// `None`, the normal screen is interactive. When it's `Some(variant)`,
+/// the overlay captures all input (Esc or the toggle key dismisses it).
+///
+/// This is cleaner than adding boolean flags like `show_help` and
+/// `show_character_detail` — each new overlay is just a new variant.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Overlay {
+    /// Character detail popup — shows full stats for one character.
+    /// The usize is the index into the party members Vec.
+    CharacterDetail(usize),
+    /// Help screen — keybindings and rules quick reference.
+    Help,
+}
+
 /// The TUI application. Owns the game state and drives the render/event loop.
 ///
 /// ## Rust concept: ratatui's architecture
@@ -56,6 +75,8 @@ pub struct App {
     pub should_quit: bool,
     /// Message to show in the status area (last action result)
     pub status_message: String,
+    /// Currently visible overlay (None = no overlay).
+    pub overlay: Option<Overlay>,
 }
 
 impl App {
@@ -74,6 +95,7 @@ impl App {
             game: None,
             should_quit: false,
             status_message: String::new(),
+            overlay: None,
         }
     }
 
@@ -102,16 +124,27 @@ impl App {
         Ok(())
     }
 
-    /// Top-level draw — delegates to the current screen.
+    /// Top-level draw — delegates to the current screen, then draws overlay.
     fn draw(&self, frame: &mut Frame) {
         match self.screen {
             AppScreen::PartyCreation => self.draw_party_creation(frame),
             AppScreen::Dungeon => self.draw_dungeon(frame),
         }
+
+        // Draw overlay on top if one is active
+        if let Some(overlay) = &self.overlay {
+            self.draw_overlay(frame, overlay);
+        }
     }
 
-    /// Top-level key handler — delegates to the current screen.
+    /// Top-level key handler — overlay captures input when active.
     fn handle_key(&mut self, key: KeyCode) {
+        // If an overlay is active, it captures all input
+        if self.overlay.is_some() {
+            self.handle_key_overlay(key);
+            return;
+        }
+
         match self.screen {
             AppScreen::PartyCreation => self.handle_key_creation(key),
             AppScreen::Dungeon => self.handle_key_dungeon(key),
@@ -523,7 +556,7 @@ impl App {
             if !game.room_history.is_empty() {
                 lines.push(Line::from("  [b] Go back"));
             }
-            lines.push(Line::from("  [q] Quit"));
+            lines.push(Line::from("  [Tab] Party  [?] Help  [q] Quit"));
         }
 
         let controls =
@@ -536,6 +569,19 @@ impl App {
             Some(g) => g,
             None => return,
         };
+
+        // Tab and ? work in any game phase
+        match key {
+            KeyCode::Tab => {
+                self.overlay = Some(Overlay::CharacterDetail(0));
+                return;
+            }
+            KeyCode::Char('?') => {
+                self.overlay = Some(Overlay::Help);
+                return;
+            }
+            _ => {}
+        }
 
         match game.phase {
             GamePhase::GameOver => {
@@ -607,5 +653,259 @@ impl App {
                 _ => {}
             },
         }
+    }
+
+    // =========================================================================
+    // Overlays (character detail, help)
+    // =========================================================================
+
+    /// Compute a centered popup rectangle within `area`.
+    ///
+    /// ## Rust concept: pure helper functions
+    ///
+    /// This is a simple geometry calculation with no side effects.
+    /// `percent_x` and `percent_y` control what fraction of the screen
+    /// the popup occupies (e.g., 60% wide, 70% tall).
+    fn centered_popup(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+        let popup_width = area.width * percent_x / 100;
+        let popup_height = area.height * percent_y / 100;
+        let x = area.x + (area.width.saturating_sub(popup_width)) / 2;
+        let y = area.y + (area.height.saturating_sub(popup_height)) / 2;
+        Rect::new(x, y, popup_width, popup_height)
+    }
+
+    /// Draw the active overlay on top of the main screen.
+    fn draw_overlay(&self, frame: &mut Frame, overlay: &Overlay) {
+        match overlay {
+            Overlay::CharacterDetail(index) => self.draw_character_detail(frame, *index),
+            Overlay::Help => self.draw_help(frame),
+        }
+    }
+
+    /// Handle keyboard input when an overlay is active.
+    fn handle_key_overlay(&mut self, key: KeyCode) {
+        match self.overlay {
+            Some(Overlay::CharacterDetail(index)) => match key {
+                KeyCode::Esc => self.overlay = None,
+                KeyCode::Tab => {
+                    // Cycle to next character
+                    let party_size = self
+                        .game
+                        .as_ref()
+                        .map(|g| g.party.members.len())
+                        .unwrap_or(4);
+                    let next = (index + 1) % party_size;
+                    self.overlay = Some(Overlay::CharacterDetail(next));
+                }
+                KeyCode::BackTab => {
+                    // Cycle to previous character (Shift+Tab)
+                    let party_size = self
+                        .game
+                        .as_ref()
+                        .map(|g| g.party.members.len())
+                        .unwrap_or(4);
+                    let prev = if index == 0 { party_size - 1 } else { index - 1 };
+                    self.overlay = Some(Overlay::CharacterDetail(prev));
+                }
+                _ => {}
+            },
+            Some(Overlay::Help) => match key {
+                KeyCode::Esc | KeyCode::Char('?') => self.overlay = None,
+                _ => {}
+            },
+            None => {}
+        }
+    }
+
+    /// Draw the character detail popup.
+    ///
+    /// Shows full stats, equipment, spells for the selected character.
+    fn draw_character_detail(&self, frame: &mut Frame, index: usize) {
+        let game = match &self.game {
+            Some(g) => g,
+            None => return,
+        };
+
+        let member = match game.party.members.get(index) {
+            Some(m) => m,
+            None => return,
+        };
+
+        let popup = Self::centered_popup(frame.area(), 60, 70);
+        frame.render_widget(Clear, popup);
+
+        let title = format!(
+            " {} - {} L{} ({}/{}) ",
+            member.name, member.class, member.level, index + 1, game.party.members.len()
+        );
+        let block = Block::default()
+            .title(Span::styled(title, theme::bold(Theme::SELECTED)))
+            .borders(Borders::ALL)
+            .border_style(theme::fg(Theme::SELECTED));
+        let inner = block.inner(popup);
+        frame.render_widget(block, popup);
+
+        let mut lines: Vec<Line> = Vec::new();
+
+        // Health
+        let (hearts, health_color) = theme::health_bar(member.life, member.max_life);
+        lines.push(Line::from(vec![
+            Span::styled("  Health: ", theme::bold(Theme::TITLE)),
+            Span::styled(hearts, theme::fg(health_color)),
+            Span::styled(
+                format!(" ({}/{})", member.life, member.max_life),
+                theme::fg(health_color),
+            ),
+        ]));
+
+        // Combat stats
+        lines.push(Line::from(vec![
+            Span::styled("  Attack: ", theme::bold(Theme::TITLE)),
+            Span::styled(format!("+{}", member.attack_bonus()), theme::fg(Theme::HEALTH_HIGH)),
+            Span::styled("  Defense: ", theme::bold(Theme::TITLE)),
+            Span::styled(format!("+{}", member.defense_bonus()), theme::fg(Theme::SPELL)),
+        ]));
+
+        // Gold
+        lines.push(Line::from(vec![
+            Span::styled("  Gold: ", theme::bold(Theme::TITLE)),
+            Span::styled(format!("{} gp", member.gold), theme::fg(Theme::GOLD)),
+        ]));
+
+        lines.push(Line::from(""));
+
+        // Equipment
+        lines.push(Line::from(Span::styled(
+            "  Equipment:",
+            theme::bold(Theme::TITLE),
+        )));
+        if member.inventory.is_empty() {
+            lines.push(Line::from(Span::styled(
+                "    (none)",
+                theme::fg(Theme::MUTED),
+            )));
+        } else {
+            for item in &member.inventory {
+                lines.push(Line::from(format!("    {}", item)));
+            }
+        }
+
+        lines.push(Line::from(""));
+
+        // Spell book
+        if let Some(book) = &member.spell_book {
+            lines.push(Line::from(Span::styled(
+                format!("  Spells ({}/{} slots):", book.spell_count(), book.capacity()),
+                theme::bold(Theme::SPELL),
+            )));
+            if book.prepared_spells().is_empty() {
+                lines.push(Line::from(Span::styled(
+                    "    (no spells prepared)",
+                    theme::fg(Theme::MUTED),
+                )));
+            } else {
+                for spell in book.prepared_spells() {
+                    lines.push(Line::from(Span::styled(
+                        format!("    {}", spell),
+                        theme::fg(Theme::SPELL),
+                    )));
+                }
+            }
+            lines.push(Line::from(""));
+        }
+
+        // Cleric powers
+        if let Some(powers) = &member.cleric_powers {
+            lines.push(Line::from(Span::styled(
+                "  Divine Powers:",
+                theme::bold(Theme::SPELL),
+            )));
+            lines.push(Line::from(format!(
+                "    Blessing charges: {}",
+                powers.blessing_charges
+            )));
+            lines.push(Line::from(format!(
+                "    Healing charges: {}",
+                powers.healing_charges
+            )));
+            lines.push(Line::from(""));
+        }
+
+        // Status
+        if !member.is_alive() {
+            lines.push(Line::from(Span::styled(
+                "  STATUS: DEAD",
+                theme::bold(Theme::DAMAGE),
+            )));
+            lines.push(Line::from(""));
+        }
+
+        // Controls
+        lines.push(Line::from(Span::styled(
+            "  Tab: next  Shift+Tab: prev  Esc: close",
+            theme::fg(Theme::CONTROL_HINT),
+        )));
+
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    }
+
+    /// Draw the help overlay.
+    ///
+    /// Shows keybindings and a rules quick reference.
+    fn draw_help(&self, frame: &mut Frame) {
+        let popup = Self::centered_popup(frame.area(), 60, 80);
+        frame.render_widget(Clear, popup);
+
+        let block = Block::default()
+            .title(Span::styled(" Help ", theme::bold(Theme::SELECTED)))
+            .borders(Borders::ALL)
+            .border_style(theme::fg(Theme::SELECTED));
+        let inner = block.inner(popup);
+        frame.render_widget(block, popup);
+
+        let lines = vec![
+            Line::from(Span::styled(
+                "  Keybindings",
+                theme::bold(Theme::TITLE),
+            )),
+            Line::from(""),
+            Line::from("  [0-9]       Choose a door"),
+            Line::from("  [b]         Go back (retrace steps)"),
+            Line::from("  [SPACE]     Resolve combat"),
+            Line::from("  [Tab]       Character details (cycle with Tab)"),
+            Line::from("  [?]         This help screen"),
+            Line::from("  [q]         Quit game"),
+            Line::from("  [Esc]       Close overlay"),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Quick Rules Reference",
+                theme::bold(Theme::TITLE),
+            )),
+            Line::from(""),
+            Line::from("  Party of 4 characters explores a dungeon room by room."),
+            Line::from("  Each room may contain: monsters, treasure, traps,"),
+            Line::from("  special features, special events, or nothing."),
+            Line::from(""),
+            Line::from(Span::styled("  Combat:", theme::bold(Theme::DAMAGE))),
+            Line::from("  Attack: d6 + bonuses vs monster level"),
+            Line::from("  Defense: d6 + armor + shield vs monster level"),
+            Line::from("  Natural 6 always succeeds, natural 1 always fails"),
+            Line::from(""),
+            Line::from(Span::styled("  Classes:", theme::bold(Theme::CLASS_NAME))),
+            Line::from("  Warrior(ATK+1) Cleric(Heal/Bless) Rogue(DEF+lvl)"),
+            Line::from("  Wizard(Spells) Barbarian(HP+) Elf(Spell+Fight)"),
+            Line::from("  Dwarf(vs Troll/Giant) Halfling(Luck reroll)"),
+            Line::from(""),
+            Line::from(Span::styled("  Leveling:", theme::bold(Theme::HEALTH_HIGH))),
+            Line::from("  Beat a boss or survive 10 minion encounters = XP roll"),
+            Line::from("  Roll d6 > current level to gain a level (max 5)"),
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Press Esc or ? to close",
+                theme::fg(Theme::CONTROL_HINT),
+            )),
+        ];
+
+        frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
     }
 }

@@ -71,3 +71,56 @@ In C++ you'd return `std::pair` or use output parameters. Rust tuples are destru
 | `src/tui/mod.rs` | Added `pub mod theme` |
 
 ---
+
+## Step 2: Character Detail and Help Overlays
+
+**File:** `src/tui/app.rs`
+
+### What We're Building
+
+Two popup overlays rendered on top of the main dungeon screen:
+
+1. **Character Detail** (Tab key): Shows full stats for one party member — health bar, attack/defense bonuses, gold, equipment list, prepared spells, cleric powers, alive/dead status. Tab cycles through characters, Shift+Tab goes back, Esc closes.
+
+2. **Help Screen** (? key): Keybindings reference and a condensed rules summary covering combat, classes, and leveling. Esc or ? again closes it.
+
+### Concepts Introduced
+
+**Overlay enum with embedded state.** `Overlay::CharacterDetail(usize)` carries *which* character is being viewed directly in the enum variant:
+
+```rust
+pub enum Overlay {
+    CharacterDetail(usize),  // index into party members
+    Help,
+}
+```
+
+The `App` struct stores `overlay: Option<Overlay>`. When `None`, the main screen is interactive. When `Some(variant)`, the overlay captures all input. This is like a modal dialog — you must dismiss it before the main screen responds again.
+
+In C++ you'd typically use a combination of `std::optional<OverlayType>` + a separate `int selected_character` field. Rust's enum-with-data combines both into a single value.
+
+**Input capture with early return.** When an overlay is active, the key handler returns immediately after processing overlay-specific keys:
+
+```rust
+fn handle_key(&mut self, key: KeyCode) {
+    if self.overlay.is_some() {
+        self.handle_key_overlay(key);
+        return;  // overlay consumes the input
+    }
+    // ... normal screen handling
+}
+```
+
+This is simpler than nested `if/else` chains. The early return pattern is idiomatic in Rust — check preconditions, bail out early, keep the happy path un-indented.
+
+**`Clear` widget for popup backgrounds.** ratatui's `Clear` widget erases the buffer cells underneath, giving a clean background for the popup instead of seeing the main screen bleed through. This is the immediate-mode equivalent of "draw a blank rectangle before drawing the popup content."
+
+**Cycling with modular arithmetic.** Tab advances the character index with wraparound: `(index + 1) % party_size`. Shift+Tab goes backward: `if index == 0 { party_size - 1 } else { index - 1 }`. In Rust, unsigned subtraction would panic on underflow, so we guard against it explicitly.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/tui/app.rs` | Added `Overlay` enum, `overlay` field on `App`, `draw_overlay()`/`handle_key_overlay()`, `draw_character_detail()` with full stats/equipment/spells, `draw_help()` with keybindings and rules reference, `centered_popup()` helper. Tab/? keybindings in all game phases. Controls hint updated. |
+
+---
