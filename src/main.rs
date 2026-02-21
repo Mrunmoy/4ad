@@ -134,6 +134,7 @@ fn main() {
         if !game.room_history.is_empty() {
             println!("  [b] Go back");
         }
+        println!("  [m] Show map");
         println!("  [q] Quit");
 
         // `print!` without `ln` — no newline, so the cursor stays on the same line.
@@ -153,6 +154,12 @@ fn main() {
         if input == "q" || input == "Q" {
             println!("You flee the dungeon!");
             break;
+        }
+
+        if input == "m" || input == "M" {
+            println!();
+            println!("{}", game.dungeon.grid);
+            continue;
         }
 
         if input == "b" || input == "B" {
