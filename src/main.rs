@@ -13,23 +13,6 @@ use game::state::{GamePhase, GameState};
 use map::room::DoorSide;
 
 fn main() {
-    // Create the party and game state (shared by both modes)
-    let mut party = Party::new();
-    party.add_member(Character::new(
-        "Bruggo".to_string(),
-        CharacterClass::Warrior,
-    ));
-    party.add_member(Character::new("Aldric".to_string(), CharacterClass::Cleric));
-    party.add_member(Character::new("Slick".to_string(), CharacterClass::Rogue));
-    party.add_member(Character::new(
-        "Gandalf".to_string(),
-        CharacterClass::Wizard,
-    ));
-
-    let mut game = GameState::new(party, 28, 20);
-    let entrance_roll = dice::roll_d6();
-    game.start_dungeon(entrance_roll);
-
     // Check for --text flag to use the old stdin/stdout game loop.
     // std::env::args() returns an iterator over CLI arguments.
     // .any() checks if any element satisfies the predicate — like
@@ -37,15 +20,34 @@ fn main() {
     let use_text = std::env::args().any(|a| a == "--text");
 
     if use_text {
+        // Text mode uses a hardcoded party (for quick testing).
+        let mut party = Party::new();
+        party.add_member(Character::new(
+            "Bruggo".to_string(),
+            CharacterClass::Warrior,
+        ));
+        party.add_member(Character::new("Aldric".to_string(), CharacterClass::Cleric));
+        party.add_member(Character::new("Slick".to_string(), CharacterClass::Rogue));
+        party.add_member(Character::new(
+            "Gandalf".to_string(),
+            CharacterClass::Wizard,
+        ));
+
+        let mut game = GameState::new(party, 28, 20);
+        let entrance_roll = dice::roll_d6();
+        game.start_dungeon(entrance_roll);
         run_text_mode(&mut game);
     } else {
-        let mut app = tui::app::App::new(game);
+        // TUI mode starts with interactive party creation.
+        let mut app = tui::app::App::new();
         if let Err(e) = app.run() {
             eprintln!("TUI error: {}", e);
         }
         // Print final summary after TUI exits
         println!();
-        println!("Rooms explored: {}", app.game.rooms_explored);
+        if let Some(game) = &app.game {
+            println!("Rooms explored: {}", game.rooms_explored);
+        }
         println!("Thanks for playing!");
     }
 }

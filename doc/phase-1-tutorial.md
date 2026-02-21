@@ -1163,6 +1163,126 @@ let use_text = std::env::args().any(|a| a == "--text");
 
 ---
 
+## Step 20: Interactive Party Creation — Const Arrays, Copy, Option Fields, and Screen State Machines
+
+**Files:** `src/game/character.rs`, `src/game/party_creation.rs`, `src/tui/app.rs`, `src/main.rs`
+
+### Concepts Introduced
+
+**`const` arrays.** `CharacterClass::ALL` is a compile-time fixed-size array listing all 8 classes:
+
+```rust
+pub const ALL: [CharacterClass; 8] = [
+    CharacterClass::Warrior,
+    CharacterClass::Cleric,
+    // ...
+];
+```
+
+`const` means "evaluate at compile time" — like `constexpr` in C++. The type `[CharacterClass; 8]` is a fixed-size array: exactly 8 elements, size known at compile time. Unlike `Vec<T>` (heap-allocated, growable), arrays live on the stack and their size is part of the type — `[T; 3]` and `[T; 8]` are completely different types.
+
+**`#[derive(Copy)]` — trivially copyable types.** For the const array to work, `CharacterClass` needs `Copy`:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum CharacterClass { ... }
+```
+
+`Copy` is Rust's way of saying "this type is trivially copyable" — like POD types in C++. With `Copy`, assignment copies the value instead of moving it:
+
+```rust
+let a = CharacterClass::Warrior;
+let b = a;     // copy — both a and b are valid
+println!("{}", a);  // still works! (without Copy, `a` would be moved and unusable)
+```
+
+`Copy` is only for types with no heap allocation — enums without `String` fields, integers, booleans, etc. `String` can never be `Copy` because it owns heap memory.
+
+**`Option<T>` for deferred initialization.** The `App` struct stores `game: Option<GameState>` because the game doesn't exist until party creation finishes:
+
+```rust
+pub struct App {
+    pub game: Option<GameState>,
+    // ...
+}
+```
+
+Like `std::optional<T>` in C++17. We start with `None` and set it to `Some(game)` when the party is ready. Methods that need the game use `match` or `if let` to unwrap it safely:
+
+```rust
+let game = match &self.game {
+    Some(g) => g,
+    None => return,
+};
+```
+
+**Enum as screen state machine.** `AppScreen` controls which screen renders and handles input:
+
+```rust
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AppScreen {
+    PartyCreation,
+    Dungeon,
+}
+```
+
+The top-level `draw` and `handle_key` methods dispatch based on the current screen:
+
+```rust
+fn draw(&self, frame: &mut Frame) {
+    match self.screen {
+        AppScreen::PartyCreation => self.draw_party_creation(frame),
+        AppScreen::Dungeon => self.draw_dungeon(frame),
+    }
+}
+```
+
+Adding a new screen variant causes compile errors everywhere you forgot to handle it — the compiler enforces exhaustive matching.
+
+**Struct as state machine.** `PartyCreationState` models a multi-step workflow purely with data fields and simple methods. The `slot` field (0..4) tracks which character we're creating, and `CreationPhase` (enum) tracks whether we're picking a class or typing a name. No inheritance, no virtual dispatch — just data + match:
+
+```rust
+pub struct PartyCreationState {
+    pub slot: usize,
+    pub phase: CreationPhase,
+    pub class_index: usize,
+    pub name_input: String,
+    pub characters: Vec<Character>,
+}
+```
+
+This is testable without any TUI — all the logic lives in `src/game/party_creation.rs` (pure game logic), while the TUI in `src/tui/app.rs` just calls its methods and renders the result.
+
+**Modular wrapping arithmetic for navigation.** The class selection wraps around using modular arithmetic:
+
+```rust
+// Next: wraps 7 → 0
+self.class_index = (self.class_index + 1) % CharacterClass::ALL.len();
+
+// Prev: wraps 0 → 7 (can't use modular subtract on unsigned)
+if self.class_index == 0 {
+    self.class_index = CharacterClass::ALL.len() - 1;
+} else {
+    self.class_index -= 1;
+}
+```
+
+Note the asymmetry — going forward uses `%` (modulo), but going backward needs an explicit check because `0 - 1` on `usize` would underflow. In C++, unsigned underflow wraps to `UINT_MAX` silently. In Rust (debug mode), it panics — safety by default.
+
+### What We Implemented
+
+- `CharacterClass::ALL` — const array of all 8 classes, added `Copy` derive
+- `src/game/party_creation.rs` — `PartyCreationState` with `CreationPhase` enum, class navigation, name input, character building
+- `AppScreen` enum — `PartyCreation` and `Dungeon` screens
+- `App::new()` — starts on party creation screen with `game: None`
+- Party creation TUI — class selection list with HP preview, name input with cursor, roster showing created characters, context-sensitive controls
+- `App::start_game()` — builds party, creates `GameState`, transitions to dungeon
+- `main.rs` — TUI mode starts with interactive creation; `--text` mode keeps hardcoded party for quick testing
+
+**Tests added:** 32 (total: 221)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -1197,6 +1317,11 @@ let use_text = std::env::args().any(|a| a == "--text");
 | Hash map | `std::unordered_map` | `HashMap<K, V>` |
 | Absolute import | — | `crate::module::Type` |
 | Methods on enum | — (not possible) | `impl MyEnum { fn method(&self) {} }` |
+| Const array | `constexpr std::array` | `const ALL: [T; N] = [...]` |
+| Fixed-size array | `std::array<T, N>` | `[T; N]` (size is part of the type) |
+| Trivial copy | Trivially copyable POD | `#[derive(Copy)]` — assignment copies, not moves |
+| Deferred init | `std::optional<T>` | `Option<T>` field, start with `None` |
+| Screen state machine | `enum class` + switch | `enum AppScreen { A, B }` + `match` |
 | Safe subtraction | — (wraps silently) | `.checked_sub()` → `Option<usize>` |
 | Signed integer | `ssize_t` / `ptrdiff_t` | `isize` — pointer-width signed int |
 | Type casting | `static_cast<int>()` | `as isize`, `as usize` — explicit only |

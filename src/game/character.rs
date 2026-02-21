@@ -2,7 +2,7 @@ use std::fmt;
 
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CharacterClass {
     Warrior,
     Cleric,
@@ -15,6 +15,32 @@ pub enum CharacterClass {
 }
 
 impl CharacterClass {
+    /// All 8 character classes in rulebook order.
+    ///
+    /// ## Rust concept: const arrays
+    ///
+    /// `const` means this is evaluated at compile time — it's baked into the
+    /// binary, not computed at runtime. Like `constexpr` in C++.
+    ///
+    /// The type `[CharacterClass; 8]` is a fixed-size array — exactly 8 elements,
+    /// known at compile time. Unlike `Vec<T>` (heap-allocated, growable), arrays
+    /// live on the stack and their size is part of the type. `[T; 3]` and `[T; 8]`
+    /// are different types entirely.
+    ///
+    /// We need `#[derive(Copy, Clone)]` on CharacterClass for this to work —
+    /// const arrays require their elements to be `Copy` (trivially copyable,
+    /// like a C++ POD type).
+    pub const ALL: [CharacterClass; 8] = [
+        CharacterClass::Warrior,
+        CharacterClass::Cleric,
+        CharacterClass::Rogue,
+        CharacterClass::Wizard,
+        CharacterClass::Barbarian,
+        CharacterClass::Elf,
+        CharacterClass::Dwarf,
+        CharacterClass::Halfling,
+    ];
+
     pub fn base_life(&self) -> u8 {
         match self {
             CharacterClass::Warrior => 6,
@@ -326,6 +352,40 @@ mod tests {
         c.take_damage(3);
         let s = format!("{}", c);
         assert!(s.contains("4/7"), "Should show reduced HP after damage");
+    }
+
+    #[test]
+    fn all_contains_exactly_eight_classes() {
+        assert_eq!(CharacterClass::ALL.len(), 8);
+    }
+
+    #[test]
+    fn all_starts_with_warrior_ends_with_halfling() {
+        assert_eq!(CharacterClass::ALL[0], CharacterClass::Warrior);
+        assert_eq!(CharacterClass::ALL[7], CharacterClass::Halfling);
+    }
+
+    #[test]
+    fn all_contains_every_class() {
+        // Every class must appear exactly once
+        let all = CharacterClass::ALL;
+        assert!(all.contains(&CharacterClass::Warrior));
+        assert!(all.contains(&CharacterClass::Cleric));
+        assert!(all.contains(&CharacterClass::Rogue));
+        assert!(all.contains(&CharacterClass::Wizard));
+        assert!(all.contains(&CharacterClass::Barbarian));
+        assert!(all.contains(&CharacterClass::Elf));
+        assert!(all.contains(&CharacterClass::Dwarf));
+        assert!(all.contains(&CharacterClass::Halfling));
+    }
+
+    #[test]
+    fn character_class_is_copy() {
+        // Copy means assignment copies the value (no .clone() needed).
+        // Like trivially copyable types in C++.
+        let a = CharacterClass::Warrior;
+        let b = a; // copy, not move
+        assert_eq!(a, b); // `a` is still valid — wasn't moved
     }
 
     #[test]
