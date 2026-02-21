@@ -676,6 +676,65 @@ pub fn place_entrance(&mut self, roll: u8) -> Option<usize> {
 
 ---
 
+## Step 13: Door Navigation — `impl` on Enums and `checked_sub`
+
+**Files:** `src/map/room.rs` (extended), `src/map/dungeon.rs` (extended)
+
+### Concepts Introduced
+
+**`impl` on enums.** Just like structs, enums can have methods. `DoorSide` gains an `opposite()` method:
+
+```rust
+impl DoorSide {
+    pub fn opposite(&self) -> DoorSide {
+        match self {
+            DoorSide::North => DoorSide::South,
+            DoorSide::South => DoorSide::North,
+            DoorSide::East => DoorSide::West,
+            DoorSide::West => DoorSide::East,
+        }
+    }
+}
+```
+
+In C++, enums can't have methods. In Rust, `impl` works on any type you own — enums included. This keeps direction logic next to the direction type instead of scattered across free functions.
+
+**`.checked_sub()` — safe unsigned subtraction.** Unsigned integers can't go negative. In C++, `0u - 1` wraps to a huge number. In Rust, debug mode panics on underflow. `.checked_sub()` returns `Option<usize>` — `None` if the result would be negative:
+
+```rust
+let (er, ec) = match door.side {
+    DoorSide::North => (dr.checked_sub(1)?, dc),
+    DoorSide::South => (dr + 1, dc),
+    DoorSide::East  => (dr, dc + 1),
+    DoorSide::West  => (dr, dc.checked_sub(1)?),
+};
+```
+
+If `dr` is 0 and we go North, `checked_sub(1)` returns `None`, and `?` exits the function immediately with `None`. No underflow, no panic, no special case needed.
+
+**Chaining multiple `?` operators.** A single function can have many `?` exit points:
+
+```rust
+pub fn door_exit_pos(&self, room_id: usize, door_index: usize)
+    -> Option<(usize, usize, DoorSide)>
+{
+    let room = self.get_room(room_id)?;           // exits if room not found
+    let door = room.shape.doors.get(door_index)?;  // exits if door index invalid
+    let (dr, dc) = room.shape.door_grid_pos(...)?; // exits if position invalid
+    let (er, ec) = match door.side {
+        DoorSide::North => (dr.checked_sub(1)?, dc), // exits if underflow
+        // ...
+    };
+    // ...
+}
+```
+
+Each `?` is a potential early return. The function only reaches the end if *all* steps succeeded. This replaces deeply nested `if` checks — it reads top-to-bottom like a recipe.
+
+**Separating calculation from validation.** The first version mixed bounds checking into the `match` using match guards. The cleaner version splits into two steps: (1) calculate the exit position, (2) check if it's valid. Simpler code is easier to read and maintain.
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -709,6 +768,8 @@ pub fn place_entrance(&mut self, roll: u8) -> Option<usize> {
 | Expected panic test | `EXPECT_DEATH` | `#[should_panic]` |
 | Hash map | `std::unordered_map` | `HashMap<K, V>` |
 | Absolute import | — | `crate::module::Type` |
+| Methods on enum | — (not possible) | `impl MyEnum { fn method(&self) {} }` |
+| Safe subtraction | — (wraps silently) | `.checked_sub()` → `Option<usize>` |
 
 ## Common C++ Habits to Break
 
@@ -742,7 +803,7 @@ src/map/
   dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 118 tests across 11 modules, all passing.
+**Test count:** 127 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash

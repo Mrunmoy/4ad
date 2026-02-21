@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use super::grid::DungeonGrid;
-use super::room::{RoomShape, entrance_room};
+use super::room::{DoorSide, RoomShape, entrance_room};
 
 /// A room that has been placed on the dungeon grid.
 #[derive(Debug, Clone)]
@@ -54,6 +54,27 @@ impl Dungeon {
         self.next_id += 1;
         self.rooms.insert(id, PlacedRoom { id, row, col, shape });
         Some(id)
+    }
+
+    /// Get the grid cell just outside a door (one step through it).
+    /// Returns (row, col, door_side) or None if it would leave the grid.
+    pub fn door_exit_pos(&self, room_id: usize, door_index: usize) -> Option<(usize, usize, DoorSide)> {
+        let room = self.get_room(room_id)?;
+        let door = room.shape.doors.get(door_index)?;
+        let (dr, dc) = room.shape.door_grid_pos(door_index, room.row, room.col)?;
+
+        let (er, ec) = match door.side {
+            DoorSide::North => (dr.checked_sub(1)?, dc),
+            DoorSide::South => (dr + 1, dc),
+            DoorSide::East  => (dr, dc + 1),
+            DoorSide::West  => (dr, dc.checked_sub(1)?),
+        };
+
+        if self.grid.in_bounds(er, ec) {
+            Some((er, ec, door.side))
+        } else {
+            None
+        }
     }
 
     /// Place the entrance room at the bottom-center of the grid.
@@ -172,6 +193,49 @@ mod tests {
     fn get_room_returns_none_for_missing_id() {
         let dungeon = Dungeon::new(20, 20);
         assert!(dungeon.get_room(99).is_none());
+    }
+
+    // --- Door exit position ---
+
+    #[test]
+    fn door_exit_north() {
+        let mut dungeon = Dungeon::new(20, 20);
+        dungeon.place_room(5, 5, test_room());
+        // Door 0: North at offset 2 → door at (5, 7). Exit one step north → (4, 7)
+        assert_eq!(dungeon.door_exit_pos(0, 0), Some((4, 7, DoorSide::North)));
+    }
+
+    #[test]
+    fn door_exit_south() {
+        let mut dungeon = Dungeon::new(20, 20);
+        dungeon.place_room(5, 5, test_room());
+        // Door 1: South at offset 1 → door at (7, 6). Exit one step south → (8, 6)
+        assert_eq!(dungeon.door_exit_pos(0, 1), Some((8, 6, DoorSide::South)));
+    }
+
+    #[test]
+    fn door_exit_none_for_invalid_room() {
+        let dungeon = Dungeon::new(20, 20);
+        assert_eq!(dungeon.door_exit_pos(99, 0), None);
+    }
+
+    #[test]
+    fn door_exit_none_for_invalid_door() {
+        let mut dungeon = Dungeon::new(20, 20);
+        dungeon.place_room(5, 5, test_room());
+        assert_eq!(dungeon.door_exit_pos(0, 99), None);
+    }
+
+    #[test]
+    fn door_exit_none_at_grid_edge() {
+        // Room at row 0 with a north door — exit would be row -1
+        let mut dungeon = Dungeon::new(20, 20);
+        let edge_room = RoomShape {
+            width: 4, height: 3,
+            doors: vec![DoorPosition { side: DoorSide::North, offset: 1 }],
+        };
+        dungeon.place_room(0, 0, edge_room);
+        assert_eq!(dungeon.door_exit_pos(0, 0), None);
     }
 
     // --- Entrance room ---

@@ -7,6 +7,18 @@ pub enum DoorSide {
     West,
 }
 
+impl DoorSide {
+    /// Return the opposite direction.
+    pub fn opposite(&self) -> DoorSide {
+        match self {
+            DoorSide::North => DoorSide::South,
+            DoorSide::South => DoorSide::North,
+            DoorSide::East => DoorSide::West,
+            DoorSide::West => DoorSide::East,
+        }
+    }
+}
+
 /// A door's position relative to a room shape.
 /// `offset` is the distance along the wall from the top-left corner:
 ///   North/South: offset from the left edge
@@ -187,6 +199,28 @@ mod tests {
             doors: vec![],
         };
         assert_eq!(room.door_grid_pos(0, 0, 0), None);
+    }
+
+    // --- DoorSide::opposite ---
+
+    #[test]
+    fn opposite_of_north_is_south() {
+        assert_eq!(DoorSide::North.opposite(), DoorSide::South);
+    }
+
+    #[test]
+    fn opposite_of_south_is_north() {
+        assert_eq!(DoorSide::South.opposite(), DoorSide::North);
+    }
+
+    #[test]
+    fn opposite_of_east_is_west() {
+        assert_eq!(DoorSide::East.opposite(), DoorSide::West);
+    }
+
+    #[test]
+    fn opposite_of_west_is_east() {
+        assert_eq!(DoorSide::West.opposite(), DoorSide::East);
     }
 
     // --- Entrance rooms ---
