@@ -73,3 +73,36 @@ The `#[serde(with = "...")]` attribute tells serde to use custom `serialize` and
 | `src/main.rs` | Added `mod network` |
 
 ---
+
+## Step 2: CLI Argument Parsing with clap
+
+**File:** `src/main.rs`
+
+### What We're Building
+
+Proper CLI argument parsing using clap's derive macro, replacing the manual `std::env::args()` check. The game now supports three modes:
+
+- `4ad` — Solo TUI mode (default, interactive party creation)
+- `4ad --text` — Text mode (stdin/stdout, hardcoded party)
+- `4ad --host [PORT]` — Host a multiplayer game (default port 7777)
+- `4ad --join IP:PORT` — Join a hosted game
+
+### Concepts Introduced
+
+**`#[derive(Parser)]` — declarative CLI parsing.** Clap generates a full argument parser from a struct definition. Each field becomes a CLI flag or option. Doc comments (`///`) become the help text shown by `--help`. This is the same derive macro pattern as serde — struct definition IS the specification.
+
+In C++ you'd use `getopt_long`, Boost.ProgramOptions, or a hand-rolled parser with `argc`/`argv`. Clap eliminates that boilerplate entirely.
+
+**`#[arg(long)]` vs `#[arg(short)]`.** `long` creates a `--flag`, `short` creates a `-f`. We use `long` for all our flags since they're infrequent (game startup, not per-frame).
+
+**`num_args = 0..=1` for optional values.** The `--host` flag can be used with or without a port number: `--host` uses the default (7777), `--host 9999` uses the specified port. The `default_missing_value` attribute provides the default when the flag is present but has no value.
+
+**`Option<T>` for truly optional arguments.** `--join` uses `Option<String>` — when not provided, it's `None`. When provided, it's `Some("ip:port")`. This maps perfectly to Rust's type system: the compiler forces you to handle both cases.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/main.rs` | Replaced `std::env::args().any()` with clap `Cli` struct. Added `--host` and `--join` stubs. Three-way dispatch: join > host > text/tui. |
+
+---

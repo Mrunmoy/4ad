@@ -3,9 +3,9 @@ mod map;
 mod network;
 mod tui;
 
-// Pull in the types we need from our modules.
-// In C++: #include "game/character.h", etc.
 use std::io::{self, Write};
+
+use clap::Parser;
 
 use game::character::{Character, CharacterClass};
 use game::dice;
@@ -13,14 +13,61 @@ use game::party::Party;
 use game::state::{GamePhase, GameState};
 use map::room::DoorSide;
 
-fn main() {
-    // Check for --text flag to use the old stdin/stdout game loop.
-    // std::env::args() returns an iterator over CLI arguments.
-    // .any() checks if any element satisfies the predicate — like
-    // std::any_of in C++. We use |a| (a closure) to test each arg.
-    let use_text = std::env::args().any(|a| a == "--text");
+// ## Rust concept: `clap` derive macro
+//
+// `clap` is a CLI argument parser. The `#[derive(Parser)]` macro generates
+// argument parsing code from your struct definition — similar to how serde
+// derives generate serialization code. Each field becomes a CLI flag/option.
+//
+// In C++ you'd use getopt, Boost.ProgramOptions, or a hand-rolled parser.
+// Clap handles help text, validation, default values, and subcommands
+// automatically from the struct definition.
+//
+// ## Rust concept: `#[command]` and `#[arg]` attributes
+//
+// These are proc macro helper attributes:
+// - `#[command(name = "4ad")]` sets the binary name shown in --help
+// - `#[arg(long)]` makes a field a `--flag` (long option)
+// - `value_name` controls the placeholder in help text
+//
+// The `Option<String>` type for `--join` means it's optional — if not
+// provided, `cli.join` is `None`. This is idiomatic Rust: use the type
+// system to express optionality instead of sentinel values like "" or -1.
+#[derive(Parser)]
+#[command(name = "4ad", about = "Four Against Darkness -- solo dungeon crawler")]
+struct Cli {
+    /// Run in text mode (stdin/stdout) instead of the TUI.
+    #[arg(long)]
+    text: bool,
 
-    if use_text {
+    /// Host a multiplayer game. Optionally specify port (default: 7777).
+    #[arg(long, value_name = "PORT", num_args = 0..=1, default_missing_value = "7777")]
+    host: Option<u16>,
+
+    /// Join a multiplayer game at the given address.
+    #[arg(long, value_name = "IP:PORT")]
+    join: Option<String>,
+}
+
+fn main() {
+    let cli = Cli::parse();
+
+    if cli.join.is_some() {
+        let addr = cli.join.as_deref().unwrap();
+        println!("Joining game at {}... (not yet implemented)", addr);
+        return;
+    }
+
+    if cli.host.is_some() {
+        let port = cli.host.unwrap();
+        println!(
+            "Hosting game on port {}... (not yet implemented)",
+            port
+        );
+        return;
+    }
+
+    if cli.text {
         // Text mode uses a hardcoded party (for quick testing).
         let mut party = Party::new();
         party.add_member(Character::new(
