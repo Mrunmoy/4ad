@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Special features found in dungeon rooms (d6 table, p.32).
 ///
 /// When the room contents roll (2d6) gives a 5, the party encounters
@@ -8,7 +10,7 @@ use std::fmt;
 /// Unlike monsters or treasure, special features are interactive —
 /// they may require player choices (touch the statue? try the puzzle?)
 /// and have lasting effects (curses, blessings, equipment changes).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SpecialFeature {
     /// All wounded characters recover 1 Life. Only works the first
     /// time the party encounters a fountain in this adventure.
@@ -89,7 +91,7 @@ impl fmt::Display for SpecialFeature {
 ///
 /// This is a separate type because the statue outcome determines
 /// completely different game flow (combat vs treasure).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum StatueResult {
     /// d6 1-3: The statue awakens! Level 4 boss, 6 HP, immune to spells.
     /// If defeated: 3d6 x 10 gold.

@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use super::character::CharacterClass;
 
 /// Whether a weapon deals crushing or slashing damage.
@@ -12,7 +14,7 @@ use super::character::CharacterClass;
 /// The rulebook (p.18) says some monsters are hit at +1 by the right damage
 /// type and -1 by the wrong type. Skeletons are fragile (crushing is better),
 /// while other monsters may be vulnerable to slashing.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DamageType {
     Crushing,
     Slashing,
@@ -37,7 +39,7 @@ pub enum DamageType {
 /// - TwoHandedWeapon: pike, maul — 15 gp, +1 attack, can't use shield/lantern
 /// - Bow: 15 gp, fires before monsters act (first round), -1 after; slashing
 /// - Sling: 4 gp, like bow but -1 attack; crushing
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Weapon {
     HandWeapon(DamageType),
     LightHandWeapon(DamageType),
@@ -55,7 +57,7 @@ pub enum Weapon {
 ///   Negative modifier on Save rolls.
 /// - Shield: +1 defense, 5 gp. Doesn't apply when fleeing or surprised.
 ///   Can't use with two-handed weapons or bow.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Armor {
     LightArmor,
     HeavyArmor,
@@ -71,7 +73,7 @@ pub enum Armor {
 /// In C++ you'd use `std::variant<Weapon, Armor, ...>` or an inheritance
 /// hierarchy with virtual methods. Rust enums are simpler and checked at
 /// compile time.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Item {
     Weapon(Weapon),
     Armor(Armor),

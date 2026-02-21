@@ -1,11 +1,13 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Quest types from the Quest table (d6, p.39).
 ///
 /// Quests are offered by the Lady in White (Special Events roll 3)
 /// or by monsters with the Quest reaction. If the party accepts a
 /// quest and completes it, they roll on the Epic Rewards table.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Quest {
     /// "Bring me his head!" — Kill a specific boss monster and bring
     /// its head back to the quest giver's room.
@@ -78,7 +80,7 @@ impl fmt::Display for Quest {
 ///
 /// Each epic reward can only happen ONCE per campaign.
 /// If rolled again, reroll until a new reward is selected.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum EpicReward {
     /// The Book of Skalitos — 6 scroll spells (one of each).
     /// Can be used as individual scrolls or kept as one item.

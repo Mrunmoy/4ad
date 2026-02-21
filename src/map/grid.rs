@@ -1,8 +1,10 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// A single tile on the dungeon grid.
 /// Derives Copy — this type is small enough to be copied by value (no .clone() needed).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Tile {
     Unexplored,
     Floor,
@@ -11,6 +13,7 @@ pub enum Tile {
 }
 
 /// A 2D grid of tiles representing the dungeon map.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DungeonGrid {
     pub width: usize,
     pub height: usize,

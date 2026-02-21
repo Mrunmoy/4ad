@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Wandering monster rules (pp.41, 54, 57).
 ///
 /// When the party retraces steps through already-visited rooms or
@@ -34,7 +36,7 @@ pub fn wandering_monsters_appear(d6_roll: u8, trigger_threshold: u8) -> bool {
 }
 
 /// The type of wandering monster encountered, based on a d6 roll.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WanderingMonsterType {
     /// d6 1-2: Roll on the vermin table.
     Vermin,

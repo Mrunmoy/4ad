@@ -1,15 +1,17 @@
+use serde::{Deserialize, Serialize};
+
 use super::character::Character;
 use super::monster::Monster;
 
 /// Result of a character attacking a monster group.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum AttackResult {
     Hit { kills: u8 },
     Miss,
 }
 
 /// Result of a character defending against a monster attack.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DefenseResult {
     Blocked,
     Wounded { damage: u8 },

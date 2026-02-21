@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Running away from combat (p.55).
 ///
 /// When combat is going badly, the party has two options:
@@ -15,7 +17,7 @@ use std::fmt;
 /// - If fewer monsters than characters, attacks target lowest-life characters first
 /// - If a character dies while fleeing, their equipment stays in the room
 /// - Fleeing monsters (from morale) let each character attack at +1
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FleeType {
     /// Orderly retreat through a door. +1 Defense, monsters stay behind.
     Withdrawal,
@@ -111,7 +113,7 @@ pub const ATTACK_BONUS_VS_FLEEING: i8 = 1;
 pub const EQUIPMENT_STAYS_ON_DEATH_DURING_FLIGHT: bool = true;
 
 /// Combat end condition: the party broke off from combat.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CombatEndReason {
     /// All monsters defeated.
     MonstersDefeated,

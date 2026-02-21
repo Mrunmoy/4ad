@@ -1,10 +1,12 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Special events encountered in dungeon rooms (d6 table, p.33).
 ///
 /// When the room contents roll (2d6) gives a 4 (in a room, not corridor),
 /// roll d6 on this table to determine the special event.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SpecialEvent {
     /// All characters must save versus level 4 fear or lose 1 Life.
     /// A cleric adds his level to this roll.

@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 /// Monster categories from the rulebook.
 /// Vermin are weak (level 1), minions are common foes,
 /// bosses are powerful, and weird monsters have special rules.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MonsterCategory {
     Vermin,
     Minion,
@@ -21,7 +23,7 @@ pub enum MonsterCategory {
 ///
 /// For minions/vermin, `life_points` is 0 (use `count` instead),
 /// `attacks_per_turn` defaults to `count`, and `treasure_modifier` is 0.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Monster {
     pub name: String,
     pub level: u8,

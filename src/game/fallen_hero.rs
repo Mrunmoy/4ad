@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Rules for fallen heroes (pp.44-45).
 ///
 /// When a character loses their last life point, they die.
@@ -17,7 +19,7 @@ use std::fmt;
 /// 2 characters to carry and increase wandering monster chance.
 
 /// Status of a fallen character.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FallenStatus {
     /// Character died (0 life points).
     Dead,
@@ -35,7 +37,7 @@ impl fmt::Display for FallenStatus {
 }
 
 /// What the party decides to do with a fallen comrade's body.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum BodyDecision {
     /// Carry the body out of the dungeon.
     Carry,

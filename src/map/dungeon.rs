@@ -1,9 +1,12 @@
-use super::grid::DungeonGrid;
-use super::room::{DoorSide, RoomShape, d66_room, entrance_room};
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
+use super::grid::DungeonGrid;
+use super::room::{DoorSide, RoomShape, d66_room, entrance_room};
+
 /// A room that has been placed on the dungeon grid.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlacedRoom {
     pub id: usize,
     pub row: usize,
@@ -12,6 +15,7 @@ pub struct PlacedRoom {
 }
 
 /// Manages the dungeon layout: grid + placed rooms.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dungeon {
     pub grid: DungeonGrid,
     rooms: HashMap<usize, PlacedRoom>,

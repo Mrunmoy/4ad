@@ -1,5 +1,6 @@
 mod game;
 mod map;
+mod network;
 mod tui;
 
 // Pull in the types we need from our modules.

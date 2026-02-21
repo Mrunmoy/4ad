@@ -1,12 +1,15 @@
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
 use super::character::Character;
 use super::combat::{AttackResult, DefenseResult, resolve_attack, resolve_defense};
 use super::dice::roll_d6;
 use super::monster::Monster;
 use super::party::Party;
-use std::fmt;
 
 /// The outcome of a full combat encounter between the party and a monster group.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum EncounterOutcome {
     /// Party won — all monsters defeated
     Victory,
@@ -15,7 +18,7 @@ pub enum EncounterOutcome {
 }
 
 /// A log entry recording what happened during one action in combat.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CombatEvent {
     Attack { character: String, kills: u8 },
     AttackMiss { character: String },

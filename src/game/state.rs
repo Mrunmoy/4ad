@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
 use super::dice;
 use super::encounter::{CombatEvent, EncounterOutcome, run_encounter};
 use super::monster::Monster;
@@ -5,10 +9,9 @@ use super::party::Party;
 use super::tables::{RoomContents, roll_room_contents};
 use crate::map::dungeon::Dungeon;
 use crate::map::room::fallback_room;
-use std::collections::HashMap;
 
 /// The current phase of the game.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum GamePhase {
     /// Party is exploring — no active encounter
     Exploring,
@@ -19,6 +22,7 @@ pub enum GamePhase {
 }
 
 /// Tracks the full state of a dungeon run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GameState {
     pub party: Party,
     pub dungeon: Dungeon,
@@ -36,7 +40,58 @@ pub struct GameState {
     /// Key: (room_id, door_index), Value: connected room ID.
     /// When a door has been used to generate a room, going through it
     /// again should revisit that room instead of trying to generate a new one.
+    ///
+    /// Uses a custom serde module because JSON keys must be strings,
+    /// but our keys are `(usize, usize)` tuples. The helper serializes
+    /// the map as a list of `[room_id, door_index, target_room]` triples.
+    #[serde(with = "door_connections_serde")]
     pub door_connections: HashMap<(usize, usize), usize>,
+}
+
+/// Custom serde module for `HashMap<(usize, usize), usize>`.
+///
+/// JSON object keys must be strings, so we can't directly serialize a
+/// HashMap with tuple keys. Instead, we convert to/from a Vec of triples:
+/// `[[room_id, door_index, target_room], ...]`
+///
+/// ## Rust concept: serde `with` modules
+///
+/// When a field's type doesn't serialize the way you need, serde lets you
+/// provide a custom module with `serialize` and `deserialize` functions.
+/// The `#[serde(with = "module_name")]` attribute tells the derive macro
+/// to call your functions instead of the default ones. This is similar to
+/// providing a custom `operator<<`/`operator>>` in C++ — but checked at
+/// compile time.
+mod door_connections_serde {
+    use super::*;
+    use serde::ser::SerializeSeq;
+
+    pub fn serialize<S>(
+        map: &HashMap<(usize, usize), usize>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(map.len()))?;
+        for (&(room_id, door_index), &target_room) in map {
+            seq.serialize_element(&(room_id, door_index, target_room))?;
+        }
+        seq.end()
+    }
+
+    pub fn deserialize<'de, D>(
+        deserializer: D,
+    ) -> Result<HashMap<(usize, usize), usize>, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let triples: Vec<(usize, usize, usize)> = Deserialize::deserialize(deserializer)?;
+        Ok(triples
+            .into_iter()
+            .map(|(room_id, door_index, target_room)| ((room_id, door_index), target_room))
+            .collect())
+    }
 }
 
 impl GameState {
@@ -639,5 +694,48 @@ mod tests {
         state.go_back();
         assert_eq!(state.current_room, 0);
         assert!(state.room_history.is_empty());
+    }
+
+    // --- Serde roundtrip tests ---
+
+    #[test]
+    fn game_state_serializes_to_json() {
+        let state = make_game();
+        let json = serde_json::to_string(&state);
+        assert!(json.is_ok(), "GameState should serialize to JSON");
+    }
+
+    #[test]
+    fn game_state_roundtrips_through_json() {
+        let state = make_game();
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: GameState = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.phase, state.phase);
+        assert_eq!(restored.rooms_explored, state.rooms_explored);
+        assert_eq!(restored.boss_count, state.boss_count);
+        assert_eq!(restored.party.size(), state.party.size());
+    }
+
+    #[test]
+    fn game_state_with_door_connections_roundtrips() {
+        let mut state = make_game_with_entrance();
+        state.enter_room(0, 44, 9); // creates a door connection
+        assert!(!state.door_connections.is_empty());
+
+        let json = serde_json::to_string(&state).unwrap();
+        let restored: GameState = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.door_connections.len(), state.door_connections.len());
+        assert_eq!(
+            restored.door_connections.get(&(0, 0)),
+            state.door_connections.get(&(0, 0))
+        );
+    }
+
+    #[test]
+    fn game_phase_enum_serializes_as_string() {
+        let phase = GamePhase::InCombat;
+        let json = serde_json::to_string(&phase).unwrap();
+        // Serde's default enum serialization uses the variant name as a string
+        assert!(json.contains("InCombat"));
     }
 }

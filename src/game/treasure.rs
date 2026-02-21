@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use super::dice;
 use super::equipment::{DamageType, Weapon};
 use super::spell::Spell;
@@ -12,7 +14,7 @@ use super::spell::Spell;
 /// `Scroll` wraps a `Spell`, `MagicItem` wraps a `MagicItem` enum.
 /// In C++ you'd need `std::variant` or a tagged union. In Rust, this
 /// is the natural way enums work — each arm can carry its own payload.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TreasureResult {
     Nothing,
     Gold(u16),
@@ -42,7 +44,7 @@ impl fmt::Display for TreasureResult {
 /// Some items have charges (consumed on use), others are permanent.
 /// The `starting_charges()` method tells you how many uses a fresh
 /// item has — 0 means it's permanent (like a Magic Weapon).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MagicItem {
     /// Cast Sleep spell 3 times. Wizards and elves only. Add caster level.
     WandOfSleep,

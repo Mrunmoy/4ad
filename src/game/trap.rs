@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Trap types from the Traps table (d6, p.62).
 ///
 /// Traps are encountered via Room Contents roll 3 ("treasure protected
@@ -9,7 +11,7 @@ use std::fmt;
 /// Each trap has a level used for:
 /// - Rogue disarm checks (d6 + rogue_level vs trap_level)
 /// - Some save/defense rolls against the trap
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Trap {
     /// Level 2. A dart attacks a random character.
     /// The character must make a Defense roll vs level 2 or lose 1 life.
@@ -125,7 +127,7 @@ impl fmt::Display for Trap {
 }
 
 /// Who a trap targets based on its type.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TrapTarget {
     /// One random party member (Dart).
     RandomOne,

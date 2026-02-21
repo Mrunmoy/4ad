@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// What a monster group does when the party encounters them.
 ///
 /// ## Rust concept: enums with data as a decision tree
@@ -17,7 +19,7 @@ use std::fmt;
 /// When encountering monsters, the party can attack immediately or let
 /// the monsters act first. If they let the monsters act, roll d6 on the
 /// monster's reaction table to determine behavior.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum MonsterReaction {
     /// Monster flees. Disappears from the game. You get their treasure.
     Flee,
@@ -104,7 +106,7 @@ impl fmt::Display for MonsterReaction {
 /// In C++ you'd use a `std::array<Reaction, 6>` with a typedef.
 /// The Rust newtype is stronger: it's a distinct type that the compiler
 /// won't let you accidentally interchange with other arrays.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReactionTable([MonsterReaction; 6]);
 
 impl ReactionTable {

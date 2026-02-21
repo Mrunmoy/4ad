@@ -1,5 +1,7 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use super::character::CharacterClass;
 
 /// The six basic spells in Four Against Darkness (rulebook pp. 49-50).
@@ -10,7 +12,7 @@ use super::character::CharacterClass;
 /// tag with no heap-allocated data. This means you can pass spells around
 /// by value without worrying about moves. In C++ terms, it's trivially
 /// copyable — no destructor, no pointers, just a discriminant byte.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum Spell {
     Blessing,
     Fireball,
@@ -187,7 +189,7 @@ pub fn sleep_targets(d6_roll: u8, caster_level: u8) -> u8 {
 /// In C++ you might use `std::vector<Spell>` the same way, or
 /// `std::multiset` if you wanted sorted order. Rust's `Vec` is the
 /// standard growable array, equivalent to `std::vector`.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpellBook {
     prepared: Vec<Spell>,
     capacity: u8,
@@ -297,7 +299,7 @@ impl fmt::Display for SpellBook {
 /// Healing is a class power, not a spell — the cleric can heal himself
 /// or a friend at any time, even during combat, but cannot attack on
 /// the same turn he heals (p.9).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClericPowers {
     pub blessing_charges: u8,
     pub healing_charges: u8,

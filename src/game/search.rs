@@ -1,11 +1,13 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Results from searching an empty room (d6 table, p.56).
 ///
 /// When a room or corridor is empty, the party may search it.
 /// Each room can be searched only once. Halflings may use a Luck
 /// point to reroll. Searching in corridors has a -1 penalty.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum SearchResult {
     /// d6 = 1: Wandering monsters attack!
     WanderingMonsters,
@@ -39,7 +41,7 @@ impl fmt::Display for SearchResult {
 }
 
 /// What the player chooses when they get a Discovery result.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DiscoveryChoice {
     /// A clue for the character who found it. Three clues = a major
     /// secret and an XP roll (p.58).
@@ -63,7 +65,7 @@ impl fmt::Display for DiscoveryChoice {
 }
 
 /// Hidden Treasure Complication table (d6, p.58).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum TreasureComplication {
     /// 1-2: Alarm goes off, attracting wandering monsters.
     Alarm,

@@ -1,7 +1,9 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 /// Which wall of a room a door is on.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum DoorSide {
     North,
     South,
@@ -39,7 +41,7 @@ impl fmt::Display for DoorSide {
 /// `offset` is the distance along the wall from the top-left corner:
 ///   North/South: offset from the left edge
 ///   East/West: offset from the top edge
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DoorPosition {
     pub side: DoorSide,
     pub offset: usize,
@@ -47,7 +49,7 @@ pub struct DoorPosition {
 
 /// A rectangular room shape with door positions.
 /// Complex shapes (L, T, U) will be added in Phase 2.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RoomShape {
     pub width: usize,
     pub height: usize,

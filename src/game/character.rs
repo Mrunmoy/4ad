@@ -1,11 +1,13 @@
 use std::fmt;
 
+use serde::{Deserialize, Serialize};
+
 use super::equipment::{self, Armor, Item, Weapon};
 use super::spell::{self, ClericPowers, SpellBook};
 
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CharacterClass {
     Warrior,
     Cleric,
@@ -133,7 +135,7 @@ impl fmt::Display for Character {
 /// for casters or `None` for non-casters. This is Rust's alternative to
 /// nullable pointers in C++, but it's checked at compile time: you must
 /// handle both `Some` and `None` cases, which prevents null dereference bugs.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Character {
     pub name: String,
     pub class: CharacterClass,

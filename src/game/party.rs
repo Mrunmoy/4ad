@@ -1,6 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use super::character::{Character, CharacterClass};
 
 /// A party of up to 4 adventurers delving into the dungeon.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Party {
     pub members: Vec<Character>,
 }

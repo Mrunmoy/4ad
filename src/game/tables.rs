@@ -1,6 +1,9 @@
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
+
 use super::dice::*;
 use super::monster::{Monster, MonsterCategory};
-use std::fmt;
 
 /// What the party finds when entering a room or corridor.
 /// From the rulebook p.31 - Room Contents Table (2d6).
@@ -11,7 +14,7 @@ use std::fmt;
 ///
 /// Some variants carry a Monster (the encounter to fight),
 /// some carry nothing (Empty), and some we'll flesh out in Phase 2.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum RoomContents {
     /// Roll 2: Treasure found! (TODO: roll on Treasure table in Phase 2)
     Treasure,

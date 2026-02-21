@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::character::{Character, CharacterClass};
 use super::party::Party;
 
@@ -17,6 +19,7 @@ use super::party::Party;
 /// In C++, you might use a state machine with virtual methods or a switch/case
 /// on an enum. In Rust, we keep it simpler: the `slot` field (0..4) IS the state,
 /// and `phase` tracks whether we're picking a class or typing a name.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PartyCreationState {
     /// Which character slot we're filling (0..4).
     /// When slot == 4, party creation is complete.
@@ -38,7 +41,7 @@ pub struct PartyCreationState {
 /// This is a "fieldless" enum — no data attached, just two states.
 /// Like a C++ `enum class` with two values. Combined with `match`,
 /// it drives branching logic with compiler-checked exhaustiveness.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum CreationPhase {
     /// Player is choosing a class from the list.
     ChoosingClass,
