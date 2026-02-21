@@ -124,3 +124,35 @@ This is simpler than nested `if/else` chains. The early return pattern is idioma
 | `src/tui/app.rs` | Added `Overlay` enum, `overlay` field on `App`, `draw_overlay()`/`handle_key_overlay()`, `draw_character_detail()` with full stats/equipment/spells, `draw_help()` with keybindings and rules reference, `centered_popup()` helper. Tab/? keybindings in all game phases. Controls hint updated. |
 
 ---
+
+## Step 3: Terminal Resize Handling
+
+**File:** `src/tui/app.rs`
+
+### What We're Building
+
+Graceful handling when the terminal window is too small (minimum 80x24). Instead of rendering a broken layout or panicking on arithmetic underflow, the app shows a clear warning message with the current and required dimensions.
+
+### Concepts Introduced
+
+**Associated constants on impl blocks.** `MIN_WIDTH` and `MIN_HEIGHT` are defined as associated constants directly on the `App` impl:
+
+```rust
+impl App {
+    const MIN_WIDTH: u16 = 80;
+    const MIN_HEIGHT: u16 = 24;
+    // ...
+}
+```
+
+Unlike the `Theme` struct (which uses a zero-size type as a namespace), these constants live directly on `App` because they're specific to the app's layout requirements. Access them as `Self::MIN_WIDTH` inside the impl block.
+
+**Per-frame size check with early return.** The `draw()` method checks terminal dimensions every frame and returns early if too small. Since ratatui redraws completely each frame (immediate mode), there's no "resize event" to handle — the check naturally runs on every frame, and the UI switches back to normal the moment the terminal is large enough.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/tui/app.rs` | Added `MIN_WIDTH`/`MIN_HEIGHT` constants, `draw_size_warning()`, early-return size check in `draw()` |
+
+---

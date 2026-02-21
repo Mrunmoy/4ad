@@ -124,8 +124,28 @@ impl App {
         Ok(())
     }
 
+    /// Minimum terminal width for a usable layout.
+    const MIN_WIDTH: u16 = 80;
+    /// Minimum terminal height for a usable layout.
+    const MIN_HEIGHT: u16 = 24;
+
     /// Top-level draw — delegates to the current screen, then draws overlay.
+    ///
+    /// ## Rust concept: graceful degradation
+    ///
+    /// If the terminal is too small, we show a warning instead of rendering
+    /// a broken layout. This prevents panics from negative-size arithmetic
+    /// and gives the user clear feedback. The check runs every frame, so
+    /// resizing the terminal up immediately restores the normal view.
     fn draw(&self, frame: &mut Frame) {
+        let area = frame.area();
+
+        // Check minimum terminal size
+        if area.width < Self::MIN_WIDTH || area.height < Self::MIN_HEIGHT {
+            self.draw_size_warning(frame, area);
+            return;
+        }
+
         match self.screen {
             AppScreen::PartyCreation => self.draw_party_creation(frame),
             AppScreen::Dungeon => self.draw_dungeon(frame),
@@ -135,6 +155,31 @@ impl App {
         if let Some(overlay) = &self.overlay {
             self.draw_overlay(frame, overlay);
         }
+    }
+
+    /// Draw a warning when the terminal is too small.
+    fn draw_size_warning(&self, frame: &mut Frame, area: Rect) {
+        let lines = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "  Terminal too small!",
+                theme::bold(Theme::ERROR),
+            )),
+            Line::from(""),
+            Line::from(format!(
+                "  Current: {}x{}",
+                area.width, area.height
+            )),
+            Line::from(format!(
+                "  Minimum: {}x{}",
+                Self::MIN_WIDTH, Self::MIN_HEIGHT
+            )),
+            Line::from(""),
+            Line::from("  Please resize your terminal."),
+        ];
+        let warning = Paragraph::new(lines)
+            .block(Block::default().title(" Four Against Darkness ").borders(Borders::ALL));
+        frame.render_widget(warning, area);
     }
 
     /// Top-level key handler — overlay captures input when active.
