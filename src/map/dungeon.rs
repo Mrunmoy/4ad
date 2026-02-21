@@ -38,6 +38,17 @@ impl Dungeon {
         self.rooms.get(&id)
     }
 
+    /// Get all placed room IDs.
+    ///
+    /// ## Rust concept: collecting iterator into Vec
+    ///
+    /// `self.rooms.keys()` returns an iterator over `&usize` references.
+    /// `.copied()` converts `&usize` → `usize` (since usize is Copy).
+    /// `.collect()` consumes the iterator and gathers results into a `Vec`.
+    pub fn room_ids(&self) -> Vec<usize> {
+        self.rooms.keys().copied().collect()
+    }
+
     /// Place a room on the grid. Stamps walls, floor, and doors.
     /// Returns the room ID, or None if the area isn't clear.
     pub fn place_room(&mut self, row: usize, col: usize, shape: RoomShape) -> Option<usize> {

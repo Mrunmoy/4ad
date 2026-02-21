@@ -1283,6 +1283,65 @@ Note the asymmetry — going forward uses `%` (modulo), but going backward needs
 
 ---
 
+## Step 21: Enhanced Dungeon View — Borrowed Slices, Iterator Chains, and Layered Rendering
+
+**Files:** `src/map/renderer.rs`, `src/map/dungeon.rs`, `src/tui/app.rs`
+
+### Concepts Introduced
+
+**Borrowed slices as function parameters (`&[T]`).** `with_visited_rooms` takes a `&[(usize, usize, usize, usize)]` — a borrowed slice of tuples. A slice is a view into contiguous memory, like `std::span<const T>` in C++20:
+
+```rust
+pub fn with_visited_rooms(mut self, rooms: &[(usize, usize, usize, usize)]) -> Self {
+    self.visited_rooms = rooms.to_vec();  // copy into owned Vec
+    self
+}
+```
+
+The caller passes `&my_vec` (a reference to a `Vec`), and Rust auto-coerces it to a slice `&[T]`. Inside, `.to_vec()` makes an owned copy since slices are borrowed views.
+
+**Iterator chains for data transformation.** Building the visited rooms list chains multiple iterator adapters:
+
+```rust
+let visited: Vec<(usize, usize, usize, usize)> = game
+    .dungeon
+    .room_ids()            // Vec<usize> — all room IDs
+    .iter()                // iterate by reference
+    .filter(|&&id| id != game.current_room)  // skip current room
+    .filter_map(|&id| game.dungeon.get_room(id))  // look up room, skip None
+    .map(|r| (r.row, r.col, r.shape.width, r.shape.height))  // extract bounds
+    .collect();            // gather into Vec
+```
+
+Each adapter transforms the stream lazily — nothing executes until `.collect()`. This is like C++ ranges or a series of `std::transform` / `std::copy_if` calls, but composable.
+
+**`.filter_map()` — filter and transform in one step.** Combines `filter` + `map`: the closure returns `Option<T>`. `Some(val)` keeps the item, `None` skips it. Here it looks up room by ID and skips any invalid IDs in one pass.
+
+**Layered rendering.** The party token `@` renders *after* the grid tiles, overwriting whatever was in that cell:
+
+```rust
+// First pass: render all grid tiles
+for row in 0..draw_height {
+    for col in 0..draw_width { ... }
+}
+
+// Second pass: overlay party marker
+if let Some((pr, pc)) = self.party_position { ... }
+```
+
+This is a common pattern in 2D rendering — draw base layer first, then overlay decorations. The ratatui `Buffer` is a 2D array of cells that can be written to multiple times.
+
+### What We Implemented
+
+- `DungeonMapWidget::with_party_position(row, col)` — renders `@` in yellow bold at the party's location
+- `DungeonMapWidget::with_visited_rooms(&[(row, col, w, h)])` — dims floor tiles in explored-but-not-current rooms to DarkGray
+- `Dungeon::room_ids()` — returns all placed room IDs (needed for visited room iteration)
+- `App::draw_map` — computes party position (center of current room) and visited room bounds from game state
+
+**Tests added:** 8 (total: 229)
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -1322,6 +1381,10 @@ Note the asymmetry — going forward uses `%` (modulo), but going backward needs
 | Trivial copy | Trivially copyable POD | `#[derive(Copy)]` — assignment copies, not moves |
 | Deferred init | `std::optional<T>` | `Option<T>` field, start with `None` |
 | Screen state machine | `enum class` + switch | `enum AppScreen { A, B }` + `match` |
+| Borrowed slice param | `std::span<const T>` | `fn f(items: &[T])` |
+| Slice to owned | `vector(span.begin(), span.end())` | `.to_vec()` on `&[T]` |
+| Filter + transform | `copy_if` + `transform` | `.filter_map(\|x\| ...)` |
+| Lazy iterator chain | C++20 ranges | `.iter().filter().map().collect()` |
 | Safe subtraction | — (wraps silently) | `.checked_sub()` → `Option<usize>` |
 | Signed integer | `ssize_t` / `ptrdiff_t` | `isize` — pointer-width signed int |
 | Type casting | `static_cast<int>()` | `as isize`, `as usize` — explicit only |

@@ -386,9 +386,27 @@ impl App {
         frame.render_widget(block, area);
 
         let mut widget = DungeonMapWidget::new(&game.dungeon.grid);
+
         if let Some(room) = game.dungeon.get_room(game.current_room) {
             widget = widget.with_highlight(room.row, room.col, room.shape.width, room.shape.height);
+
+            // Place party marker `@` at the center of the current room
+            let party_row = room.row + room.shape.height / 2;
+            let party_col = room.col + room.shape.width / 2;
+            widget = widget.with_party_position(party_row, party_col);
         }
+
+        // Collect visited room regions (all rooms except the current one)
+        let visited: Vec<(usize, usize, usize, usize)> = game
+            .dungeon
+            .room_ids()
+            .iter()
+            .filter(|&&id| id != game.current_room)
+            .filter_map(|&id| game.dungeon.get_room(id))
+            .map(|r| (r.row, r.col, r.shape.width, r.shape.height))
+            .collect();
+        widget = widget.with_visited_rooms(&visited);
+
         frame.render_widget(widget, inner);
     }
 
