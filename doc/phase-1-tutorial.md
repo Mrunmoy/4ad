@@ -735,6 +735,108 @@ Each `?` is a potential early return. The function only reaches the end if *all*
 
 ---
 
+## Step 14: d66 Room Table and Dungeon Growth
+
+**Files:** `src/map/room.rs`, `src/map/dungeon.rs`
+
+### Concepts Introduced
+
+**`isize` — signed integers for coordinate math.** When placing a new room relative to a door, subtracting the room's height or width from a grid position can produce a negative number. `usize` (unsigned) can't represent negatives — subtraction would panic in debug mode or wrap in release. `isize` is the signed counterpart, same width as a pointer (64-bit on modern systems). Think of it like C++'s `ptrdiff_t` or `ssize_t`:
+
+```rust
+let er = exit_row as isize;   // cast unsigned → signed
+let h = shape.height as isize;
+let r = er - h + 1;           // safe: might be negative, that's fine
+```
+
+After the math, we check before casting back:
+
+```rust
+if r >= 0 && c >= 0 {
+    Some((r as usize, c as usize))   // safe: we just checked
+} else {
+    None                              // room would be off-grid
+}
+```
+
+In C++, you'd use `static_cast<int>()` and `static_cast<size_t>()`. In Rust, `as` performs the same conversion but you must do it explicitly — no implicit widening or sign conversion.
+
+**Free functions vs methods.** Not everything needs to be a method. `anchor_position` is a private free function (no `pub`, no `self`):
+
+```rust
+fn anchor_position(
+    exit_row: usize,
+    exit_col: usize,
+    direction: DoorSide,
+    shape: &RoomShape,
+) -> Option<(usize, usize)> {
+    // ...
+}
+```
+
+It lives in the same file as `impl Dungeon` but isn't part of the `impl` block — it doesn't need access to `self`. In C++, this would be an anonymous-namespace helper or a `static` function. Rust's module privacy works the same way: no `pub` means only this module can call it.
+
+**Borrow then move.** `generate_room` passes `&shape` (a reference) to `anchor_position` for read-only calculation, then moves `shape` (by value) into `place_room`:
+
+```rust
+let shape = d66_room(d66_roll);                                    // own it
+let (room_row, room_col) = anchor_position(er, ec, dir, &shape)?;  // borrow it
+let id = self.place_room(room_row, room_col, shape)?;              // move it
+```
+
+In C++, you'd pass `const RoomShape&` then `std::move(shape)`. Rust makes the borrow/move distinction explicit — once `shape` is moved into `place_room`, you can't use it again. The compiler enforces this at compile time.
+
+**Large `match` tables for game data.** The d66 room table maps 36 dice rolls to room shapes. Instead of a lookup table or config file, the data lives directly in a `match`:
+
+```rust
+pub fn d66_room(roll: u8) -> RoomShape {
+    match roll {
+        11 => RoomShape { width: 4, height: 3, doors: vec![...] },
+        12 => RoomShape { width: 5, height: 3, doors: vec![...] },
+        // ... 34 more arms
+        _ => panic!("Invalid d66 roll: {}", roll),
+    }
+}
+```
+
+The compiler ensures every arm returns the same type. The wildcard `_` catch-all handles invalid inputs with a panic — this is appropriate for dice rolls that should never be outside the valid range.
+
+**`const` arrays in tests.** Test modules can define compile-time constant arrays to iterate over known valid inputs:
+
+```rust
+const D66_ROLLS: [u8; 36] = [
+    11, 12, 13, 14, 15, 16,
+    21, 22, 23, 24, 25, 26,
+    // ...
+];
+
+for &roll in &D66_ROLLS {
+    let room = d66_room(roll);
+    assert!(room.width >= 3);
+}
+```
+
+`[u8; 36]` is a fixed-size array (like C++'s `std::array<uint8_t, 36>`). The `&` in `for &roll` destructures the reference — without it, `roll` would be `&u8` instead of `u8`.
+
+**Method composition with `?`.** `generate_room` orchestrates five steps, any of which can fail:
+
+```rust
+pub fn generate_room(&mut self, from_room: usize, door_index: usize, d66_roll: u8)
+    -> Option<usize>
+{
+    let (er, ec, direction) = self.door_exit_pos(from_room, door_index)?;
+    let shape = d66_room(d66_roll);
+    let (room_row, room_col) = anchor_position(er, ec, direction, &shape)?;
+    let id = self.place_room(room_row, room_col, shape)?;
+    self.grid.place_door(er, ec);
+    Some(id)
+}
+```
+
+Five lines, three `?` exit points. If the door doesn't exist, the position is off-grid, or the area is occupied — the function returns `None` without any cleanup needed. This is Rust's alternative to exception-heavy C++ code.
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -770,6 +872,10 @@ Each `?` is a potential early return. The function only reaches the end if *all*
 | Absolute import | — | `crate::module::Type` |
 | Methods on enum | — (not possible) | `impl MyEnum { fn method(&self) {} }` |
 | Safe subtraction | — (wraps silently) | `.checked_sub()` → `Option<usize>` |
+| Signed integer | `ssize_t` / `ptrdiff_t` | `isize` — pointer-width signed int |
+| Type casting | `static_cast<int>()` | `as isize`, `as usize` — explicit only |
+| Fixed-size array | `std::array<T, N>` | `[T; N]` — e.g. `[u8; 36]` |
+| Module-private fn | `static` / anon namespace | No `pub` — visible only in module |
 
 ## Common C++ Habits to Break
 
@@ -803,7 +909,7 @@ src/map/
   dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 127 tests across 11 modules, all passing.
+**Test count:** 139 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash
