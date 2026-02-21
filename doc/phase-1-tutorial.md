@@ -837,6 +837,45 @@ Five lines, three `?` exit points. If the door doesn't exist, the position is of
 
 ---
 
+## Step 15: Wiring the Dungeon into GameState
+
+**File:** `src/game/state.rs`
+
+### Concepts Introduced
+
+**Cross-module imports.** `GameState` lives in `src/game/state.rs` but needs `Dungeon` from `src/map/dungeon.rs`. Rust's module system uses `crate::` to start from the project root:
+
+```rust
+use crate::map::dungeon::Dungeon;
+```
+
+In C++, this would be `#include "map/dungeon.h"`. Rust's `use` is similar but works on the module tree, not the filesystem. `crate` means "this project's root."
+
+**Refactoring a constructor — the compiler catches every call site.** When we added `dungeon` and `current_room` fields to `GameState`, the old `new(party)` signature became invalid. Every test that called `GameState::new(make_test_party())` needed updating to `GameState::new(make_test_party(), 28, 20)`. In C++, adding a constructor parameter would cause linker errors or silent bugs if you forget a call site. In Rust, `cargo build` instantly shows every location that needs fixing. This is a huge advantage for refactoring confidence.
+
+**Pattern matching with `|` (OR patterns).** When entering a room, we need to check if the contents are Vermin or Minions — both carry a `Monster` inside. The `|` operator matches either variant:
+
+```rust
+match &contents {
+    RoomContents::Vermin(monster) | RoomContents::Minions(monster) => {
+        self.start_encounter(monster.clone());
+    }
+    _ => {}
+}
+```
+
+The `|` means "or" — match Vermin OR Minions. Both variants carry a `Monster`, and both bind it to `monster`. The variable name is your choice — the position inside `()` matches the data the enum variant carries. In C++, the closest equivalent is `std::visit` on a `std::variant`, but Rust's syntax is much more readable.
+
+**Destructuring creates variables.** `Vermin(monster)` doesn't *use* a variable called `monster` — it *creates* one. The pattern opens the enum variant and extracts what's inside. Think of it like unpacking a labeled box: "if it's a Vermin box, take out the Monster and call it `monster`."
+
+**`match &value` — borrow to preserve ownership.** `match contents` would *move* `contents` into the match, consuming it. We need `contents` later for `Some(contents)` on the return line. So `match &contents` borrows it instead — we look inside without taking ownership. Because we matched on a reference, `monster` inside the arm is `&Monster` (a reference), not an owned `Monster`.
+
+**`.clone()` to escape a reference.** `start_encounter()` needs to own a `Monster` (it stores it in `self.current_monster`). But `monster` is `&Monster` — just a reference. `.clone()` makes an owned copy. In C++ terms: `monster` is like `const Monster&`, and `.clone()` calls the copy constructor. The original stays inside `contents`, the copy goes to the encounter system.
+
+**NLL (Non-Lexical Lifetimes).** Notice that line 125 borrows `self.dungeon` via `get_room()`, but line 132 calls `self.start_encounter()` which needs `&mut self`. This works because Rust sees that `room` (the borrow) is last used on line 126 — the borrow ends there. By line 132, no borrows are active, so `&mut self` is allowed. Pre-2018 Rust would have rejected this because borrows lasted until the end of the block.
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -876,6 +915,10 @@ Five lines, three `?` exit points. If the door doesn't exist, the position is of
 | Type casting | `static_cast<int>()` | `as isize`, `as usize` — explicit only |
 | Fixed-size array | `std::array<T, N>` | `[T; N]` — e.g. `[u8; 36]` |
 | Module-private fn | `static` / anon namespace | No `pub` — visible only in module |
+| Cross-module import | `#include "other/file.h"` | `use crate::module::Type` |
+| OR pattern in match | chained `if/else` | `Variant(x) \| Other(x) =>` |
+| Match by reference | — | `match &val` — borrow, don't move |
+| Clone from reference | Copy from `const&` | `ref.clone()` — owned copy from `&T` |
 
 ## Common C++ Habits to Break
 
@@ -900,7 +943,7 @@ src/game/
   combat.rs       — attack/defense resolution (deterministic, roll passed in)
   tables.rs       — vermin/minions tables, room contents table (2d6)
   encounter.rs    — full combat loop, party vs monster group, event logging
-  state.rs        — game state with Option<Monster>, phase tracking, room/boss counters
+  state.rs        — game state with dungeon integration, phase tracking, room exploration
 
 src/map/
   mod.rs          — module declarations
@@ -909,7 +952,7 @@ src/map/
   dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 139 tests across 11 modules, all passing.
+**Test count:** 150 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash
