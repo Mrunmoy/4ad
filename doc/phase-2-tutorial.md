@@ -176,3 +176,81 @@ The `|` operator matches multiple patterns (skeletons and zombies share a table)
 | `src/game/mod.rs` | Added `pub mod reaction` |
 
 ---
+
+## Step 3: Boss and Weird Monster Tables — Multiple Constructors and Enhanced Structs
+
+**Files:** `src/game/monster.rs`, `src/game/tables.rs`
+
+### What We're Building
+
+The rulebook defines 6 bosses (p.37) and 6 weird monsters (p.38) that are fundamentally different from minions/vermin:
+
+| Monster | Level | HP | Attacks | Treasure | Special |
+|---------|-------|----|---------|----------|---------|
+| Mummy | 5 | 4 | 2 | +2 | Undead, never tests morale |
+| Orc Brute | 5 | 5 | 2 | +1 | No magic items in treasure |
+| Ogre | 5 | 6 | 1 | normal | Each hit deals 2 damage |
+| Medusa | 4 | 4 | 1 | +1 | Gaze petrification |
+| Chaos Lord | 6 | 4 | 3 | +1 | Random special powers |
+| Small Dragon | 6 | 5 | 2 | +1 | Fire breath |
+| Minotaur | 5 | 4 | 2 | normal | Bull charge (-1 first defense) |
+| Iron Eater | 3 | 4 | 3 | none | Ignores armor, eats equipment |
+| Chimera | 5 | 6 | 3 | normal | Fire breath on 1-2 |
+| Catoblepas | 4 | 4 | 1 | +1 | Gaze attack |
+| Giant Spider | 5 | 3 | 2 | x2 | Poison, traps party |
+| Invisible Gremlins | 0 | 0 | 0 | none | No combat, steal items |
+
+### Concepts Introduced
+
+**Multiple constructors.** Instead of one constructor with 8 parameters, we add a second constructor `new_boss()` with the full stat block:
+
+```rust
+impl Monster {
+    // Simple minion group
+    pub fn new(name: String, level: u8, count: u8, category: MonsterCategory) -> Monster { ... }
+
+    // Boss/weird with full stats
+    pub fn new_boss(
+        name: String, level: u8, life_points: u8,
+        attacks_per_turn: u8, treasure_modifier: i8,
+        is_undead: bool, category: MonsterCategory,
+    ) -> Monster { ... }
+}
+```
+
+In C++ you'd use overloaded constructors or a builder pattern. In Rust, named constructors (different function names) are clearer — no ambiguity about which parameters mean what.
+
+**Conditional behavior via `is_boss_type()`.** Boss and weird monsters use `life_points` for HP, while minions use `count`. The `kill_one()` and `is_defeated()` methods dispatch based on monster category:
+
+```rust
+pub fn kill_one(&mut self) {
+    if self.is_boss_type() {
+        self.life_points = self.life_points.saturating_sub(1);
+    } else {
+        self.count = self.count.saturating_sub(1);
+    }
+}
+```
+
+**RoomContents updated.** The `Boss`, `WeirdMonster`, and `SmallDragonLair` variants now carry actual `Monster` data instead of being placeholder stubs. Entering a room with a boss immediately starts a combat encounter.
+
+### Testing
+
+32 new tests covering:
+- Boss and weird monster construction (`new_boss`)
+- Boss HP tracking (`kill_one` reduces `life_points`)
+- Boss defeat condition (`life_points == 0`)
+- All 6 boss stats match rulebook (name, level, HP, attacks, treasure mod)
+- All 6 weird monster stats match rulebook
+- Room contents integration (boss encounter triggers combat)
+- Skeleton undead flag
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/game/monster.rs` | Added `life_points`, `attacks_per_turn`, `treasure_modifier`, `is_undead` fields; `new_boss()` constructor; `is_boss_type()` method; updated `kill_one()`/`is_defeated()` |
+| `src/game/tables.rs` | Added `roll_boss()` and `roll_weird_monster()` functions; updated `RoomContents` variants to carry `Monster` data; skeletons marked undead |
+| `src/game/state.rs` | Updated encounter matching for new `Boss`/`WeirdMonster`/`SmallDragonLair` variants |
+
+---
