@@ -617,6 +617,65 @@ Use `unreachable!()` in exhaustive match arms where invalid input can't happen (
 
 ---
 
+## Step 12: Dungeon Builder — `HashMap<K, V>` and Cross-Module Integration
+
+**File:** `src/map/dungeon.rs`
+
+### Concepts Introduced
+
+**`HashMap<K, V>`.** Rust's hash map, like C++ `std::unordered_map<K, V>`. Stores key-value pairs with O(1) lookup:
+
+```rust
+use std::collections::HashMap;
+
+rooms: HashMap<usize, PlacedRoom>,
+```
+
+Core methods:
+- `HashMap::new()` — create empty map
+- `.insert(key, value)` — add or overwrite entry
+- `.get(&key)` → `Option<&V>` — look up by key (returns reference)
+- `.len()` — number of entries
+
+Note: `HashMap` is NOT in the prelude — you must import it with `use std::collections::HashMap`.
+
+**`crate::` paths.** Absolute import path from the crate root. In test modules, `super::*` only imports the parent module's items — not items that the parent imported via `use`. To reach sibling modules, use `crate::`:
+
+```rust
+// In dungeon.rs test module:
+use super::*;                              // gets Dungeon, PlacedRoom
+use crate::map::grid::Tile;               // absolute path to grid module
+use crate::map::room::{DoorPosition, DoorSide, RoomShape};
+```
+
+Think of `crate::` like an absolute file path vs `super::` as a relative one.
+
+**Ownership transfer in parameters.** `place_room` takes `shape: RoomShape` (no `&`) — it *moves* the shape into the function. The caller can't use `shape` afterward because ownership transferred to the `PlacedRoom` stored in the HashMap.
+
+**`return` for early exit.** In an `if` without `else`, you need explicit `return` to exit early:
+
+```rust
+if !self.grid.area_is_clear(...) {
+    return None;    // explicit return — exits the function
+}
+// continues here only if area is clear
+```
+
+Without `return`, the `None` is computed but discarded — the function keeps going.
+
+**Method composition.** `place_entrance` delegates to `place_room` — build small focused methods, then compose them:
+
+```rust
+pub fn place_entrance(&mut self, roll: u8) -> Option<usize> {
+    let shape = entrance_room(roll);
+    let col = (self.grid.width - shape.width) / 2;
+    let row = self.grid.height - shape.height;
+    self.place_room(row, col, shape)    // implicit return
+}
+```
+
+---
+
 ## Rust Concepts Summary
 
 | Concept | C++ Equivalent | Rust Syntax |
@@ -648,6 +707,8 @@ Use `unreachable!()` in exhaustive match arms where invalid input can't happen (
 | Safe index access | `.at()` (throws) | `.get()` → `Option<&T>` |
 | Struct in struct | Member object | `Vec<MyStruct>` field |
 | Expected panic test | `EXPECT_DEATH` | `#[should_panic]` |
+| Hash map | `std::unordered_map` | `HashMap<K, V>` |
+| Absolute import | — | `crate::module::Type` |
 
 ## Common C++ Habits to Break
 
@@ -678,9 +739,10 @@ src/map/
   mod.rs          — module declarations
   grid.rs         — 2D tile grid, room placement, Display trait for ASCII rendering
   room.rs         — room shapes, door positions, entrance room table
+  dungeon.rs      — dungeon builder, room placement with HashMap tracking
 ```
 
-**Test count:** 105 tests across 10 modules, all passing.
+**Test count:** 118 tests across 11 modules, all passing.
 
 **Key commands:**
 ```bash
