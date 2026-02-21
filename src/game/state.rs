@@ -181,7 +181,11 @@ impl GameState {
 
         // If monsters, start an encounter
         match &contents {
-            RoomContents::Vermin(monster) | RoomContents::Minions(monster) => {
+            RoomContents::Vermin(monster)
+            | RoomContents::Minions(monster)
+            | RoomContents::Boss(monster)
+            | RoomContents::WeirdMonster(monster)
+            | RoomContents::SmallDragonLair(monster) => {
                 self.start_encounter(monster.clone());
             }
             _ => {}

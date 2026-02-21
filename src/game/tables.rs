@@ -25,12 +25,12 @@ pub enum RoomContents {
     Vermin(Monster),
     /// Roll 7: Minions encounter
     Minions(Monster),
-    /// Roll 10 (room only): Weird monster (TODO: Weird Monsters table)
-    WeirdMonster,
-    /// Roll 11: Boss encounter (TODO: Boss table + final boss check)
-    Boss,
-    /// Roll 12 (room only): Small dragon lair (TODO: Dragon rules)
-    SmallDragonLair,
+    /// Roll 10 (room only): Weird monster encounter
+    WeirdMonster(Monster),
+    /// Roll 11: Boss encounter
+    Boss(Monster),
+    /// Roll 12 (room only): Small dragon lair (always a Small Dragon)
+    SmallDragonLair(Monster),
     /// Empty room/corridor — nothing here
     Empty,
 }
@@ -58,9 +58,11 @@ impl fmt::Display for RoomContents {
             RoomContents::TreasureWithTrap => write!(f, "Trapped treasure!"),
             RoomContents::SpecialEvent => write!(f, "Something strange happens..."),
             RoomContents::SpecialFeature => write!(f, "Something unusual here..."),
-            RoomContents::WeirdMonster => write!(f, "A weird creature!"),
-            RoomContents::Boss => write!(f, "A boss blocks the way!"),
-            RoomContents::SmallDragonLair => write!(f, "A dragon's lair!"),
+            RoomContents::WeirdMonster(monster) => write!(f, "A {} appears!", monster.name),
+            RoomContents::Boss(monster) => write!(f, "A {} blocks the way!", monster.name),
+            RoomContents::SmallDragonLair(monster) => {
+                write!(f, "A {} guards this lair!", monster.name)
+            }
             RoomContents::Vermin(monster) | RoomContents::Minions(monster) => {
                 write!(f, "{} {}!", monster.count, monster.name)
             }
@@ -100,15 +102,16 @@ pub fn roll_room_contents(roll: u8, is_corridor: bool) -> RoomContents {
             if is_corridor {
                 RoomContents::Empty
             } else {
-                RoomContents::WeirdMonster
+                RoomContents::WeirdMonster(roll_weird_monster(roll_d6()))
             }
         }
-        11 => RoomContents::Boss,
+        11 => RoomContents::Boss(roll_boss(roll_d6())),
         12 => {
             if is_corridor {
                 RoomContents::Empty
             } else {
-                RoomContents::SmallDragonLair
+                // Small Dragon Lair always contains a Small Dragon (roll 6 on boss table)
+                RoomContents::SmallDragonLair(roll_boss(6))
             }
         }
         _ => unreachable!(),
@@ -147,12 +150,64 @@ pub fn roll_vermin(roll: u8) -> Monster {
 pub fn roll_minions(roll: u8) -> Monster {
     let category = MonsterCategory::Minion;
     match roll {
-        1 => Monster::new("Skeletons".to_string(), 3, roll_d6() + 2, category),
+        1 => {
+            // Skeletons/Zombies are undead (50% chance each).
+            // Both have level 3, no treasure, fight to the death.
+            let mut m = Monster::new("Skeletons".to_string(), 3, roll_d6() + 2, category);
+            m.is_undead = true;
+            m
+        }
         2 => Monster::new("Goblins".to_string(), 3, roll_d6() + 3, category),
         3 => Monster::new("Hobgoblins".to_string(), 4, roll_d6(), category),
         4 => Monster::new("Orcs".to_string(), 4, roll_d6() + 1, category),
         5 => Monster::new("Trolls".to_string(), 5, roll_d3(), category),
         6 => Monster::new("Fungi Folk".to_string(), 3, roll_2d6(), category),
+        _ => unreachable!(),
+    }
+}
+
+/// Roll on the Boss table (d6) and return a boss monster.
+/// From the rulebook p.37:
+///   1: Mummy — level 5 undead, 4 HP, 2 attacks, treasure +2
+///   2: Orc Brute — level 5, 5 HP, 2 attacks, treasure +1
+///   3: Ogre — level 5, 6 HP, 1 attack (deals 2 damage), normal treasure
+///   4: Medusa — level 4, 4 HP, 1 attack, treasure +1
+///   5: Chaos Lord — level 6, 4 HP, 3 attacks, treasure +1
+///   6: Small Dragon — level 6, 5 HP, 2 attacks, treasure +1
+pub fn roll_boss(roll: u8) -> Monster {
+    let cat = MonsterCategory::Boss;
+    match roll {
+        1 => Monster::new_boss("Mummy".to_string(), 5, 4, 2, 2, true, cat),
+        2 => Monster::new_boss("Orc Brute".to_string(), 5, 5, 2, 1, false, cat),
+        3 => Monster::new_boss("Ogre".to_string(), 5, 6, 1, 0, false, cat),
+        4 => Monster::new_boss("Medusa".to_string(), 4, 4, 1, 1, false, cat),
+        5 => Monster::new_boss("Chaos Lord".to_string(), 6, 4, 3, 1, false, cat),
+        6 => Monster::new_boss("Small Dragon".to_string(), 6, 5, 2, 1, false, cat),
+        _ => unreachable!(),
+    }
+}
+
+/// Roll on the Weird Monsters table (d6) and return a weird monster.
+/// From the rulebook p.38:
+///   1: Minotaur — level 5, 4 HP, 2 attacks, normal treasure
+///   2: Iron Eater — level 3, 4 HP, 3 attacks, no treasure
+///   3: Chimera — level 5, 6 HP, 3 attacks, normal treasure
+///   4: Catoblepas — level 4, 4 HP, 1 attack, treasure +1
+///   5: Giant Spider — level 5, 3 HP, 2 attacks, treasure x2
+///   6: Invisible Gremlins — no combat stats (steal items)
+pub fn roll_weird_monster(roll: u8) -> Monster {
+    let cat = MonsterCategory::Weird;
+    match roll {
+        1 => Monster::new_boss("Minotaur".to_string(), 5, 4, 2, 0, false, cat),
+        2 => Monster::new_boss("Iron Eater".to_string(), 3, 4, 3, -99, false, cat),
+        3 => Monster::new_boss("Chimera".to_string(), 5, 6, 3, 0, false, cat),
+        4 => Monster::new_boss("Catoblepas".to_string(), 4, 4, 1, 1, false, cat),
+        5 => Monster::new_boss("Giant Spider".to_string(), 5, 3, 2, 2, false, cat),
+        6 => {
+            // Invisible Gremlins have no combat stats — they steal items.
+            // We create them with 0 HP and 0 attacks to signal "no fight".
+            Monster::new_boss("Invisible Gremlins".to_string(), 0, 0, 0, 0, false, cat)
+        }
         _ => unreachable!(),
     }
 }
@@ -221,13 +276,13 @@ mod tests {
     #[test]
     fn room_contents_boss_on_roll_11() {
         let contents = roll_room_contents(11, false);
-        assert!(matches!(contents, RoomContents::Boss));
+        assert!(matches!(contents, RoomContents::Boss(_)));
     }
 
     #[test]
     fn room_contents_dragon_on_roll_12_in_room() {
         let contents = roll_room_contents(12, false);
-        assert!(matches!(contents, RoomContents::SmallDragonLair));
+        assert!(matches!(contents, RoomContents::SmallDragonLair(_)));
     }
 
     #[test]
@@ -339,7 +394,185 @@ mod tests {
 
     #[test]
     fn room_contents_display_boss() {
-        let s = format!("{}", RoomContents::Boss);
-        assert!(!s.is_empty(), "Boss should have display text");
+        let monster =
+            Monster::new_boss("Mummy".to_string(), 5, 4, 2, 2, true, MonsterCategory::Boss);
+        let s = format!("{}", RoomContents::Boss(monster));
+        assert!(
+            s.contains("Mummy"),
+            "Boss display should contain monster name"
+        );
+    }
+
+    // --- Boss table tests (Phase 2) ---
+
+    #[test]
+    fn boss_mummy_on_roll_1() {
+        let boss = roll_boss(1);
+        assert_eq!(boss.name, "Mummy");
+        assert_eq!(boss.level, 5);
+        assert_eq!(boss.life_points, 4);
+        assert_eq!(boss.attacks_per_turn, 2);
+        assert_eq!(boss.treasure_modifier, 2);
+        assert!(boss.is_undead);
+        assert_eq!(boss.category, MonsterCategory::Boss);
+    }
+
+    #[test]
+    fn boss_orc_brute_on_roll_2() {
+        let boss = roll_boss(2);
+        assert_eq!(boss.name, "Orc Brute");
+        assert_eq!(boss.level, 5);
+        assert_eq!(boss.life_points, 5);
+        assert_eq!(boss.attacks_per_turn, 2);
+        assert_eq!(boss.treasure_modifier, 1);
+        assert!(!boss.is_undead);
+    }
+
+    #[test]
+    fn boss_ogre_on_roll_3() {
+        let boss = roll_boss(3);
+        assert_eq!(boss.name, "Ogre");
+        assert_eq!(boss.level, 5);
+        assert_eq!(boss.life_points, 6);
+        assert_eq!(boss.attacks_per_turn, 1);
+    }
+
+    #[test]
+    fn boss_medusa_on_roll_4() {
+        let boss = roll_boss(4);
+        assert_eq!(boss.name, "Medusa");
+        assert_eq!(boss.level, 4);
+        assert_eq!(boss.life_points, 4);
+        assert_eq!(boss.treasure_modifier, 1);
+    }
+
+    #[test]
+    fn boss_chaos_lord_on_roll_5() {
+        let boss = roll_boss(5);
+        assert_eq!(boss.name, "Chaos Lord");
+        assert_eq!(boss.level, 6);
+        assert_eq!(boss.life_points, 4);
+        assert_eq!(boss.attacks_per_turn, 3);
+    }
+
+    #[test]
+    fn boss_small_dragon_on_roll_6() {
+        let boss = roll_boss(6);
+        assert_eq!(boss.name, "Small Dragon");
+        assert_eq!(boss.level, 6);
+        assert_eq!(boss.life_points, 5);
+        assert_eq!(boss.attacks_per_turn, 2);
+    }
+
+    #[test]
+    fn all_bosses_have_count_one() {
+        for roll in 1..=6 {
+            let boss = roll_boss(roll);
+            assert_eq!(boss.count, 1, "{} should have count 1", boss.name);
+        }
+    }
+
+    #[test]
+    fn all_bosses_are_boss_category() {
+        for roll in 1..=6 {
+            let boss = roll_boss(roll);
+            assert_eq!(boss.category, MonsterCategory::Boss);
+        }
+    }
+
+    // --- Weird monster table tests (Phase 2) ---
+
+    #[test]
+    fn weird_minotaur_on_roll_1() {
+        let m = roll_weird_monster(1);
+        assert_eq!(m.name, "Minotaur");
+        assert_eq!(m.level, 5);
+        assert_eq!(m.life_points, 4);
+        assert_eq!(m.attacks_per_turn, 2);
+        assert_eq!(m.category, MonsterCategory::Weird);
+    }
+
+    #[test]
+    fn weird_iron_eater_on_roll_2() {
+        let m = roll_weird_monster(2);
+        assert_eq!(m.name, "Iron Eater");
+        assert_eq!(m.level, 3);
+        assert_eq!(m.life_points, 4);
+        assert_eq!(m.attacks_per_turn, 3);
+    }
+
+    #[test]
+    fn weird_chimera_on_roll_3() {
+        let m = roll_weird_monster(3);
+        assert_eq!(m.name, "Chimera");
+        assert_eq!(m.level, 5);
+        assert_eq!(m.life_points, 6);
+        assert_eq!(m.attacks_per_turn, 3);
+    }
+
+    #[test]
+    fn weird_catoblepas_on_roll_4() {
+        let m = roll_weird_monster(4);
+        assert_eq!(m.name, "Catoblepas");
+        assert_eq!(m.level, 4);
+        assert_eq!(m.life_points, 4);
+    }
+
+    #[test]
+    fn weird_giant_spider_on_roll_5() {
+        let m = roll_weird_monster(5);
+        assert_eq!(m.name, "Giant Spider");
+        assert_eq!(m.level, 5);
+        assert_eq!(m.life_points, 3);
+        assert_eq!(m.attacks_per_turn, 2);
+    }
+
+    #[test]
+    fn weird_invisible_gremlins_on_roll_6() {
+        let m = roll_weird_monster(6);
+        assert_eq!(m.name, "Invisible Gremlins");
+        assert_eq!(m.level, 0); // no combat
+        assert_eq!(m.life_points, 0);
+    }
+
+    #[test]
+    fn all_weird_monsters_are_weird_category() {
+        for roll in 1..=6 {
+            let m = roll_weird_monster(roll);
+            assert_eq!(m.category, MonsterCategory::Weird);
+        }
+    }
+
+    #[test]
+    fn skeletons_are_undead() {
+        let m = roll_minions(1);
+        assert!(m.is_undead, "Skeletons should be undead");
+    }
+
+    #[test]
+    fn room_contents_weird_monster_on_roll_10_in_room() {
+        let contents = roll_room_contents(10, false);
+        assert!(matches!(contents, RoomContents::WeirdMonster(_)));
+    }
+
+    #[test]
+    fn room_contents_boss_starts_encounter() {
+        let contents = roll_room_contents(11, false);
+        if let RoomContents::Boss(monster) = contents {
+            assert!(monster.is_boss_type());
+            assert!(monster.life_points > 0);
+        } else {
+            panic!("Expected Boss variant");
+        }
+    }
+
+    #[test]
+    fn room_contents_dragon_lair_is_small_dragon() {
+        let contents = roll_room_contents(12, false);
+        if let RoomContents::SmallDragonLair(monster) = contents {
+            assert_eq!(monster.name, "Small Dragon");
+        } else {
+            panic!("Expected SmallDragonLair variant");
+        }
     }
 }

@@ -1,5 +1,8 @@
 use std::fmt;
 
+use super::equipment::{self, Armor, Item, Weapon};
+use super::spell::{self, ClericPowers, SpellBook};
+
 /// The 8 character classes from Four Against Darkness.
 /// Each class has unique combat modifiers, life values, and special abilities.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,7 +114,25 @@ impl fmt::Display for Character {
 }
 
 /// A player character in Four Against Darkness.
-/// Each character has a name, class, level, and life total.
+/// Each character has a name, class, level, life total, inventory,
+/// and class-specific magic abilities.
+///
+/// ## Phase 2 additions
+///
+/// **Inventory** (Step 1): Characters carry equipment in a `Vec<Item>`.
+/// Starting equipment is assigned during construction based on class.
+///
+/// **Spells** (Step 5): Wizards and Elves have a `SpellBook` to track
+/// prepared spells. Clerics have `ClericPowers` for Blessing/Healing
+/// charges. These are `Option` fields — `None` for classes without magic.
+///
+/// ## Rust concept: `Option<T>` for conditional fields
+///
+/// Not every character has magic. Rather than giving everyone a useless
+/// empty spell book, we use `Option<SpellBook>` — it's either `Some(book)`
+/// for casters or `None` for non-casters. This is Rust's alternative to
+/// nullable pointers in C++, but it's checked at compile time: you must
+/// handle both `Some` and `None` cases, which prevents null dereference bugs.
 #[derive(Debug, Clone)]
 pub struct Character {
     pub name: String,
@@ -120,6 +141,11 @@ pub struct Character {
     pub gold: u16,
     pub life: u8,
     pub max_life: u8,
+    pub inventory: Vec<Item>,
+    /// Wizard/Elf spell book. None for non-casters.
+    pub spell_book: Option<SpellBook>,
+    /// Cleric Blessing + Healing charges. None for non-clerics.
+    pub cleric_powers: Option<ClericPowers>,
 }
 
 impl Character {
@@ -127,6 +153,22 @@ impl Character {
         let starting_level = 1;
         let max_life = class.base_life() + starting_level;
         let starting_gold = class.roll_starting_gold();
+        let inventory = equipment::starting_equipment(class);
+
+        // Spell book for Wizard/Elf (empty — spells chosen before adventure)
+        let spell_book = match class {
+            CharacterClass::Wizard | CharacterClass::Elf => {
+                Some(SpellBook::new(spell::spell_slots(class, starting_level)))
+            }
+            _ => None,
+        };
+
+        // Cleric powers (3 Blessing + 3 Healing charges)
+        let cleric_powers = match class {
+            CharacterClass::Cleric => Some(ClericPowers::new()),
+            _ => None,
+        };
+
         Character {
             name,
             class,
@@ -134,6 +176,9 @@ impl Character {
             gold: starting_gold,
             life: max_life,
             max_life,
+            inventory,
+            spell_book,
+            cleric_powers,
         }
     }
 
@@ -172,6 +217,49 @@ impl Character {
             CharacterClass::Rogue => self.level,
             _ => 0,
         }
+    }
+
+    /// Return the first weapon found in inventory, or None.
+    ///
+    /// ## Rust concept: `find_map` iterator adapter
+    ///
+    /// `find_map` combines `find` and `map` — it iterates until a closure
+    /// returns `Some(value)`, then returns that value. Like a filtered search
+    /// that also transforms the result. In C++ you'd write a manual loop
+    /// with a conditional return.
+    pub fn equipped_weapon(&self) -> Option<Weapon> {
+        self.inventory.iter().find_map(|item| match item {
+            Item::Weapon(w) => Some(*w),
+            _ => None,
+        })
+    }
+
+    /// Attack modifier from the equipped weapon.
+    /// Returns 0 if no weapon is equipped.
+    pub fn weapon_attack_modifier(&self) -> i8 {
+        self.equipped_weapon()
+            .map(|w| w.attack_modifier())
+            .unwrap_or(0)
+    }
+
+    /// Total defense modifier from all armor pieces in inventory.
+    /// Armor bonuses stack: light armor (+1) + shield (+1) = +2.
+    ///
+    /// ## Rust concept: `filter_map` + `sum`
+    ///
+    /// We chain iterator adapters: filter for armor items, extract the
+    /// defense modifier, then sum them all. This is idiomatic Rust for
+    /// "compute an aggregate over a filtered collection". In C++ you'd
+    /// use `std::accumulate` with a lambda, but Rust's iterator chains
+    /// read more naturally.
+    pub fn armor_defense_modifier(&self) -> i8 {
+        self.inventory
+            .iter()
+            .filter_map(|item| match item {
+                Item::Armor(a) => Some(a.defense_modifier()),
+                _ => None,
+            })
+            .sum()
     }
 }
 
@@ -406,6 +494,142 @@ mod tests {
                 (4..=24).contains(&wizard.gold),
                 "Wizard gold {} outside 4d6 range",
                 wizard.gold
+            );
+        }
+    }
+
+    // --- Equipment integration tests (Phase 2) ---
+
+    #[test]
+    fn new_character_has_starting_equipment() {
+        let warrior = Character::new("Bruggo".to_string(), CharacterClass::Warrior);
+        assert!(
+            !warrior.inventory.is_empty(),
+            "Warrior should have starting gear"
+        );
+    }
+
+    #[test]
+    fn warrior_equipped_weapon_is_hand_weapon() {
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        let weapon = warrior.equipped_weapon();
+        assert!(weapon.is_some());
+        assert!(matches!(
+            weapon.unwrap(),
+            super::equipment::Weapon::HandWeapon(_)
+        ));
+    }
+
+    #[test]
+    fn wizard_equipped_weapon_is_light_hand_weapon() {
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        let weapon = wizard.equipped_weapon();
+        assert!(weapon.is_some());
+        assert!(matches!(
+            weapon.unwrap(),
+            super::equipment::Weapon::LightHandWeapon(_)
+        ));
+    }
+
+    #[test]
+    fn warrior_weapon_attack_modifier_is_zero() {
+        // Hand weapon has +0 attack modifier
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert_eq!(warrior.weapon_attack_modifier(), 0);
+    }
+
+    #[test]
+    fn wizard_weapon_attack_modifier_is_minus_one() {
+        // Light hand weapon has -1 attack modifier
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert_eq!(wizard.weapon_attack_modifier(), -1);
+    }
+
+    #[test]
+    fn warrior_armor_defense_modifier_is_two() {
+        // Light armor (+1) + shield (+1) = +2
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert_eq!(warrior.armor_defense_modifier(), 2);
+    }
+
+    #[test]
+    fn wizard_armor_defense_modifier_is_zero() {
+        // Wizard has no armor
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert_eq!(wizard.armor_defense_modifier(), 0);
+    }
+
+    #[test]
+    fn rogue_armor_defense_modifier_is_one() {
+        // Rogue has light armor only (+1)
+        let rogue = Character::new("R".to_string(), CharacterClass::Rogue);
+        assert_eq!(rogue.armor_defense_modifier(), 1);
+    }
+
+    #[test]
+    fn character_with_no_weapon_has_zero_attack_modifier() {
+        let mut warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        warrior.inventory.clear(); // strip all equipment
+        assert_eq!(warrior.weapon_attack_modifier(), 0);
+        assert!(warrior.equipped_weapon().is_none());
+    }
+
+    // --- Spell integration tests (Phase 2, Step 5) ---
+
+    #[test]
+    fn wizard_has_spell_book() {
+        let wizard = Character::new("Z".to_string(), CharacterClass::Wizard);
+        assert!(wizard.spell_book.is_some());
+        let book = wizard.spell_book.unwrap();
+        assert_eq!(book.capacity(), 3); // 2 + level 1 = 3 slots
+        assert_eq!(book.spell_count(), 0); // empty until spells chosen
+    }
+
+    #[test]
+    fn elf_has_spell_book() {
+        let elf = Character::new("E".to_string(), CharacterClass::Elf);
+        assert!(elf.spell_book.is_some());
+        let book = elf.spell_book.unwrap();
+        assert_eq!(book.capacity(), 1); // 1 per level, level 1
+    }
+
+    #[test]
+    fn cleric_has_cleric_powers() {
+        let cleric = Character::new("C".to_string(), CharacterClass::Cleric);
+        assert!(cleric.cleric_powers.is_some());
+        assert!(cleric.spell_book.is_none()); // no spell book
+        let powers = cleric.cleric_powers.unwrap();
+        assert_eq!(powers.blessing_charges, 3);
+        assert_eq!(powers.healing_charges, 3);
+    }
+
+    #[test]
+    fn warrior_has_no_magic() {
+        let warrior = Character::new("W".to_string(), CharacterClass::Warrior);
+        assert!(warrior.spell_book.is_none());
+        assert!(warrior.cleric_powers.is_none());
+    }
+
+    #[test]
+    fn non_casters_have_no_spell_book_or_powers() {
+        let classes = [
+            CharacterClass::Warrior,
+            CharacterClass::Rogue,
+            CharacterClass::Barbarian,
+            CharacterClass::Dwarf,
+            CharacterClass::Halfling,
+        ];
+        for class in classes {
+            let c = Character::new("X".to_string(), class);
+            assert!(
+                c.spell_book.is_none(),
+                "{} should have no spell book",
+                class
+            );
+            assert!(
+                c.cleric_powers.is_none(),
+                "{} should have no cleric powers",
+                class
             );
         }
     }
