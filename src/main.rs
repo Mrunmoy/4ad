@@ -12,7 +12,6 @@ use game::character::{Character, CharacterClass};
 use game::dice;
 use game::party::Party;
 use game::state::{GamePhase, GameState};
-use map::room::DoorSide;
 
 // ## Rust concept: `clap` derive macro
 //
@@ -177,55 +176,27 @@ fn run_text_mode(game: &mut GameState) {
             }
         };
 
-        // Clone the door info we need before we borrow `game` mutably later.
-        // room is &PlacedRoom borrowed from game.dungeon.
-        // We'll need to call game.enter_room() (mutable borrow) later,
-        // so we copy the door data now to release the immutable borrow.
-        // We keep (side, offset) so we can distinguish same-wall doors.
-        let doors: Vec<_> = room
-            .shape
-            .doors
-            .iter()
-            .map(|d| (d.side, d.offset))
+        // Collect door labels via the shared helper before we need to borrow
+        // `game` mutably later (enter_room / revisit_room). After this line
+        // the immutable borrow through `room` is released by NLL.
+        let door_labels: Vec<String> = (0..room.shape.doors.len())
+            .map(|i| room.shape.door_label(i))
             .collect();
 
-        if doors.is_empty() && game.room_history.is_empty() {
+        if door_labels.is_empty() && game.room_history.is_empty() {
             println!("Dead end! No doors to go through.");
             break;
         }
 
-        if !doors.is_empty() {
+        if !door_labels.is_empty() {
             println!("Doors:");
         }
-        for (i, &(side, offset)) in doors.iter().enumerate() {
-            // Build the direction label, with position hint if same-wall doors exist
-            let same_wall = doors.iter().filter(|&&(s, _)| s == side).count();
-            let position = if same_wall > 1 {
-                match side {
-                    DoorSide::North | DoorSide::South => {
-                        if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            " (right)"
-                        } else {
-                            " (left)"
-                        }
-                    }
-                    DoorSide::East | DoorSide::West => {
-                        if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            " (lower)"
-                        } else {
-                            " (upper)"
-                        }
-                    }
-                }
-            } else {
-                ""
-            };
-
+        for (i, label) in door_labels.iter().enumerate() {
             // Show whether this door leads to an already-explored room
             if let Some(room_id) = game.connected_room(i) {
-                println!("  [{}] {}{} -> Room {}", i, side, position, room_id);
+                println!("  [{}] {} -> Room {}", i, label, room_id);
             } else {
-                println!("  [{}] {}{}", i, side, position);
+                println!("  [{}] {}", i, label);
             }
         }
         if !game.room_history.is_empty() {
@@ -281,7 +252,7 @@ fn run_text_mode(game: &mut GameState) {
             }
         };
 
-        if door_index >= doors.len() {
+        if door_index >= door_labels.len() {
             println!("No door with that number.");
             println!();
             continue;

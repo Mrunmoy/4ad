@@ -1,5 +1,3 @@
-use std::fmt::Write as FmtWrite;
-
 use axum::Router;
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
@@ -12,13 +10,9 @@ use crate::game::character::{Character, CharacterClass};
 use crate::game::dice;
 use crate::game::party::Party;
 use crate::game::state::{GamePhase, GameState};
-use crate::map::room::DoorSide;
 
 // Embed static assets at compile time so the binary is self-contained.
 const INDEX_HTML: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/static/index.html"));
-
-/// Default port for the web server.
-pub const DEFAULT_WEB_PORT: u16 = 8080;
 
 /// An action the browser client can send to the server.
 ///
@@ -176,6 +170,17 @@ fn apply_action(game: &mut GameState, json: &str) -> Option<String> {
             if game.phase != GamePhase::Exploring {
                 return Some("You can't move while in combat.".to_string());
             }
+            // Validate the index before doing anything else.
+            let door_count = game
+                .dungeon
+                .get_room(game.current_room)
+                .map_or(0, |r| r.shape.doors.len());
+            if door_index >= door_count {
+                return Some(format!(
+                    "No door {}. This room has {} door(s).",
+                    door_index, door_count
+                ));
+            }
             // Check for an already-explored connected room.
             if let Some(target) = game.connected_room(door_index) {
                 game.revisit_room(target);
@@ -315,56 +320,11 @@ fn build_door_info(game: &GameState) -> Vec<DoorInfo> {
         None => return vec![],
     };
 
-    let doors: Vec<(DoorSide, usize)> = room
-        .shape
-        .doors
-        .iter()
-        .map(|d| (d.side, d.offset))
-        .collect();
-
-    // Pre-compute how many doors share each wall to decide whether a
-    // position hint ("left"/"right", "upper"/"lower") is needed.
-    use std::collections::HashMap;
-    let mut side_counts: HashMap<DoorSide, usize> = HashMap::new();
-    for &(side, _) in &doors {
-        *side_counts.entry(side).or_insert(0) += 1;
-    }
-
-    doors
-        .iter()
-        .enumerate()
-        .map(|(i, &(side, offset))| {
-            let same_wall_count = *side_counts.get(&side).unwrap_or(&1);
-            let position_hint = if same_wall_count > 1 {
-                let label = match side {
-                    DoorSide::North | DoorSide::South => {
-                        if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            " (right)"
-                        } else {
-                            " (left)"
-                        }
-                    }
-                    DoorSide::East | DoorSide::West => {
-                        if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                            " (lower)"
-                        } else {
-                            " (upper)"
-                        }
-                    }
-                };
-                label
-            } else {
-                ""
-            };
-
-            let mut direction = String::new();
-            let _ = write!(direction, "{}{}", side, position_hint);
-
-            DoorInfo {
-                index: i,
-                direction,
-                leads_to: game.connected_room(i),
-            }
+    (0..room.shape.doors.len())
+        .map(|i| DoorInfo {
+            index: i,
+            direction: room.shape.door_label(i),
+            leads_to: game.connected_room(i),
         })
         .collect()
 }
@@ -469,10 +429,8 @@ mod tests {
     }
 
     #[test]
-    fn build_update_rooms_explored_is_one_after_start() {
+    fn build_update_rooms_explored_matches_game_state() {
         let game = make_game();
-        // start_dungeon places the entrance room (counted as room 0, but
-        // rooms_explored starts at 0 — only incremented when entering new rooms).
         let update = build_update(&game, None);
         assert_eq!(update.rooms_explored, game.rooms_explored);
     }
@@ -518,6 +476,19 @@ mod tests {
         let before = game.log.len();
         apply_action(&mut game, r#"{"action":"Search"}"#);
         assert!(game.log.len() > before);
+    }
+
+    #[test]
+    fn apply_action_out_of_range_door_returns_error() {
+        let mut game = make_game();
+        // Door index 999 is way out of range for any starting room.
+        let result = apply_action(
+            &mut game,
+            r#"{"action":"ChooseDoor","door_index":999}"#,
+        );
+        assert!(result.is_some());
+        let msg = result.unwrap();
+        assert!(msg.contains("No door") || msg.contains("door"));
     }
 
     // --- WebUpdate serialisation roundtrip ---

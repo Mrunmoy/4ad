@@ -13,7 +13,6 @@ use crate::game::dice;
 use crate::game::party_creation::{CreationPhase, PartyCreationState};
 use crate::game::state::{GamePhase, GameState};
 use crate::map::renderer::DungeonMapWidget;
-use crate::map::room::DoorSide;
 use super::dice_anim::{self, DiceAnimation};
 use super::theme::{self, Theme};
 
@@ -608,40 +607,11 @@ impl App {
             )));
         } else {
             if let Some(room) = game.dungeon.get_room(game.current_room) {
-                let doors: Vec<_> = room
-                    .shape
-                    .doors
-                    .iter()
-                    .map(|d| (d.side, d.offset))
-                    .collect();
-
-                for (i, &(side, offset)) in doors.iter().enumerate() {
-                    let same_wall = doors.iter().filter(|&&(s, _)| s == side).count();
-                    let position = if same_wall > 1 {
-                        match side {
-                            DoorSide::North | DoorSide::South => {
-                                if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                                    " (right)"
-                                } else {
-                                    " (left)"
-                                }
-                            }
-                            DoorSide::East | DoorSide::West => {
-                                if doors.iter().any(|&(s, o)| s == side && o < offset) {
-                                    " (lower)"
-                                } else {
-                                    " (upper)"
-                                }
-                            }
-                        }
-                    } else {
-                        ""
-                    };
-
+                for (i, _) in room.shape.doors.iter().enumerate() {
                     let label = if let Some(room_id) = game.connected_room(i) {
-                        format!("  [{}] {}{} -> Room {}", i, side, position, room_id)
+                        format!("  [{}] {} -> Room {}", i, room.shape.door_label(i), room_id)
                     } else {
-                        format!("  [{}] {}{}", i, side, position)
+                        format!("  [{}] {}", i, room.shape.door_label(i))
                     };
                     lines.push(Line::from(label));
                 }
