@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 
 /// Which wall of a room a door is on.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DoorSide {
     North,
     South,
@@ -78,6 +78,43 @@ impl RoomShape {
             DoorSide::East => Some((room_row + door.offset, room_col + self.width - 1)),
             DoorSide::West => Some((room_row + door.offset, room_col)),
         }
+    }
+
+    /// Returns the human-readable direction label for a door, including a
+    /// position hint when multiple doors share the same wall.
+    ///
+    /// Examples: `"North"`, `"North (left)"`, `"East (upper)"`.
+    ///
+    /// Returns an empty string if `door_index` is out of range.
+    pub fn door_label(&self, door_index: usize) -> String {
+        let door = match self.doors.get(door_index) {
+            Some(d) => d,
+            None => return String::new(),
+        };
+        let side = door.side;
+        let offset = door.offset;
+        let same_wall = self.doors.iter().filter(|d| d.side == side).count();
+        let hint = if same_wall > 1 {
+            match side {
+                DoorSide::North | DoorSide::South => {
+                    if self.doors.iter().any(|d| d.side == side && d.offset < offset) {
+                        " (right)"
+                    } else {
+                        " (left)"
+                    }
+                }
+                DoorSide::East | DoorSide::West => {
+                    if self.doors.iter().any(|d| d.side == side && d.offset < offset) {
+                        " (lower)"
+                    } else {
+                        " (upper)"
+                    }
+                }
+            }
+        } else {
+            ""
+        };
+        format!("{}{}", side, hint)
     }
 }
 

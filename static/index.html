@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Four Against Darkness</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d0d0d;
+    color: #c8a96e;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: #1a0a00;
+    border-bottom: 2px solid #5a3a10;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  header h1 {
+    font-size: 22px;
+    color: #e8c87a;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 0 0 8px #c8a96e66;
+  }
+
+  #status-bar {
+    font-size: 12px;
+    color: #7a6040;
+  }
+
+  #status-bar span {
+    margin-left: 12px;
+  }
+
+  #phase-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-weight: bold;
+    background: #1e3a1e;
+    color: #6cd46c;
+    border: 1px solid #3a6a3a;
+  }
+
+  #phase-badge.combat {
+    background: #3a1e1e;
+    color: #d46c6c;
+    border-color: #6a3a3a;
+  }
+
+  #phase-badge.gameover {
+    background: #1e1e3a;
+    color: #6c6cd4;
+    border-color: #3a3a6a;
+  }
+
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    grid-template-rows: 1fr auto;
+    flex: 1;
+    gap: 0;
+    min-height: 0;
+  }
+
+  #map-panel {
+    grid-column: 1;
+    grid-row: 1;
+    overflow: auto;
+    padding: 12px;
+    border-right: 1px solid #2a1a00;
+  }
+
+  #map-panel h2 {
+    font-size: 11px;
+    color: #5a4020;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  #map-display {
+    font-size: 12px;
+    line-height: 1.1;
+    white-space: pre;
+    color: #8a7050;
+  }
+
+  #map-display .tile-floor   { color: #4a4a4a; }
+  #map-display .tile-wall    { color: #7a6040; }
+  #map-display .tile-door    { color: #e8c87a; font-weight: bold; }
+  #map-display .tile-unexplored { color: #1e1e1e; }
+
+  #right-panel {
+    grid-column: 2;
+    grid-row: 1 / 3;
+    display: flex;
+    flex-direction: column;
+    background: #0a0a0a;
+    border-left: 1px solid #2a1a00;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    padding: 10px 12px;
+    border-bottom: 1px solid #1a1000;
+  }
+
+  .panel-section h2 {
+    font-size: 11px;
+    color: #5a4020;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  #party-list {
+    list-style: none;
+  }
+
+  #party-list li {
+    padding: 4px 0;
+    border-bottom: 1px solid #1a1000;
+    font-size: 12px;
+  }
+
+  #party-list li:last-child { border-bottom: none; }
+
+  .char-name { color: #e8c87a; }
+  .char-class { color: #8a7050; font-size: 11px; }
+  .char-hp { float: right; }
+  .char-hp.low { color: #d46c6c; }
+  .char-hp.dead { color: #5a3a3a; text-decoration: line-through; }
+
+  .hp-bar {
+    height: 3px;
+    background: #1a1000;
+    border-radius: 2px;
+    margin-top: 2px;
+  }
+
+  .hp-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: #3a6a3a;
+    transition: width 0.3s;
+  }
+
+  .hp-bar-fill.low  { background: #8a4a1a; }
+  .hp-bar-fill.dead { background: #2a1a1a; }
+
+  #monster-section {
+    background: #1a0000;
+    border-color: #3a1010;
+  }
+
+  #monster-section h2 { color: #6a2020; }
+
+  #monster-info {
+    font-size: 13px;
+    color: #d46c6c;
+  }
+
+  #monster-name { font-weight: bold; color: #e87a7a; }
+  #monster-stats { color: #8a4040; font-size: 11px; margin-top: 2px; }
+
+  #log-section {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #log-section h2 {
+    padding: 10px 12px 0;
+    font-size: 11px;
+    color: #5a4020;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  #log-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 12px 10px;
+    list-style: none;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #log-list li {
+    padding: 2px 0;
+    color: #7a6040;
+    border-bottom: 1px solid #15100a;
+  }
+
+  #log-list li.new-entry { color: #c8a96e; }
+  #log-list li.notification { color: #a0c870; font-style: italic; }
+
+  #actions-panel {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 10px 12px;
+    background: #080808;
+    border-top: 1px solid #2a1a00;
+    border-right: 1px solid #2a1a00;
+  }
+
+  #actions-panel h2 {
+    font-size: 11px;
+    color: #5a4020;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  #door-buttons, #action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+
+  button {
+    background: #1a1000;
+    color: #c8a96e;
+    border: 1px solid #3a2a10;
+    padding: 5px 12px;
+    font-family: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  button:hover:not(:disabled) {
+    background: #2a2000;
+    border-color: #c8a96e;
+    color: #e8d890;
+  }
+
+  button:active:not(:disabled) {
+    background: #3a3000;
+  }
+
+  button:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  button.primary {
+    background: #1e3a1e;
+    border-color: #3a6a3a;
+    color: #6cd46c;
+  }
+
+  button.primary:hover:not(:disabled) {
+    background: #2a5a2a;
+    color: #8ae88a;
+  }
+
+  button.danger {
+    background: #3a1e1e;
+    border-color: #6a3a3a;
+    color: #d46c6c;
+  }
+
+  button.danger:hover:not(:disabled) {
+    background: #5a2a2a;
+    color: #e88a8a;
+  }
+
+  #notification-bar {
+    display: none;
+    padding: 6px 12px;
+    background: #101800;
+    border-top: 1px solid #2a3a10;
+    font-size: 12px;
+    color: #a0c870;
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  #notification-bar.visible { display: block; }
+
+  #connection-overlay {
+    position: fixed;
+    inset: 0;
+    background: #000000cc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+
+  #connection-overlay.hidden { display: none; }
+
+  #connection-box {
+    background: #1a0a00;
+    border: 2px solid #5a3a10;
+    padding: 30px 40px;
+    text-align: center;
+    max-width: 380px;
+  }
+
+  #connection-box h2 {
+    font-size: 18px;
+    color: #e8c87a;
+    margin-bottom: 10px;
+  }
+
+  #connection-box p { color: #8a7050; font-size: 13px; }
+
+  #spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    margin-right: 8px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="connection-overlay">
+  <div id="connection-box">
+    <h2>Four Against Darkness</h2>
+    <p><span id="spinner">⟳</span> <span id="conn-status">Connecting to game server…</span></p>
+  </div>
+</div>
+
+<header>
+  <h1>⚔ Four Against Darkness</h1>
+  <div id="status-bar">
+    <span id="phase-badge">Exploring</span>
+    <span>Rooms: <strong id="rooms-count">0</strong></span>
+  </div>
+</header>
+
+<div class="main-grid">
+
+  <div id="map-panel">
+    <h2>Dungeon Map</h2>
+    <pre id="map-display">Loading…</pre>
+  </div>
+
+  <div id="right-panel">
+
+    <div class="panel-section">
+      <h2>Party</h2>
+      <ul id="party-list"></ul>
+    </div>
+
+    <div class="panel-section" id="monster-section" style="display:none;">
+      <h2>⚔ Encounter</h2>
+      <div id="monster-info">
+        <div id="monster-name"></div>
+        <div id="monster-stats"></div>
+      </div>
+    </div>
+
+    <div class="panel-section" id="log-section">
+      <h2>Adventure Log</h2>
+      <ul id="log-list"></ul>
+    </div>
+
+  </div>
+
+  <div id="actions-panel">
+    <h2>Actions</h2>
+    <div id="door-buttons"></div>
+    <div id="action-buttons"></div>
+  </div>
+
+</div>
+
+<div id="notification-bar"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // --- WebSocket connection ---
+
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+
+  const overlay = document.getElementById('connection-overlay');
+  const connStatus = document.getElementById('conn-status');
+
+  ws.addEventListener('open', () => {
+    overlay.classList.add('hidden');
+  });
+
+  ws.addEventListener('close', () => {
+    overlay.classList.remove('hidden');
+    connStatus.textContent = 'Connection lost. Refresh to reconnect.';
+    document.getElementById('spinner').textContent = '✗';
+  });
+
+  ws.addEventListener('error', () => {
+    connStatus.textContent = 'Connection error. Is the server running?';
+  });
+
+  ws.addEventListener('message', (event) => {
+    try {
+      const update = JSON.parse(event.data);
+      renderUpdate(update);
+    } catch (e) {
+      console.error('Failed to parse server message:', e);
+    }
+  });
+
+  // --- Send an action to the server ---
+
+  function sendAction(action) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(action));
+    }
+  }
+
+  // --- Render the full game state update ---
+
+  function renderUpdate(u) {
+    renderPhase(u.phase);
+    renderMap(u.map);
+    renderParty(u.party);
+    renderMonster(u.monster);
+    renderLog(u.log, u.message);
+    renderActions(u);
+    document.getElementById('rooms-count').textContent = u.rooms_explored;
+    if (u.message) showNotification(u.message);
+  }
+
+  // --- Phase badge ---
+
+  function renderPhase(phase) {
+    const badge = document.getElementById('phase-badge');
+    badge.className = '';
+    badge.textContent = phase;
+    if (phase === 'InCombat') {
+      badge.className = 'combat';
+      badge.textContent = '⚔ In Combat';
+    } else if (phase === 'GameOver') {
+      badge.className = 'gameover';
+      badge.textContent = '💀 Game Over';
+    }
+  }
+
+  // --- Dungeon map: colour each tile character ---
+
+  function renderMap(mapText) {
+    const display = document.getElementById('map-display');
+    // Escape HTML entities first, then replace tile characters with
+    // coloured spans. This ensures any unexpected server content cannot
+    // inject HTML into the page.
+    const escaped = esc(mapText);
+    const coloured = escaped
+      .replace(/░/g, '<span class="tile-unexplored">░</span>')
+      .replace(/\./g, '<span class="tile-floor">.</span>')
+      .replace(/#/g, '<span class="tile-wall">#</span>')
+      .replace(/D/g, '<span class="tile-door">D</span>');
+    display.innerHTML = coloured;
+  }
+
+  // --- Party panel ---
+
+  function renderParty(members) {
+    const list = document.getElementById('party-list');
+    list.innerHTML = '';
+    for (const m of members) {
+      const pct = m.max_hp > 0 ? Math.round((m.hp / m.max_hp) * 100) : 0;
+      const hpClass = !m.alive ? 'dead' : pct <= 33 ? 'low' : '';
+      const barClass = hpClass;
+
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="char-name">${esc(m.name)}</span>
+        <span class="char-hp ${hpClass}">${m.alive ? `${m.hp}/${m.max_hp}` : 'DEAD'}</span>
+        <br>
+        <span class="char-class">L${m.level} ${esc(m.class)}</span>
+        <div class="hp-bar"><div class="hp-bar-fill ${barClass}" style="width:${pct}%"></div></div>
+      `;
+      if (!m.alive) li.style.opacity = '0.5';
+      list.appendChild(li);
+    }
+  }
+
+  // --- Monster section ---
+
+  function renderMonster(monster) {
+    const section = document.getElementById('monster-section');
+    if (!monster) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    document.getElementById('monster-name').textContent = monster.name;
+    document.getElementById('monster-stats').textContent =
+      `Level ${monster.level}  ×${monster.count}`;
+  }
+
+  // --- Adventure log ---
+
+  let prevLogLength = 0;
+
+  function renderLog(entries, notification) {
+    const list = document.getElementById('log-list');
+    list.innerHTML = '';
+
+    // Show notification at top if present
+    if (notification) {
+      const li = document.createElement('li');
+      li.className = 'notification';
+      li.textContent = '» ' + notification;
+      list.appendChild(li);
+    }
+
+    entries.forEach((entry, i) => {
+      const li = document.createElement('li');
+      // Entries at index >= prevLogLength are new since the last render.
+      // When prevLogLength is 0 (first render), all entries are highlighted.
+      li.className = i >= prevLogLength ? 'new-entry' : '';
+      li.textContent = entry;
+      list.appendChild(li);
+    });
+
+    prevLogLength = entries.length;
+    // Scroll to bottom
+    list.scrollTop = list.scrollHeight;
+  }
+
+  // --- Actions panel ---
+
+  function renderActions(u) {
+    const doorDiv = document.getElementById('door-buttons');
+    const actionDiv = document.getElementById('action-buttons');
+    doorDiv.innerHTML = '';
+    actionDiv.innerHTML = '';
+
+    if (u.phase === 'GameOver') {
+      const btn = document.createElement('button');
+      btn.textContent = '↺ New Game (refresh page)';
+      btn.onclick = () => location.reload();
+      actionDiv.appendChild(btn);
+      return;
+    }
+
+    if (u.phase === 'InCombat') {
+      const fightBtn = makeButton('⚔ Resolve Combat', 'primary', () => {
+        sendAction({ action: 'ResolveCombat' });
+      });
+      const fleeBtn = makeButton('↩ Flee', 'danger', () => {
+        sendAction({ action: 'Flee' });
+      });
+      actionDiv.appendChild(fightBtn);
+      actionDiv.appendChild(fleeBtn);
+      return;
+    }
+
+    // Exploring
+    for (const door of u.doors) {
+      const label = door.leads_to !== null
+        ? `[${door.index}] ${door.direction} → Rm ${door.leads_to}`
+        : `[${door.index}] ${door.direction}`;
+      const btn = makeButton(label, '', () => {
+        sendAction({ action: 'ChooseDoor', door_index: door.index });
+      });
+      doorDiv.appendChild(btn);
+    }
+
+    if (u.can_go_back) {
+      const backBtn = makeButton('↩ Go Back', '', () => {
+        sendAction({ action: 'GoBack' });
+      });
+      actionDiv.appendChild(backBtn);
+    }
+
+    const searchBtn = makeButton('🔍 Search', '', () => {
+      sendAction({ action: 'Search' });
+    });
+    actionDiv.appendChild(searchBtn);
+  }
+
+  // --- Helpers ---
+
+  function makeButton(label, cls, handler) {
+    const btn = document.createElement('button');
+    btn.textContent = label;
+    if (cls) btn.className = cls;
+    btn.addEventListener('click', handler);
+    return btn;
+  }
+
+  let notifTimer = null;
+
+  function showNotification(msg) {
+    const bar = document.getElementById('notification-bar');
+    bar.textContent = msg;
+    bar.classList.add('visible');
+    if (notifTimer) clearTimeout(notifTimer);
+    notifTimer = setTimeout(() => bar.classList.remove('visible'), 4000);
+  }
+
+  function esc(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+})();
+</script>
+</body>
+</html>
