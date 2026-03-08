@@ -2,6 +2,7 @@ mod game;
 mod map;
 mod network;
 mod tui;
+mod web;
 
 use std::io::{self, Write};
 
@@ -47,6 +48,10 @@ struct Cli {
     /// Join a multiplayer game at the given address.
     #[arg(long, value_name = "IP:PORT")]
     join: Option<String>,
+
+    /// Serve a browser-playable web version. Optionally specify port (default: 8080).
+    #[arg(long, value_name = "PORT", num_args = 0..=1, default_missing_value = "8080")]
+    web: Option<u16>,
 }
 
 fn main() {
@@ -67,6 +72,15 @@ fn main() {
         let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
         rt.block_on(async {
             run_host_mode(port).await;
+        });
+        return;
+    }
+
+    if let Some(port) = cli.web {
+        // Web mode: serve a browser-playable version over HTTP + WebSocket.
+        let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
+        rt.block_on(async {
+            run_web_mode(port).await;
         });
         return;
     }
@@ -393,5 +407,13 @@ async fn run_join_mode(addr: &str) {
                 break;
             }
         }
+    }
+}
+
+/// Web mode: serve a browser-playable version over HTTP + WebSocket.
+async fn run_web_mode(port: u16) {
+    println!("=== Four Against Darkness — Web Mode ===");
+    if let Err(e) = web::run_web_server(port).await {
+        eprintln!("Web server error: {}", e);
     }
 }
