@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Four Against Darkness</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Four Against Darkness</h1>
+            <p>A solitaire dungeon-delving adventure for up to 4 players</p>
+        </header>
+
+        <main>
+            <!-- Lobby Screen -->
+            <div id="lobby" class="screen active">
+                <div class="card">
+                    <h2>Start or Join a Game</h2>
+                    <div class="form-group">
+                        <button id="create-game" class="btn btn-primary">Create New Game</button>
+                    </div>
+                    <div class="or-divider">or</div>
+                    <div class="form-group">
+                        <input type="text" id="join-game-id" placeholder="Enter Game ID">
+                        <input type="text" id="player-name" placeholder="Your Name">
+                        <button id="join-game" class="btn btn-secondary">Join Game</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Setup Screen -->
+            <div id="setup" class="screen">
+                <div class="card">
+                    <h2>Game Setup</h2>
+                    <p>Game ID: <span id="game-id-display"></span></p>
+                    <div id="players-list"></div>
+                    
+                    <div id="character-creation" class="hidden">
+                        <h3>Create Your Character</h3>
+                        <select id="char-class">
+                            <option value="">Select Class...</option>
+                            <option value="Warrior">Warrior (Atk 4, Def 5, Life 6)</option>
+                            <option value="Cleric">Cleric (Atk 3, Def 4, Life 5)</option>
+                            <option value="Rogue">Rogue (Atk 3, Def 4, Life 4)</option>
+                            <option value="Wizard">Wizard (Atk 2, Def 3, Life 3)</option>
+                            <option value="Barbarian">Barbarian (Atk 5, Def 4, Life 8)</option>
+                            <option value="Elf">Elf (Atk 3, Def 4, Life 4)</option>
+                            <option value="Dwarf">Dwarf (Atk 4, Def 5, Life 7)</option>
+                            <option value="Halfling">Halfling (Atk 2, Def 5, Life 4)</option>
+                        </select>
+                        <input type="text" id="char-name" placeholder="Character Name">
+                        <button id="create-char" class="btn btn-primary">Create Character</button>
+                    </div>
+                    
+                    <button id="start-game" class="btn btn-success hidden">Start Adventure</button>
+                </div>
+            </div>
+
+            <!-- Game Screen -->
+            <div id="game" class="screen">
+                <div class="game-layout">
+                    <!-- Left: Party Info -->
+                    <aside id="party-panel">
+                        <h3>Your Party</h3>
+                        <div id="party-list"></div>
+                    </aside>
+
+                    <!-- Center: Dungeon View -->
+                    <section id="dungeon-view">
+                        <div id="room-display">
+                            <img id="room-image" src="" alt="Current Room">
+                            <div id="room-info">
+                                <span id="room-number"></span>
+                                <span id="room-type"></span>
+                            </div>
+                        </div>
+                        
+                        <div id="movement-controls">
+                            <button class="dir-btn" data-dir="north">↑ North</button>
+                            <div class="dir-row">
+                                <button class="dir-btn" data-dir="west">← West</button>
+                                <button class="dir-btn" data-dir="east">East →</button>
+                            </div>
+                            <button class="dir-btn" data-dir="south">South ↓</button>
+                        </div>
+                    </section>
+
+                    <!-- Right: Combat & Actions -->
+                    <aside id="action-panel">
+                        <div id="combat-panel" class="hidden">
+                            <h3>Combat!</h3>
+                            <div id="monsters-list"></div>
+                            <button id="attack-btn" class="btn btn-danger">Attack</button>
+                        </div>
+                        
+                        <div id="exploration-actions">
+                            <h3>Actions</h3>
+                            <button id="search-btn" class="btn btn-secondary">Search Room</button>
+                        </div>
+                        
+                        <div id="spells-panel" class="hidden">
+                            <h3>Spells</h3>
+                            <div id="spell-list"></div>
+                        </div>
+                    </aside>
+                </div>
+
+                <!-- Message Log -->
+                <div id="message-log">
+                    <div id="messages"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/js/game.js"></script>
+</body>
+</html>
