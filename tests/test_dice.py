@@ -20,10 +20,12 @@ class TestDiceRolling:
     
     def test_roll_d66_returns_valid_range(self):
         """d66 should return values from 11, 12... 16, 21... 66."""
-        valid_results = {10 + i + j*10 for i in range(1, 7) for j in range(1, 7)}
+        valid_results = {i + j*10 for i in range(1, 7) for j in range(1, 7)}
+        # This generates: 11-16, 21-26, 31-36, 41-46, 51-56, 61-66
         for _ in range(100):
             result = roll_d66()
-            assert result in valid_results
+            assert 11 <= result <= 66
+            assert result in valid_results, f"Got {result} which is not in valid d66 results"
     
     def test_explosive_six_returns_dice_result(self):
         """Explosive six should return DiceResult with total and details."""
