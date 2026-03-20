@@ -101,6 +101,10 @@ async function createGame() {
             body: JSON.stringify({ player_name: playerName }),
         });
         const joinData = await joinResponse.json();
+        if (!joinResponse.ok || joinData.error) {
+            showMessage(`Failed to join game: ${joinData.error || joinResponse.statusText}`, 'error');
+            return;
+        }
         state.playerId = joinData.player_id;
         state.playerName = playerName;
         
