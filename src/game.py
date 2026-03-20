@@ -172,12 +172,16 @@ class GameManager:
         if not attacker:
             return {"error": "No one can attack"}
         
-        # Find first living monster (auto-target instead of fixed index)
+        # Find target monster: honor target_idx if it points to a living monster,
+        # otherwise fall back to the first living monster
         target = None
-        for monster in self.current_monsters:
-            if not monster.is_dead():
-                target = monster
-                break
+        if 0 <= target_idx < len(self.current_monsters) and not self.current_monsters[target_idx].is_dead():
+            target = self.current_monsters[target_idx]
+        else:
+            for monster in self.current_monsters:
+                if not monster.is_dead():
+                    target = monster
+                    break
         
         if not target:
             return {"error": "No living targets"}
