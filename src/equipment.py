@@ -94,7 +94,7 @@ WEAPON_LIST: Dict[str, Weapon] = {
     ),
     "bow": Weapon(
         name="Bow", cost=15, hands=2,
-        attack_modifier=0, damage_type="slashing",
+        attack_modifier=0, damage_type="piercing",
         is_ranged=True,
     ),
     "sling": Weapon(
@@ -139,7 +139,7 @@ ITEM_LIST: Dict[str, Item] = {
     ),
     "bandage": Item(
         name="Bandage", cost=5, one_use=True,
-        description="Heals 1 life. Once per character per adventure. NOT during combat.",
+        description="Heals 1 life. One use. Can be used in or out of combat (uses character's action).",
     ),
     "torch": Item(
         name="Torch", cost=2, one_use=True,
@@ -198,6 +198,16 @@ CLASS_ARMOR_RESTRICTIONS: Dict[str, List[str]] = {
 # Classes that cannot use magic items (except Potion of Healing)
 NO_MAGIC_CLASSES = {"Barbarian"}
 
+# Class restrictions for specific magic items.
+# Maps magic item name -> set of class_types allowed to use the item.
+MAGIC_ITEM_CLASS_RESTRICTIONS = {
+    "Wand of Sleep": {"Wizard", "Elf"},
+    "Fireball Staff": {"Wizard"},
+    "Ring of Teleportation": {"Warrior", "Cleric", "Rogue", "Wizard", "Elf", "Dwarf", "Halfling"},
+    "Fool's Gold Purse": {"Warrior", "Cleric", "Rogue", "Wizard", "Elf", "Dwarf", "Halfling"},
+    "Potion of Healing": {"Warrior", "Cleric", "Rogue", "Wizard", "Barbarian", "Elf", "Dwarf", "Halfling"},
+}
+
 
 # ---------------------------------------------------------------------------
 # Inventory class
@@ -250,6 +260,9 @@ class Inventory:
     def can_equip(self, item: EquipmentItem) -> bool:
         """Check if the item can be added respecting all rules."""
         if isinstance(item, Weapon):
+            # Barbarians cannot use magic weapons
+            if item.is_magic and self.class_type in NO_MAGIC_CLASSES:
+                return False
             allowed = CLASS_WEAPON_RESTRICTIONS.get(self.class_type, [])
             # Check by matching weapon key
             weapon_key = self._weapon_key(item)
@@ -262,7 +275,10 @@ class Inventory:
         if isinstance(item, Armor):
             allowed = CLASS_ARMOR_RESTRICTIONS.get(self.class_type, [])
             armor_key = self._armor_key(item)
-            if armor_key and armor_key not in allowed:
+            if armor_key is None:
+                # Unknown armor type: reject rather than silently bypass
+                return False
+            if armor_key not in allowed:
                 return False
             if item.is_shield:
                 if len(self.shields) >= MAX_SHIELDS:
@@ -274,10 +290,13 @@ class Inventory:
             return True
 
         if isinstance(item, Item):
-            # Magic item check
+            # Magic item check: barbarians blocked from all magic except Potion of Healing
             if item.is_magic and self.class_type in NO_MAGIC_CLASSES:
-                # Barbarians CAN use Potion of Healing
                 if item.name != "Potion of Healing":
+                    return False
+            # Per-item class restrictions (e.g. Wand=wizards/elves, Fireball Staff=wizards only)
+            if item.is_magic and item.name in MAGIC_ITEM_CLASS_RESTRICTIONS:
+                if self.class_type not in MAGIC_ITEM_CLASS_RESTRICTIONS[item.name]:
                     return False
             if len(self.items) >= MAX_ITEM_SLOTS:
                 return False

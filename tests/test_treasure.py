@@ -313,7 +313,8 @@ class TestMagicItemSellPrices:
 
     def test_fools_gold_sell_price(self):
         fg = roll_magic_treasure(force_roll=3)
-        assert fg.sell_price() == 20  # 1 charge
+        # Fool's Gold is not magic (usable by any class), sell price = cost // 2 = 0
+        assert fg.sell_price() == 0
 
     def test_magic_weapon_sell_price(self):
         w = roll_magic_treasure(force_roll=4)
@@ -322,3 +323,69 @@ class TestMagicItemSellPrices:
     def test_fireball_staff_sell_price(self):
         staff = roll_magic_treasure(force_roll=6)
         assert staff.sell_price() == 60  # 30 * 2 charges
+
+
+# ---------------------------------------------------------------------------
+# Gold distribution edge cases
+# ---------------------------------------------------------------------------
+
+class TestGoldDistributionEdgeCases:
+    """Test distribute_gold with large remainders and edge cases."""
+
+    def _make_char(self, name, class_type="Warrior", dead=False):
+        from src.character import create_character
+        c = create_character(class_type, name)
+        if dead:
+            c.life = 0
+        return c
+
+    def test_large_remainder_no_gold_lost(self):
+        """100gp among 3 characters: no gold should be silently lost."""
+        chars = [
+            self._make_char("A"),
+            self._make_char("B"),
+            self._make_char("C"),
+        ]
+        for c in chars:
+            c.inventory.gold = 0
+        dist = distribute_gold(100, chars)
+        total_distributed = sum(dist.values())
+        assert total_distributed == 100
+
+    def test_remainder_distributed_round_robin(self):
+        """7gp among 3: should be 3+2+2 or 2+3+2 etc., total 7."""
+        chars = [
+            self._make_char("A"),
+            self._make_char("B"),
+            self._make_char("C"),
+        ]
+        for c in chars:
+            c.inventory.gold = 0
+        dist = distribute_gold(7, chars)
+        total = sum(dist.values())
+        assert total == 7
+        # Each should get at least 2 (floor(7/3))
+        for name in ["A", "B", "C"]:
+            assert dist.get(name, 0) >= 2
+
+    def test_gold_cap_stops_distribution(self):
+        """When all inventories are full, remaining gold is dropped."""
+        chars = [self._make_char("A")]
+        chars[0].inventory.gold = 200  # at cap
+        dist = distribute_gold(50, chars)
+        # Nothing can be added
+        assert dist.get("A", 0) == 0
+
+    def test_dwarf_minimum_with_zero_share(self):
+        """Dwarf gets at least 1 gold even when share rounds to 0."""
+        chars = [
+            self._make_char("A", "Warrior"),
+            self._make_char("B", "Warrior"),
+            self._make_char("C", "Warrior"),
+            self._make_char("Gimli", "Dwarf"),
+        ]
+        for c in chars:
+            c.inventory.gold = 0
+        # 1 gold among 4: share = 0, but dwarf should get 1
+        dist = distribute_gold(1, chars)
+        assert dist.get("Gimli", 0) >= 1

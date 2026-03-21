@@ -43,6 +43,7 @@ class TestWeapons:
         assert w.cost == 15
         assert w.hands == 2
         assert w.attack_modifier == 0
+        assert w.damage_type == "piercing"
         assert w.is_ranged is True
 
     def test_sling(self):
@@ -177,7 +178,7 @@ class TestInventory:
 
     def test_add_armor(self):
         inv = self._make_inv()
-        a = Armor("Leather", 10, 1)
+        a = Armor("Light Armor", 10, 1)
         assert inv.add_item(a) is True
         assert inv.armor is not None
 
@@ -202,7 +203,7 @@ class TestInventory:
 
     def test_remove_armor(self):
         inv = self._make_inv()
-        a = Armor("Leather", 10, 1)
+        a = Armor("Light Armor", 10, 1)
         inv.add_item(a)
         assert inv.remove_item(a) is True
         assert inv.armor is None
@@ -249,17 +250,17 @@ class TestInventory:
 
     def test_max_two_shields(self):
         inv = self._make_inv()
-        inv.add_item(Armor("Shield1", 5, 1, is_shield=True))
-        inv.add_item(Armor("Shield2", 5, 1, is_shield=True))
+        inv.add_item(Armor("Shield", 5, 1, is_shield=True))
+        inv.add_item(Armor("Shield", 5, 1, is_shield=True))
         assert len(inv.shields) == 2
-        assert inv.add_item(Armor("Shield3", 5, 1, is_shield=True)) is False
+        assert inv.add_item(Armor("Shield", 5, 1, is_shield=True)) is False
 
     # -- armor limit --
 
     def test_only_one_armor(self):
         inv = self._make_inv()
-        inv.add_item(Armor("Light", 10, 1))
-        assert inv.add_item(Armor("Heavy", 30, 2, is_heavy=True)) is False
+        inv.add_item(Armor("Light Armor", 10, 1))
+        assert inv.add_item(Armor("Heavy Armor", 30, 2, is_heavy=True)) is False
 
     # -- gold limits --
 
@@ -300,7 +301,7 @@ class TestInventory:
 
     def test_get_defense_bonus(self):
         inv = self._make_inv()
-        inv.add_item(Armor("Light", 10, 1))
+        inv.add_item(Armor("Light Armor", 10, 1))
         inv.add_item(Armor("Shield", 5, 1, is_shield=True))
         assert inv.get_defense_bonus() == 2
 
@@ -318,7 +319,7 @@ class TestInventory:
 
     def test_heavy_armor_save_penalty(self):
         inv = self._make_inv()
-        inv.add_item(Armor("Heavy", 30, 2, is_heavy=True, save_penalty=-1))
+        inv.add_item(Armor("Heavy Armor", 30, 2, is_heavy=True, save_penalty=-1))
         assert inv.get_save_penalty() == -1
 
     def test_no_armor_no_penalty(self):
@@ -387,7 +388,7 @@ class TestInventory:
     def test_carry_weight(self):
         inv = self._make_inv()
         inv.add_item(Weapon("Sword", 6, 1, 0, "slashing"))
-        inv.add_item(Armor("Light", 10, 1))
+        inv.add_item(Armor("Light Armor", 10, 1))
         inv.add_item(Armor("Shield", 5, 1, is_shield=True))
         inv.add_item(Item("Bandage", 5, True))
         # 1 weapon + 1 armor + 1 shield + 1 item = 4
@@ -418,6 +419,7 @@ class TestStartingEquipment:
         assert inv.armor is not None
         assert inv.armor.name == "Light Armor"
         assert len(inv.shields) == 1
+        assert inv.has_lantern() is True
         assert inv.gold >= 2  # 2d6, min is 2
 
     def test_cleric_starting_gear(self):
@@ -428,7 +430,7 @@ class TestStartingEquipment:
         assert inv.weapons[0].name == "Hand Weapon"
         assert inv.armor.name == "Light Armor"
         assert len(inv.shields) == 1
-        assert inv.gold >= 1  # d6
+        assert inv.gold >= 2  # 2d6
 
     def test_rogue_starting_gear(self):
         from src.character import Rogue
@@ -454,10 +456,10 @@ class TestStartingEquipment:
         b = Barbarian("TestBarbarian")
         inv = b.inventory
         assert len(inv.weapons) == 1
-        assert inv.weapons[0].name == "Hand Weapon"
-        assert inv.armor.name == "Light Armor"
-        assert len(inv.shields) == 1
-        assert inv.gold >= 1  # d6
+        assert inv.weapons[0].name == "Two-Handed Weapon"
+        assert inv.armor is None
+        assert len(inv.shields) == 0
+        assert inv.gold >= 1  # 1d6
 
     def test_elf_starting_gear(self):
         from src.character import Elf
@@ -468,7 +470,7 @@ class TestStartingEquipment:
         assert "Hand Weapon" in weapon_names
         assert "Bow" in weapon_names
         assert inv.armor.name == "Light Armor"
-        assert inv.gold >= 2  # 2d6
+        assert inv.gold >= 3  # 3d6
 
     def test_dwarf_starting_gear(self):
         from src.character import Dwarf
@@ -478,7 +480,7 @@ class TestStartingEquipment:
         assert inv.weapons[0].name == "Hand Weapon"
         assert inv.armor.name == "Light Armor"
         assert len(inv.shields) == 1
-        assert inv.gold >= 3  # 3d6
+        assert inv.gold >= 2  # 2d6
         assert inv.max_gold == MAX_GOLD_DWARF  # 250
 
     def test_halfling_starting_gear(self):
@@ -490,7 +492,7 @@ class TestStartingEquipment:
         assert "Light Hand Weapon" in weapon_names
         assert "Sling" in weapon_names
         assert inv.armor.name == "Light Armor"
-        assert inv.gold >= 2  # 2d6
+        assert inv.gold >= 3  # 3d6
 
     def test_character_to_dict_includes_gold_and_inventory(self):
         from src.character import Warrior
@@ -500,3 +502,62 @@ class TestStartingEquipment:
         assert "inventory" in d
         assert d["inventory"] is not None
         assert d["gold"] >= 2
+
+
+# ---------------------------------------------------------------------------
+# Barbarian magic weapon rejection test
+# ---------------------------------------------------------------------------
+
+class TestBarbarianMagicWeaponRejection:
+    """Test that barbarians cannot equip magic weapons (M1)."""
+
+    def test_barbarian_cannot_equip_magic_sword(self):
+        inv = Inventory(class_type="Barbarian")
+        magic_sword = Weapon(
+            name="Magic Slashing Hand Weapon", cost=0, hands=1,
+            attack_modifier=1, damage_type="slashing", is_magic=True,
+        )
+        assert inv.can_equip(magic_sword) is False
+
+    def test_barbarian_cannot_equip_magic_bow(self):
+        inv = Inventory(class_type="Barbarian")
+        magic_bow = Weapon(
+            name="Magic Bow", cost=0, hands=2,
+            attack_modifier=1, damage_type="piercing",
+            is_ranged=True, is_magic=True,
+        )
+        assert inv.can_equip(magic_bow) is False
+
+    def test_barbarian_can_equip_normal_hand_weapon(self):
+        inv = Inventory(class_type="Barbarian")
+        hw = Weapon(
+            name="Hand Weapon", cost=6, hands=1,
+            attack_modifier=0, damage_type="slashing",
+        )
+        assert inv.can_equip(hw) is True
+
+    def test_barbarian_can_equip_normal_two_handed(self):
+        inv = Inventory(class_type="Barbarian")
+        thw = Weapon(
+            name="Two-Handed Weapon", cost=15, hands=2,
+            attack_modifier=1, damage_type="slashing",
+        )
+        assert inv.can_equip(thw) is True
+
+    def test_warrior_can_equip_magic_weapon(self):
+        inv = Inventory(class_type="Warrior")
+        magic_sword = Weapon(
+            name="Magic Slashing Hand Weapon", cost=0, hands=1,
+            attack_modifier=1, damage_type="slashing", is_magic=True,
+        )
+        assert inv.can_equip(magic_sword) is True
+
+    def test_fools_gold_usable_by_barbarian(self):
+        """Fool's Gold Purse is not magic; any class can use it."""
+        inv = Inventory(class_type="Barbarian")
+        fg = Item(
+            name="Fool's Gold Purse", cost=0, one_use=True,
+            description="1 charge. Auto-bribe any monster once. Any class.",
+            charges=1, is_magic=False,
+        )
+        assert inv.can_equip(fg) is True

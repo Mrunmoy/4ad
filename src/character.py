@@ -57,6 +57,9 @@ class Character:
     equipment: List[str] = field(default_factory=list)
 
     # New inventory system
+    # TODO Phase 2: Wire inventory equipment bonuses (get_attack_modifier,
+    # get_defense_bonus) into the combat system so that equipped weapons/armor
+    # actually affect attack rolls and defense calculations.
     inventory: Optional[Inventory] = field(default=None, repr=False)
     gold: int = 0
 
@@ -180,7 +183,7 @@ class Warrior(Character):
             self,
             weapons=["hand_weapon"],
             armor_keys=["light_armor", "shield"],
-            item_keys=[],
+            item_keys=["lantern"],
             gold_dice=2,  # 2d6 gold
         )
 
@@ -203,7 +206,7 @@ class Cleric(Character):
             weapons=["hand_weapon"],
             armor_keys=["light_armor", "shield"],
             item_keys=[],
-            gold_dice=1,  # d6 gold
+            gold_dice=2,  # 2d6 gold
         )
 
     def can_cast(self, spell: str) -> bool:
@@ -285,10 +288,10 @@ class Barbarian(Character):
         self.inventory.class_type = "Barbarian"
         _equip_starting_gear(
             self,
-            weapons=["hand_weapon"],
-            armor_keys=["light_armor", "shield"],
+            weapons=["two_handed_weapon"],
+            armor_keys=[],
             item_keys=[],
-            gold_dice=1,  # d6 gold
+            gold_dice=1,  # 1d6 gold
         )
 
     def can_use_heavy_armor(self) -> bool:
@@ -318,7 +321,7 @@ class Elf(Character):
             weapons=["hand_weapon", "bow"],
             armor_keys=["light_armor"],
             item_keys=[],
-            gold_dice=2,  # 2d6 gold
+            gold_dice=3,  # 3d6 gold
         )
         self.spells = ["Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"]
 
@@ -346,7 +349,7 @@ class Dwarf(Character):
             weapons=["hand_weapon"],
             armor_keys=["light_armor", "shield"],
             item_keys=[],
-            gold_dice=3,  # 3d6 gold
+            gold_dice=2,  # 2d6 gold
         )
 
 
@@ -368,7 +371,7 @@ class Halfling(Character):
             weapons=["light_hand_weapon", "sling"],
             armor_keys=["light_armor"],
             item_keys=[],
-            gold_dice=2,  # 2d6 gold
+            gold_dice=3,  # 3d6 gold
         )
         self.luck_used = False
 

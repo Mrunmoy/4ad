@@ -94,8 +94,8 @@ MAGIC_TREASURE_TABLE = {
     ),
     3: lambda: Item(
         name="Fool's Gold Purse", cost=0, one_use=True,
-        description="1 charge. Auto-bribe any monster once.",
-        charges=1, is_magic=True,
+        description="1 charge. Auto-bribe any monster once. Any class.",
+        charges=1, is_magic=False,
     ),
     4: lambda: _make_magic_weapon(),
     5: lambda: Item(
@@ -112,7 +112,14 @@ MAGIC_TREASURE_TABLE = {
 
 
 def roll_magic_treasure(force_roll: Optional[int] = None) -> EquipmentItem:
-    """Roll on the Magic Treasure Table (d6)."""
+    """Roll on the Magic Treasure Table (d6).
+
+    Note: Magic items have class restrictions (e.g. Wand of Sleep is for
+    wizards/elves only, Fireball Staff is wizards only). These restrictions
+    are enforced at equip time via MAGIC_ITEM_CLASS_RESTRICTIONS in
+    equipment.py, not at treasure-roll time -- the party finds the item
+    regardless, but only eligible characters can use/equip it.
+    """
     roll = force_roll if force_roll is not None else roll_d6()
     return MAGIC_TREASURE_TABLE[roll]()
 
@@ -273,14 +280,19 @@ def distribute_gold(
             distribution[char.name] = amount
             remaining -= amount
 
-    # Second pass: distribute remainder
-    for char in living:
-        if remaining <= 0:
-            break
-        if hasattr(char, 'inventory') and char.inventory is not None:
-            added = char.inventory.add_gold(1)
-            if added > 0:
-                distribution[char.name] = distribution.get(char.name, 0) + added
-                remaining -= added
+    # Second pass: distribute remainder round-robin
+    while remaining > 0:
+        distributed_any = False
+        for char in living:
+            if remaining <= 0:
+                break
+            if hasattr(char, 'inventory') and char.inventory is not None:
+                added = char.inventory.add_gold(1)
+                if added > 0:
+                    distribution[char.name] = distribution.get(char.name, 0) + added
+                    remaining -= added
+                    distributed_any = True
+        if not distributed_any:
+            break  # all inventories full, prevent infinite loop
 
     return distribution
