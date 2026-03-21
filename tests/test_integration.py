@@ -3,22 +3,15 @@
 These tests exercise the GameManager end-to-end, simulating complete game
 scenarios against the current game-v2 codebase.
 """
-import random
 from unittest.mock import patch
 
 import pytest
 
-from src.character import (
-    CHARACTER_CLASSES,
-    Warrior, Cleric, Rogue, Wizard,
-    Barbarian, Elf, Dwarf, Halfling,
-    create_character,
-)
+from src.character import CHARACTER_CLASSES, Warrior, create_character
 from src.combat import Combat
-from src.dice import roll_d6
-from src.dungeon import Dungeon, Room, RoomContent, RoomType, Party
-from src.game import GameManager, Player
-from src.monster import Boss, Minion, MINIONS_TABLE, BOSSES_TABLE
+from src.dungeon import Dungeon, RoomContent, RoomType
+from src.game import GameManager
+from src.monster import Boss, Minion
 
 
 # ---------------------------------------------------------------------------
@@ -44,16 +37,6 @@ def _first_unexplored_exit(room):
             return d
     return None
 
-
-def _force_room_content(gm, direction, room_type, description=""):
-    """Move the party into a new room whose content is forced to *room_type*."""
-    entrance = gm.dungeon.party.current_room
-    # Ensure the direction exit exists but is unexplored
-    if direction not in entrance.exits:
-        entrance.exits[direction] = None
-    new_room = gm.dungeon.add_room_from(entrance, direction)
-    new_room.content = RoomContent(room_type, description)
-    return new_room
 
 
 # ---------------------------------------------------------------------------
@@ -164,14 +147,14 @@ class TestPartyWipe:
     def test_characters_take_damage_and_can_die(self):
         """Characters lose life during monster attacks and can reach 0."""
         gm, _ = _make_game(("Wizard",))  # single fragile character
-        warrior = gm.dungeon.party.characters[0]
-        initial_life = warrior.life
+        wizard = gm.dungeon.party.characters[0]
+        initial_life = wizard.life
 
         # Simulate a powerful monster attack
         ogre = Boss("Ogre", level=5, life=6)
-        Combat.resolve_defense(warrior, ogre, force_roll=1)
+        Combat.resolve_defense(wizard, ogre, force_roll=1)
         # With Wizard defense=3, roll 1 => total=4, vs level 5 => fail => take 1 damage
-        assert warrior.life < initial_life
+        assert wizard.life < initial_life
 
     def test_petrified_counts_as_wiped(self):
         """A party of all-petrified characters is wiped out."""
@@ -213,10 +196,13 @@ class TestMultiRoomExploration:
                 new_room.content = RoomContent(RoomType.EMPTY, "Empty")
 
             gm.move(direction)
-            if gm.combat_active:
-                for m in gm.current_monsters:
-                    m.life = 0
-                gm._end_combat()
+            # Resolve any unexpected combat via the public attack() API
+            safety = 50
+            while gm.combat_active and safety > 0:
+                result = gm.attack()
+                if "error" in result:
+                    break
+                safety -= 1
             rooms_visited += 1
 
         assert rooms_visited >= 10
@@ -320,10 +306,13 @@ class TestCombatEdgeCases:
         gm.move(direction)
         assert gm.combat_active
 
-        # Kill all monsters directly
-        for m in gm.current_monsters:
-            m.life = 0
-        gm._end_combat()
+        # Fight monsters through the public attack() API
+        safety = 50
+        while gm.combat_active and safety > 0:
+            result = gm.attack()
+            if "error" in result:
+                break
+            safety -= 1
 
         assert not gm.combat_active
         assert gm.current_monsters == []
@@ -339,9 +328,13 @@ class TestCombatEdgeCases:
         combat_room.content = RoomContent(RoomType.MINIONS, "Minions!")
 
         gm.move(direction)
-        for m in gm.current_monsters:
-            m.life = 0
-        gm._end_combat()
+        # Resolve combat through the public attack() API
+        safety = 50
+        while gm.combat_active and safety > 0:
+            result = gm.attack()
+            if "error" in result:
+                break
+            safety -= 1
 
         assert combat_room.content.cleared
 

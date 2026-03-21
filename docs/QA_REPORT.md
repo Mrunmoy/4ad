@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-21
 **Branch:** `qa/phase-1-integration` (based on `game-v2`)
-**Test runner:** pytest 8.x, Python 3.10
+**Test runner:** pytest 7.4.0, Python 3.10
 
 ---
 
@@ -35,12 +35,12 @@ The design spec (DESIGN_SYSTEMS.md) defines character stats using a `base + leve
 
 **Severity:** Low (known, intentional simplification)
 
-### 2.3 No Dead-Character Check in `_monster_attack`
+### 2.3 Stale Living-Character List in `_monster_attack`
 
-`_monster_attack()` calls `get_living_characters()` once at the start, but if a character dies mid-round from an earlier monster's attack, the same character can still be attacked by subsequent monsters in the same round (since the list was captured before the loop). The defense roll will still reduce their life below 0 (clamped to 0 by `take_damage`), but the log message "X has fallen!" may fire multiple times for the same character.
+`_monster_attack()` captures the list of living characters once via `get_living_characters()` before iterating over monsters. If a character dies from an earlier monster's attack during the same round, they remain in the captured list and can be targeted again by subsequent monsters. Because `take_damage()` clamps life at 0, no negative-HP state occurs, but the "X has fallen!" log message can fire multiple times for the same character in a single round, and defense rolls are wasted on an already-dead character.
 
 **Severity:** Low
-**Recommendation:** Re-check `char.is_dead()` before each monster's attack within the loop.
+**Recommendation:** Re-check `char.is_dead()` before each individual monster's attack within the loop, or refresh the living-character list between monster attacks.
 
 ### 2.4 `search_room()` Does Not Check `room.content.cleared`
 
