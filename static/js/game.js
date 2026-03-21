@@ -382,6 +382,17 @@ function updateGameView() {
             }
             monstersList.appendChild(div);
         });
+
+        // Clamp selectedTarget to a living monster
+        const selected = data.monsters[state.selectedTarget];
+        if (!selected || selected.life <= 0) {
+            state.selectedTarget = data.monsters.findIndex(m => m.life > 0);
+            if (state.selectedTarget < 0) state.selectedTarget = 0;
+            // Update visual selection
+            document.querySelectorAll('.monster-card').forEach((c, i) => {
+                c.classList.toggle('selected', i === state.selectedTarget);
+            });
+        }
     } else {
         combatPanel.classList.add('hidden');
         state.selectedTarget = 0;
@@ -428,17 +439,8 @@ function showSearchResult(data) {
 }
 
 function showMessage(text, type = 'info') {
-    // Add to message log if game is active
-    const messagesDiv = document.getElementById('messages');
-    if (messagesDiv) {
-        const div = document.createElement('div');
-        div.className = `message message-${type}`;
-        div.textContent = text;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    }
-
-    // Also show as toast notification
+    // Show as toast notification only — the message log in #messages
+    // is owned by updateGameView() which re-renders from data.message_log.
     let toastContainer = document.getElementById('toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
@@ -447,10 +449,13 @@ function showMessage(text, type = 'info') {
         toastContainer.style.top = '20px';
         toastContainer.style.right = '20px';
         toastContainer.style.zIndex = '9999';
+        toastContainer.setAttribute('role', 'log');
+        toastContainer.setAttribute('aria-live', 'polite');
         document.body.appendChild(toastContainer);
     }
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    toast.setAttribute('role', 'alert');
     toast.textContent = text;
     toastContainer.appendChild(toast);
 
