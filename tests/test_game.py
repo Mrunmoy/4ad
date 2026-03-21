@@ -137,11 +137,11 @@ class TestEncounterClearing:
         # Add a room going north and force its content to TREASURE
         treasure_room = dungeon.add_room_from(entrance, "north")
         treasure_room.content = RoomContent(RoomType.TREASURE, "Treasure found!")
-        return gm, entrance, treasure_room
+        return gm, treasure_room
 
     def test_treasure_room_sets_cleared_on_first_visit(self):
         """Entering a TREASURE room should mark content.cleared = True."""
-        gm, entrance, treasure_room = self._setup_game_with_treasure_room()
+        gm, treasure_room = self._setup_game_with_treasure_room()
 
         gm.move("north")
 
@@ -150,7 +150,7 @@ class TestEncounterClearing:
 
     def test_treasure_encounter_does_not_retrigger_on_second_visit(self):
         """Re-entering a cleared TREASURE room must not fire the encounter again."""
-        gm, entrance, treasure_room = self._setup_game_with_treasure_room()
+        gm, treasure_room = self._setup_game_with_treasure_room()
 
         # First visit – encounter triggers
         gm.move("north")
