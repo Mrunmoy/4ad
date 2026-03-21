@@ -384,7 +384,7 @@ function updateGameView() {
                 div.addEventListener('click', () => {
                     state.selectedTarget = idx;
                     // Update visual and ARIA selection
-                    document.querySelectorAll('.monster-card').forEach((c, i) => {
+                    monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
                         c.classList.toggle('selected', i === state.selectedTarget);
                         c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
                     });
@@ -393,7 +393,7 @@ function updateGameView() {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         state.selectedTarget = idx;
-                        document.querySelectorAll('.monster-card').forEach((c, i) => {
+                        monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
                             c.classList.toggle('selected', i === state.selectedTarget);
                             c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
                         });
@@ -412,7 +412,7 @@ function updateGameView() {
             state.selectedTarget = data.monsters.findIndex(m => m.life > 0);
             if (state.selectedTarget < 0) state.selectedTarget = 0;
             // Update visual and ARIA selection
-            document.querySelectorAll('.monster-card').forEach((c, i) => {
+            monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
                 c.classList.toggle('selected', i === state.selectedTarget);
                 c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
             });
@@ -463,8 +463,19 @@ function showSearchResult(data) {
 }
 
 function showMessage(text, type = 'info') {
-    // Show as toast notification only — the message log in #messages
-    // is owned by updateGameView() which re-renders from data.message_log.
+    // Persist errors in the message log (info/success come from server via updateGameView)
+    if (type === 'error') {
+        const messagesDiv = document.getElementById('messages');
+        if (messagesDiv) {
+            const div = document.createElement('div');
+            div.className = 'message message-error';
+            div.textContent = text;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    }
+
+    // Show toast (all types)
     let toastContainer = document.getElementById('toast-container');
     if (!toastContainer) {
         toastContainer = document.createElement('div');
