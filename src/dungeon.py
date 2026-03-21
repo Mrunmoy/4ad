@@ -143,13 +143,15 @@ class Party:
     def add_character(self, character) -> None:
         """Add character to party.
 
-        Preserves character.position if it was already explicitly set.
-        Only assigns a default position when the character still has the
-        dataclass default (1) and is not the first member of the party.
+        Treats ``position == 1`` as the default for new characters.
+        For non-first party members whose position is still ``1``, assigns
+        the next available position in the party. Positions other than ``1``
+        are preserved as-is.
         """
         if character.position == 1 and len(self.characters) > 0:
             character.position = len(self.characters) + 1
         self.characters.append(character)
+        self.characters.sort(key=lambda c: c.position)
     
     def move(self, direction: str) -> 'MoveResult':
         """Move in a direction."""
