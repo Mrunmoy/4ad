@@ -1,4 +1,5 @@
 """Game manager for 4AD."""
+from collections import deque
 from typing import Dict, List, Optional
 from src.dungeon import Dungeon, RoomContent, RoomType
 from src.character import Character, create_character
@@ -43,10 +44,10 @@ class GameManager:
         self.pending_xp_rolls = 0
         self.last_leveled_character: Optional[str] = None
         self.minion_encounter_count = 0
+        self._awarded_minion_xp = 0
 
         # Quest tracking
         self.active_quest: Optional[Quest] = None
-        self.quest_rewarded = False
         self.used_epic_rewards: List[str] = []
         self.peaceful_encounters = 0
         self.bosses_killed: List[str] = []
@@ -277,16 +278,26 @@ class GameManager:
                     if char.is_dead():
                         self.log_message(f"{char.name} has fallen!")
 
+    def _has_final_boss_in_combat(self) -> bool:
+        """Check if any current monster is a final boss (fight-to-death).
+
+        H8: Final boss always fights to death -- no morale rolls, no fleeing,
+        no bribing allowed.
+        """
+        return any(m.is_final_boss for m in self.current_monsters if not m.is_dead())
+
     def _end_combat(self) -> None:
         """End combat and process XP/quest rewards."""
         self.combat_active = False
+
+        # C4: Combat occurred -- reset peaceful encounter counter for peace quest
+        self.peaceful_encounters = 0
 
         # Determine what we killed
         is_boss = False
         is_weird = False
         is_dragon_final = False
-        is_minion = False
-        is_vermin = False
+        is_final_boss_kill = False
 
         room = self.dungeon.party.current_room
         if room and room.content:
@@ -295,7 +306,8 @@ class GameManager:
                 is_boss = True
                 for m in self.current_monsters:
                     self.bosses_killed.append(m.name)
-                    if getattr(m, "is_final_boss", False):
+                    if m.is_final_boss:
+                        is_final_boss_kill = True
                         self.final_boss_killed = True
                         if m.is_dragon:
                             is_dragon_final = True
@@ -304,37 +316,15 @@ class GameManager:
                 is_weird = True
                 for m in self.current_monsters:
                     self.bosses_killed.append(m.name)
-                    if getattr(m, "is_final_boss", False):
+                    if m.is_final_boss:
+                        is_final_boss_kill = True
                         self.final_boss_killed = True
                         self.log_message("The final boss has been defeated!")
             elif ct == RoomType.MINIONS:
-                is_minion = True
                 self.minion_encounter_count += 1
-            elif ct == RoomType.VERMIN:
-                is_vermin = True
+            # Vermin: no XP
 
-        # Calculate XP rolls earned
-        xp_rolls = get_xp_rolls_earned(
-            boss_killed=is_boss,
-            weird_monster_killed=is_weird,
-            minion_encounters=self.minion_encounter_count,
-            dragon_final_boss=is_dragon_final,
-        )
-        # We only add incremental XP for the 10-minion threshold
-        # The function counts total minion_encounters // 10, so we track what
-        # we've already awarded
-        minion_xp = self.minion_encounter_count // 10
-        base_xp = xp_rolls - minion_xp  # boss/weird/dragon XP
-        new_minion_xp = minion_xp - getattr(self, "_awarded_minion_xp", 0)
-        if new_minion_xp > 0:
-            self._awarded_minion_xp = minion_xp
-        else:
-            new_minion_xp = 0
-
-        earned = base_xp + new_minion_xp
-        if earned < 0:
-            earned = 0
-        # Only count the immediate boss/weird kill XP, not cumulative
+        # C5: Simplified XP calculation -- direct per-event, no hybrid
         immediate_xp = 0
         if is_boss and not is_dragon_final:
             immediate_xp += 1
@@ -342,12 +332,31 @@ class GameManager:
             immediate_xp += 2
         if is_weird:
             immediate_xp += 1
-        immediate_xp += new_minion_xp
+
+        # Minion milestone: 1 XP roll per 10 minion encounters
+        new_minion_milestone = self.minion_encounter_count // 10
+        new_minion_xp = new_minion_milestone - self._awarded_minion_xp
+        if new_minion_xp > 0:
+            self._awarded_minion_xp = new_minion_milestone
+            immediate_xp += new_minion_xp
 
         self.pending_xp_rolls += immediate_xp
 
         if immediate_xp > 0:
             self.log_message(f"Earned {immediate_xp} XP roll(s)! (Total pending: {self.pending_xp_rolls})")
+
+        # H7: Final boss treasure tripled, minimum 100 gp
+        if is_final_boss_kill and self.dungeon:
+            current_treasure = self.dungeon.party.treasure
+            tripled = current_treasure * 3
+            if tripled < 100:
+                tripled = 100
+            bonus = tripled - current_treasure
+            self.dungeon.party.treasure = tripled
+            self.log_message(
+                f"Final boss treasure tripled! "
+                f"(+{bonus} gp, total: {self.dungeon.party.treasure} gp)"
+            )
 
         self.current_monsters = []
         if room and room.content:
@@ -358,10 +367,40 @@ class GameManager:
         if self.final_boss_killed and not self.exiting:
             self._begin_exit_phase()
 
+    def _compute_path_to_entrance(self) -> int:
+        """Compute shortest path length from current room back to entrance.
+
+        Uses BFS over the dungeon room graph. Returns number of rooms to
+        traverse (edges), not counting the current room.
+        """
+        if not self.dungeon or not self.dungeon.party:
+            return 0
+        start = self.dungeon.party.current_room
+        target = self.dungeon.entrance
+        if start is target:
+            return 0
+
+        visited = {id(start)}
+        queue = deque([(start, 0)])
+        while queue:
+            room, dist = queue.popleft()
+            for connected in room.exits.values():
+                if connected is None:
+                    continue
+                if connected is target:
+                    return dist + 1
+                if id(connected) not in visited:
+                    visited.add(id(connected))
+                    queue.append((connected, dist + 1))
+
+        # Fallback: if BFS can't find entrance (disconnected graph), use room count
+        return len(self.dungeon.rooms) - 1
+
     def _begin_exit_phase(self):
         """Start the exit phase after killing the final boss."""
         self.exiting = True
-        self.exit_rooms_remaining = len(self.dungeon.rooms) - 1
+        # M5: Use path length back to entrance, not total rooms
+        self.exit_rooms_remaining = self._compute_path_to_entrance()
         self.log_message(
             f"The final boss is dead! Navigate {self.exit_rooms_remaining} "
             "rooms to escape the dungeon."
@@ -369,6 +408,8 @@ class GameManager:
 
     def attempt_xp_roll(self, character_name: str, force_roll: int = None) -> dict:
         """Attempt an XP roll for the named character.
+
+        Halfling luck CANNOT be used to reroll XP rolls (H6).
 
         Returns a dict with the result.
         """
@@ -428,13 +469,13 @@ class GameManager:
             "new_level": result.new_level,
             "stat_changes": result.stat_changes,
             "pending_xp_rolls": self.pending_xp_rolls,
+            "luck_reroll_blocked": True,  # H6: luck cannot reroll XP
         }
 
     def accept_quest(self, force_roll: int = None) -> dict:
         """Accept a new quest (or replace existing one)."""
         quest = generate_quest(force_roll=force_roll)
         self.active_quest = quest
-        self.quest_rewarded = False
         self.log_message(f"Quest accepted: {quest.description} (Target: {quest.target})")
         return {
             "quest_type": quest.quest_type,
@@ -446,6 +487,9 @@ class GameManager:
         """Check active quest progress."""
         if not self.active_quest:
             return {"error": "No active quest"}
+
+        # Guard: only award rewards on incomplete -> complete transition
+        was_completed = self.active_quest.completed
 
         game_state = {
             "party_gold": self.dungeon.party.treasure if self.dungeon else 0,
@@ -459,8 +503,7 @@ class GameManager:
 
         completed = check_quest_completion(self.active_quest, game_state)
 
-        if completed and not self.quest_rewarded:
-            self.quest_rewarded = True
+        if completed and not was_completed:
             self.log_message(f"Quest completed: {self.active_quest.description}")
             self.pending_xp_rolls += 1
 

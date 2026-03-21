@@ -357,6 +357,24 @@ class Barbarian(Character):
         d["rage_available"] = self.rage_available
         return d
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "Barbarian":
+        """Restore a Barbarian from serialized dict (campaign persistence).
+
+        C2: rage_available must survive serialization so that once rage is
+        used in a campaign, it stays used across dungeons.
+        """
+        barb = cls(name=data["name"], level=data.get("level", 1))
+        barb.life = data.get("life", barb.life)
+        barb.max_life = data.get("max_life", barb.max_life)
+        barb.rage_available = data.get("rage_available", True)
+        barb.cursed = data.get("cursed", False)
+        barb.poisoned = data.get("poisoned", False)
+        barb.petrified = data.get("petrified", False)
+        barb.equipment = data.get("equipment", [])
+        barb.position = data.get("position", 1)
+        return barb
+
 
 class Elf(Character):
     """Elf class - page 13.
