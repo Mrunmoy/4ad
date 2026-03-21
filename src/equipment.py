@@ -55,6 +55,9 @@ class Item:
     is_magic: bool = False
 
     def sell_price(self) -> int:
+        # Fool's Gold Purse is not magic but has a special sell price
+        if self.name == "Fool's Gold Purse":
+            return 20 if self.charges > 0 else 0
         if self.is_magic:
             # Magic item sell prices vary; handled per-item
             if self.name == "Wand of Sleep":
@@ -63,9 +66,7 @@ class Item:
                 return 30 * self.charges
             elif self.name == "Ring of Teleportation":
                 return 40 if self.charges > 0 else 0
-            elif self.name == "Fool's Gold Purse":
-                return 20 if self.charges > 0 else 0
-            elif self.name == "Potion of Healing" and self.is_magic:
+            elif self.name == "Potion of Healing":
                 return 50
             return 0
         return self.cost // 2
@@ -204,7 +205,6 @@ MAGIC_ITEM_CLASS_RESTRICTIONS = {
     "Wand of Sleep": {"Wizard", "Elf"},
     "Fireball Staff": {"Wizard"},
     "Ring of Teleportation": {"Warrior", "Cleric", "Rogue", "Wizard", "Elf", "Dwarf", "Halfling"},
-    "Fool's Gold Purse": {"Warrior", "Cleric", "Rogue", "Wizard", "Elf", "Dwarf", "Halfling"},
     "Potion of Healing": {"Warrior", "Cleric", "Rogue", "Wizard", "Barbarian", "Elf", "Dwarf", "Halfling"},
 }
 
@@ -219,7 +219,6 @@ MAX_GOLD_DWARF = 250
 MAX_WEAPON_SLOTS = 3
 MAX_SHIELDS = 2
 MAX_ITEM_SLOTS = 6
-TOTAL_HANDS = 2
 
 
 @dataclass
@@ -242,19 +241,6 @@ class Inventory:
         """Count weapon slots used (2H = 2 slots)."""
         return sum(w.hands for w in self.weapons)
 
-    def _hands_in_use(self) -> int:
-        """Count hands currently committed."""
-        hands = 0
-        for w in self.weapons:
-            hands += w.hands
-        for s in self.shields:
-            hands += 1  # shield uses 1 hand
-        # Lantern uses 1 hand
-        for it in self.items:
-            if it.name == "Lantern":
-                hands += 1
-        return hands
-
     # ---- public API ----
 
     def can_equip(self, item: EquipmentItem) -> bool:
@@ -266,7 +252,10 @@ class Inventory:
             allowed = CLASS_WEAPON_RESTRICTIONS.get(self.class_type, [])
             # Check by matching weapon key
             weapon_key = self._weapon_key(item)
-            if weapon_key and weapon_key not in allowed:
+            if weapon_key is None:
+                # Unknown weapon type: reject rather than silently bypass
+                return False
+            if weapon_key not in allowed:
                 return False
             if self._weapon_slots_used() + item.hands > MAX_WEAPON_SLOTS:
                 return False
@@ -345,11 +334,11 @@ class Inventory:
         return False
 
     def sell_item(self, item: EquipmentItem) -> int:
-        """Remove item and return gold earned (half price, rounded down)."""
+        """Remove item and return gold actually gained (capped by max_gold)."""
         if self.remove_item(item):
             price = item.sell_price()
-            self.add_gold(price)
-            return price
+            added = self.add_gold(price)
+            return added
         return 0
 
     def add_gold(self, amount: int) -> int:
@@ -461,8 +450,10 @@ class Inventory:
             return "two_handed_weapon"
         if "sling" in name_lower:
             return "sling"
-        # Default: hand weapon
-        return "hand_weapon"
+        if "hand" in name_lower:
+            return "hand_weapon"
+        # Unknown weapon type
+        return None
 
     @staticmethod
     def _armor_key(armor: Armor) -> Optional[str]:

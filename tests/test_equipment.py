@@ -172,7 +172,7 @@ class TestInventory:
 
     def test_add_weapon(self):
         inv = self._make_inv()
-        w = Weapon("Sword", 6, 1, 0, "slashing")
+        w = Weapon("Hand Weapon", 6, 1, 0, "slashing")
         assert inv.add_item(w) is True
         assert len(inv.weapons) == 1
 
@@ -196,7 +196,7 @@ class TestInventory:
 
     def test_remove_weapon(self):
         inv = self._make_inv()
-        w = Weapon("Sword", 6, 1, 0, "slashing")
+        w = Weapon("Hand Weapon", 6, 1, 0, "slashing")
         inv.add_item(w)
         assert inv.remove_item(w) is True
         assert len(inv.weapons) == 0
@@ -232,19 +232,19 @@ class TestInventory:
     def test_max_weapon_slots_one_handed(self):
         inv = self._make_inv()
         for _ in range(3):
-            inv.add_item(Weapon("Sword", 6, 1, 0, "slashing"))
+            inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing"))
         assert len(inv.weapons) == 3
         # 4th should fail
-        assert inv.add_item(Weapon("Extra", 6, 1, 0, "slashing")) is False
+        assert inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing")) is False
 
     def test_two_handed_uses_two_slots(self):
         inv = self._make_inv()
-        inv.add_item(Weapon("Greatsword", 15, 2, 1, "slashing"))
+        inv.add_item(Weapon("Two-Handed Weapon", 15, 2, 1, "slashing"))
         assert inv._weapon_slots_used() == 2
         # Can add one more 1-hand weapon
-        assert inv.add_item(Weapon("Dagger", 5, 1, -1, "slashing")) is True
+        assert inv.add_item(Weapon("Light Hand Weapon", 5, 1, -1, "slashing")) is True
         # But not another
-        assert inv.add_item(Weapon("Extra", 6, 1, 0, "slashing")) is False
+        assert inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing")) is False
 
     # -- shield limits --
 
@@ -290,7 +290,7 @@ class TestInventory:
 
     def test_sell_item_returns_half_price(self):
         inv = self._make_inv(gold=0)
-        w = Weapon("Sword", 6, 1, 0, "slashing")
+        w = Weapon("Hand Weapon", 6, 1, 0, "slashing")
         inv.add_item(w)
         earned = inv.sell_item(w)
         assert earned == 3
@@ -307,8 +307,8 @@ class TestInventory:
 
     def test_get_attack_modifier(self):
         inv = self._make_inv()
-        inv.add_item(Weapon("Dagger", 5, 1, -1, "slashing"))
-        inv.add_item(Weapon("Sword", 6, 1, 0, "slashing"))
+        inv.add_item(Weapon("Light Hand Weapon", 5, 1, -1, "slashing"))
+        inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing"))
         assert inv.get_attack_modifier() == 0  # best of -1, 0
 
     def test_get_attack_modifier_empty(self):
@@ -387,7 +387,7 @@ class TestInventory:
 
     def test_carry_weight(self):
         inv = self._make_inv()
-        inv.add_item(Weapon("Sword", 6, 1, 0, "slashing"))
+        inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing"))
         inv.add_item(Armor("Light Armor", 10, 1))
         inv.add_item(Armor("Shield", 5, 1, is_shield=True))
         inv.add_item(Item("Bandage", 5, True))
@@ -396,11 +396,11 @@ class TestInventory:
 
     def test_to_dict(self):
         inv = self._make_inv(gold=42)
-        inv.add_item(Weapon("Sword", 6, 1, 0, "slashing"))
+        inv.add_item(Weapon("Hand Weapon", 6, 1, 0, "slashing"))
         d = inv.to_dict()
         assert d["gold"] == 42
         assert len(d["weapons"]) == 1
-        assert d["weapons"][0]["name"] == "Sword"
+        assert d["weapons"][0]["name"] == "Hand Weapon"
 
 
 # ---------------------------------------------------------------------------

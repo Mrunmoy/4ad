@@ -6,12 +6,11 @@ per the rulebook specifications (Section 6 of design doc).
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Union
+from typing import Optional
 
-from src.dice import roll_d6, roll_2d6
+from src.dice import roll_d6
 from src.equipment import (
-    Weapon, Armor, Item, EquipmentItem,
-    WEAPON_LIST, ITEM_LIST,
+    Weapon, Item, EquipmentItem,
 )
 
 
@@ -77,7 +76,7 @@ def _make_magic_weapon(force_roll: Optional[int] = None) -> Weapon:
                       attack_modifier=1, damage_type="slashing", is_magic=True)
     else:  # 6
         return Weapon(name="Magic Bow", cost=0, hands=2,
-                      attack_modifier=1, damage_type="slashing",
+                      attack_modifier=1, damage_type="piercing",
                       is_ranged=True, is_magic=True)
 
 

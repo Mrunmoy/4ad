@@ -384,7 +384,9 @@ class GameManager:
             return {"error": f"Cannot equip {item.name} (class/slot restriction)"}
 
         inv.spend_gold(cost)
-        inv.add_item(item)
+        if not inv.add_item(item):
+            inv.add_gold(cost)  # refund
+            return {"error": f"Failed to add {item.name} to inventory"}
         self.log_message(f"{player.character.name} bought {item.name} for {cost} gp")
         return {"success": True, "item": item.name, "cost": cost, "gold_remaining": inv.gold}
 

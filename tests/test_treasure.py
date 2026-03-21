@@ -313,7 +313,10 @@ class TestMagicItemSellPrices:
 
     def test_fools_gold_sell_price(self):
         fg = roll_magic_treasure(force_roll=3)
-        # Fool's Gold is not magic (usable by any class), sell price = cost // 2 = 0
+        # Fool's Gold is not magic; special sell price of 20 when charges > 0
+        assert fg.sell_price() == 20
+        # After using the charge, sell price drops to 0
+        fg.charges = 0
         assert fg.sell_price() == 0
 
     def test_magic_weapon_sell_price(self):
