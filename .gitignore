@@ -10,3 +10,15 @@ build/
 .venv
 venv/
 node_modules/
+
+# Docker
+data/
+
+# Phaser client build output
+client/dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

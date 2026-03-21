@@ -1,0 +1,61 @@
+services:
+  # Full game (backend + frontend) — production mode
+  game:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - game-data:/app/data
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-4ad-dungeon-secret}
+      - FLASK_ENV=production
+    restart: unless-stopped
+
+  # Development: Python backend only
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+      - ./run.py:/app/run.py
+      - game-data:/app/data
+    environment:
+      - SECRET_KEY=dev-secret-key
+      - FLASK_ENV=development
+    profiles:
+      - dev
+
+  # Development: Phaser frontend (Vite dev server)
+  frontend:
+    image: node:20-alpine
+    working_dir: /app/client
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./client:/app/client
+      - client-modules:/app/client/node_modules
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    profiles:
+      - dev
+
+  # Run tests
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    command: python -m pytest -v
+    profiles:
+      - test
+
+volumes:
+  game-data:
+  client-modules:
