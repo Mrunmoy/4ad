@@ -9,6 +9,8 @@ const state = {
     playerName: null,
     socket: null,
     gameData: null,
+    selectedTarget: 0,
+    clientErrors: [],
 };
 
 // DOM Elements
@@ -24,8 +26,11 @@ function init() {
     setupSocket();
 
     // If loaded via /game/<game_id>, auto-fill the join form
-    if (window.GAME_ID) {
-        document.getElementById('join-game-id').value = window.GAME_ID;
+    const pathMatch = window.location && window.location.pathname
+        ? window.location.pathname.match(/^\/game\/([^/]+)$/)
+        : null;
+    if (pathMatch && pathMatch[1]) {
+        document.getElementById('join-game-id').value = pathMatch[1];
         document.getElementById('player-name').focus();
     }
 }
@@ -88,6 +93,8 @@ function setupSocket() {
 
 // Screen Management
 function showScreen(screenName) {
+    // Clear client errors on screen transitions (lobby→setup→game)
+    state.clientErrors = [];
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[screenName].classList.add('active');
 }
@@ -244,7 +251,7 @@ function searchRoom() {
 function attack() {
     state.socket.emit('attack', {
         game_id: state.gameId,
-        target: 0,
+        target: state.selectedTarget || 0,
     });
 }
 
@@ -360,30 +367,54 @@ function updateGameView() {
         
         const monstersList = document.getElementById('monsters-list');
         monstersList.innerHTML = '';
-        
+        monstersList.setAttribute('role', 'listbox');
+        monstersList.setAttribute('aria-label', 'Monster targets');
+
         data.monsters.forEach((monster, idx) => {
             const div = document.createElement('div');
             div.className = `monster-card ${monster.life <= 0 ? 'dead' : ''}`;
+            div.setAttribute('role', 'option');
             div.innerHTML = `
                 <strong>${monster.name}</strong> (Lvl ${monster.level})
                 <br>Life: ${monster.life}/${monster.max_life}
             `;
+            if (monster.life <= 0) {
+                div.setAttribute('aria-disabled', 'true');
+                div.setAttribute('aria-selected', 'false');
+            } else {
+                div.setAttribute('tabindex', '0');
+                div.setAttribute('aria-selected', idx === state.selectedTarget ? 'true' : 'false');
+                div.addEventListener('click', () => {
+                    state.selectedTarget = idx;
+                    applyMonsterSelection(monstersList);
+                });
+                div.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        state.selectedTarget = idx;
+                        applyMonsterSelection(monstersList);
+                    }
+                });
+                if (idx === state.selectedTarget) {
+                    div.classList.add('selected');
+                }
+            }
             monstersList.appendChild(div);
         });
+
+        // Clamp selectedTarget to a living monster
+        const selected = data.monsters[state.selectedTarget];
+        if (!selected || selected.life <= 0) {
+            state.selectedTarget = data.monsters.findIndex(m => m.life > 0);
+            if (state.selectedTarget < 0) state.selectedTarget = 0;
+            applyMonsterSelection(monstersList);
+        }
     } else {
         combatPanel.classList.add('hidden');
+        state.selectedTarget = 0;
     }
     
-    // Update message log
-    const messagesDiv = document.getElementById('messages');
-    messagesDiv.innerHTML = '';
-    data.message_log.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.textContent = msg;
-        messagesDiv.appendChild(div);
-    });
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    renderMessageLog(data);
 }
 
 function showCombatResult(data) {
@@ -414,9 +445,75 @@ function showSearchResult(data) {
     showMessage(messages[data.result] || 'Search complete', 'info');
 }
 
+function applyMonsterSelection(monstersList) {
+    monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
+        c.classList.toggle('selected', i === state.selectedTarget);
+        c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
+    });
+}
+
+function renderMessageLog(data) {
+    const messagesDiv = document.getElementById('messages');
+    messagesDiv.innerHTML = '';
+    data.message_log.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.textContent = msg;
+        messagesDiv.appendChild(div);
+    });
+    state.clientErrors.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message message-error';
+        div.textContent = msg;
+        messagesDiv.appendChild(div);
+    });
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
 function showMessage(text, type = 'info') {
-    // Simple console log for now - could be expanded to toast notifications
-    console.log(`[${type.toUpperCase()}] ${text}`);
+    // Persist client-side errors in state so they survive updateGameView re-renders
+    if (type === 'error') {
+        state.clientErrors.push(text);
+        if (state.clientErrors.length > 20) {
+            state.clientErrors = state.clientErrors.slice(-20);
+        }
+        // Re-render message log immediately so the error appears without waiting for game_update
+        if (state.gameData) {
+            renderMessageLog(state.gameData);
+        }
+    }
+
+    // Show toast (all types)
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.top = '20px';
+        toastContainer.style.right = '20px';
+        toastContainer.style.zIndex = '9999';
+        toastContainer.setAttribute('role', 'log');
+        toastContainer.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toastContainer);
+    }
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    if (type === 'error') {
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+    } else {
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+    }
+    toast.setAttribute('aria-atomic', 'true');
+    toast.textContent = text;
+    toastContainer.appendChild(toast);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.add('toast-fade');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Start the app

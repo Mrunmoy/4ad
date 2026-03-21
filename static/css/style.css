@@ -283,15 +283,24 @@ aside h3 {
 /* Monster Cards */
 .monster-card {
     background: #3d1f1f;
-    border: 1px solid #5c2a2a;
+    border: 2px solid transparent;
     border-radius: 8px;
     padding: 0.75rem;
     margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.monster-card.selected {
+    border-color: #e94560;
+    box-shadow: 0 0 10px rgba(233, 69, 96, 0.5);
 }
 
 .monster-card.dead {
     opacity: 0.5;
     text-decoration: line-through;
+    cursor: default;
+    pointer-events: none;
 }
 
 /* Message Log */
@@ -321,6 +330,11 @@ aside h3 {
     border-bottom: none;
 }
 
+.message-error {
+    color: var(--accent);
+    font-weight: bold;
+}
+
 /* Utility */
 .hidden {
     display: none !important;
@@ -342,4 +356,23 @@ aside h3 {
 
 .card {
     animation: fadeIn 0.3s ease-out;
+}
+
+/* Toast notifications */
+.toast {
+    padding: 12px 24px;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    animation: slideIn 0.3s ease;
+    max-width: 400px;
+}
+.toast-info { background: #3498db; }
+.toast-success { background: #16c79a; }
+.toast-error { background: #e94560; }
+.toast-fade { opacity: 0; transition: opacity 0.3s; }
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
