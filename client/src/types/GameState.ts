@@ -22,9 +22,9 @@ export interface GameState {
   combat_active: boolean;
   monsters: MonsterState[];
   message_log: string[];
-  phase: GamePhase;
+  phase?: GamePhase;
   quest?: QuestState | null;
-  party_gold: number;
+  party_gold?: number;
   bosses_encountered?: number;
   minion_encounters?: number;
   dungeon_complete?: boolean;
@@ -119,7 +119,7 @@ export interface DungeonState {
   rooms: Record<number, RoomState>;
   entrance?: number;
   party_room: number;
-  rooms_explored: number;
+  rooms_explored?: number;
   total_rooms?: number;
 }
 
@@ -165,7 +165,7 @@ export interface GameUpdateEvent {
   combat_active: boolean;
   monsters: MonsterState[];
   message_log: string[];
-  phase: GamePhase;
+  phase?: GamePhase;
 }
 
 export interface JoinedEvent {
@@ -235,7 +235,7 @@ export interface LevelUpData {
 export interface GameOverData {
   victory: boolean;
   stats: {
-    rooms_explored: number;
+    rooms_explored?: number;
     monsters_killed: number;
     gold_earned: number;
     characters_lost: number;

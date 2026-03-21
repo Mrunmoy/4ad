@@ -77,6 +77,10 @@ class SocketManager {
   }
 
   emit(event: string, data: Record<string, unknown> = {}): void {
+    if (!this.gameId) {
+      console.warn('Cannot emit: not joined to a game');
+      return;
+    }
     this.socket.emit(event, { game_id: this.gameId, ...data });
   }
 

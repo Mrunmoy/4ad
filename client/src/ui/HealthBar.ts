@@ -62,7 +62,7 @@ export class HealthBar {
     this.graphics.fillRect(0, 0, this.width, this.height);
 
     // Fill
-    const pct = this.max > 0 ? this.current / this.max : 0;
+    const pct = Math.max(0, Math.min(1, this.max > 0 ? this.current / this.max : 0));
     let color = 0x33aa55; // green
     if (pct <= 0.3) color = 0xcc3333; // red
     else if (pct <= 0.6) color = 0xd4a017; // gold
