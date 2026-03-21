@@ -15,7 +15,7 @@
       "@ui/*": ["ui/*"],
       "@network/*": ["network/*"],
       "@sprites/*": ["sprites/*"],
-      "@types/*": ["types/*"]
+      "@game-types/*": ["types/*"]
     }
   },
   "include": ["src/**/*.ts"],

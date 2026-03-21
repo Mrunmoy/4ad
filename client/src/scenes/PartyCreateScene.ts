@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
 
+/**
+ * Character class stats matching the Python backend (src/character.py).
+ * These are the base stats for each class at level 1.
+ */
 const CLASS_LIST = [
   'Warrior',
   'Cleric',
@@ -12,18 +16,18 @@ const CLASS_LIST = [
 ] as const;
 
 const CLASS_STATS: Record<string, { attack: number; defense: number; life: number }> = {
-  Warrior:   { attack: 3, defense: 3, life: 8 },
-  Cleric:    { attack: 2, defense: 2, life: 6 },
-  Rogue:     { attack: 2, defense: 1, life: 5 },
-  Wizard:    { attack: 1, defense: 0, life: 4 },
-  Barbarian: { attack: 4, defense: 1, life: 7 },
-  Elf:       { attack: 2, defense: 2, life: 6 },
-  Dwarf:     { attack: 3, defense: 3, life: 7 },
-  Halfling:  { attack: 1, defense: 1, life: 4 },
+  Warrior:   { attack: 4, defense: 5, life: 6 },
+  Cleric:    { attack: 3, defense: 4, life: 5 },
+  Rogue:     { attack: 3, defense: 4, life: 4 },
+  Wizard:    { attack: 2, defense: 3, life: 3 },
+  Barbarian: { attack: 5, defense: 4, life: 8 },
+  Elf:       { attack: 3, defense: 4, life: 4 },
+  Dwarf:     { attack: 4, defense: 5, life: 7 },
+  Halfling:  { attack: 2, defense: 5, life: 4 },
 };
 
 /**
- * PartyCreateScene — select 4 characters with class and stat previews.
+ * PartyCreateScene -- select 4 characters with class and stat previews.
  */
 export class PartyCreateScene extends Phaser.Scene {
   private selectedClasses: string[] = [];
@@ -109,7 +113,7 @@ export class PartyCreateScene extends Phaser.Scene {
     className: string,
   ): void {
     const stats = CLASS_STATS[className];
-    const portraitKey = `portrait_${className.toLowerCase()}`;
+    const portraitKey = 'portrait_' + className.toLowerCase();
 
     // Card background
     const bg = this.add.graphics();
@@ -131,7 +135,7 @@ export class PartyCreateScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Stats
-    const statsText = `ATK:${stats.attack} DEF:${stats.defense}\nHP:${stats.life}`;
+    const statsText = 'ATK:' + stats.attack + ' DEF:' + stats.defense + '\nHP:' + stats.life;
     this.add
       .text(x, y + 40, statsText, {
         fontFamily: '"Press Start 2P", monospace',
@@ -163,7 +167,7 @@ export class PartyCreateScene extends Phaser.Scene {
   private updatePartyUI(): void {
     const count = this.selectedClasses.length;
     const countText = this.children.getByName('partyCount') as Phaser.GameObjects.Text;
-    if (countText) countText.setText(`Party: ${count} / 4`);
+    if (countText) countText.setText('Party: ' + count + ' / 4');
 
     const startBtn = this.children.getByName('startBtn') as Phaser.GameObjects.Text;
     if (startBtn) {

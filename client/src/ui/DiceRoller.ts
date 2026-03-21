@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 
 /**
- * DiceRoller — simple dice roll animation.
+ * DiceRoller -- simple dice roll animation.
  * Shows dice face cycling rapidly then landing on the result.
+ * Uses sharp corners for retro aesthetic (no rounded rect).
  */
 export class DiceRoller {
   private scene: Phaser.Scene;
@@ -14,10 +15,12 @@ export class DiceRoller {
     this.scene = scene;
     this.container = scene.add.container(x, y);
 
-    // Dice background
+    // Dice background -- sharp corners for retro aesthetic
     const bg = scene.add.graphics();
     bg.fillStyle(0xe8dcc8, 1);
-    bg.fillRoundedRect(-24, -24, 48, 48, 4);
+    bg.fillRect(-24, -24, 48, 48);
+    bg.lineStyle(2, 0x252540, 1);
+    bg.strokeRect(-24, -24, 48, 48);
     this.container.add(bg);
 
     // Dice face text

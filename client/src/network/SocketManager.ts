@@ -1,9 +1,41 @@
 import { io, Socket } from 'socket.io-client';
+import type {
+  GameState,
+  CombatResult,
+  MonsterAttackResult,
+  TreasureFound,
+  LevelUpData,
+  GameOverData,
+  JoinedEvent,
+  CharacterCreatedEvent,
+  MoveFailedEvent,
+  SearchResultEvent,
+  SpellResultEvent,
+} from '../types';
 
-type EventCallback = (data: unknown) => void;
+/** Map of all server-to-client socket events and their payload types. */
+export interface ServerToClientEvents {
+  game_update: GameState;
+  joined: JoinedEvent;
+  character_created: CharacterCreatedEvent;
+  game_started: GameState;
+  move_failed: MoveFailedEvent;
+  search_result: SearchResultEvent;
+  combat_result: CombatResult;
+  monster_attack: MonsterAttackResult;
+  spell_result: SpellResultEvent;
+  treasure_found: TreasureFound;
+  level_up: LevelUpData;
+  game_over: GameOverData;
+}
+
+/** Union of all known server event names. */
+export type ServerEventName = keyof ServerToClientEvents;
+
+type EventCallback<T = unknown> = (data: T) => void;
 
 /**
- * SocketManager — singleton wrapper around Socket.IO with
+ * SocketManager -- singleton wrapper around Socket.IO with
  * auto-reconnect and typed event handling.
  */
 class SocketManager {
@@ -46,6 +78,16 @@ class SocketManager {
 
   emit(event: string, data: Record<string, unknown> = {}): void {
     this.socket.emit(event, { game_id: this.gameId, ...data });
+  }
+
+  /**
+   * Register a typed listener for a known server event.
+   */
+  onTyped<E extends ServerEventName>(
+    event: E,
+    callback: (data: ServerToClientEvents[E]) => void,
+  ): void {
+    this.on(event, callback as EventCallback);
   }
 
   on(event: string, callback: EventCallback): void {
@@ -141,7 +183,7 @@ class SocketManager {
     });
 
     this.socket.on('disconnect', (reason: string) => {
-      console.log(`[SocketManager] Disconnected: ${reason}`);
+      console.log('[SocketManager] Disconnected: ' + reason);
     });
 
     this.socket.on('connect_error', (err: Error) => {

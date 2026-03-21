@@ -40,14 +40,15 @@ if HAS_CLIENT_BUILD:
         """Game page - serves SPA which handles game joining."""
         return send_from_directory(CLIENT_DIST, 'index.html')
 
-    @app.route('/<path:path>')
+    @app.route('/assets/<path:path>')
     def serve_client_assets(path):
-        """Serve static assets from client/dist."""
-        file_path = os.path.join(CLIENT_DIST, path)
-        if os.path.isfile(file_path):
-            return send_from_directory(CLIENT_DIST, path)
-        # SPA fallback: non-API, non-file routes serve index.html
-        return send_from_directory(CLIENT_DIST, 'index.html')
+        """Serve static assets from client/dist/assets."""
+        return send_from_directory(os.path.join(CLIENT_DIST, 'assets'), path)
+
+    @app.route('/favicon.ico')
+    def serve_favicon():
+        """Serve favicon from client/dist."""
+        return send_from_directory(CLIENT_DIST, 'favicon.ico')
 else:
     # Development: Vite dev server handles frontend; keep legacy template serving
     @app.route('/')

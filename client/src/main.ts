@@ -8,6 +8,7 @@ import { CombatScene } from './scenes/CombatScene';
 import { LootScene } from './scenes/LootScene';
 import { LevelUpScene } from './scenes/LevelUpScene';
 import { GameOverScene } from './scenes/GameOverScene';
+import { InventoryScene } from './scenes/InventoryScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -31,6 +32,7 @@ const config: Phaser.Types.Core.GameConfig = {
     LootScene,
     LevelUpScene,
     GameOverScene,
+    InventoryScene,
   ],
   dom: {
     createContainer: true,

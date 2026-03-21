@@ -3,7 +3,7 @@ import { HealthBar } from './HealthBar';
 import type { MonsterState } from '../types';
 
 /**
- * MonsterCard — displays a monster with portrait placeholder and HP bar.
+ * MonsterCard -- displays a monster with portrait placeholder and HP bar.
  */
 export class MonsterCard {
   private scene: Phaser.Scene;
@@ -48,13 +48,14 @@ export class MonsterCard {
     this.levelText.setOrigin(0.5, 0);
     this.container.add(this.levelText);
 
-    // HP bar
-    this.healthBar = new HealthBar(scene, x + 8, y + 82, 104, 8, 1);
+    // HP bar -- relative position within container
+    this.healthBar = new HealthBar(scene, 8, 82, 104, 8, 1);
+    this.container.add(this.healthBar.getGraphics());
   }
 
   update(monster: MonsterState): void {
     this.nameText.setText(monster.name);
-    this.levelText.setText(`Lv ${monster.level}`);
+    this.levelText.setText('Lv ' + monster.level);
     this.healthBar.setValue(monster.life, monster.max_life);
 
     // Dim if fled

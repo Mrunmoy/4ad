@@ -1,15 +1,16 @@
 import Phaser from 'phaser';
 
 /**
- * HealthBar — Phaser Graphics-based health bar with color thresholds.
+ * HealthBar -- Phaser Graphics-based health bar with color thresholds.
  *   > 60% = green (#33AA55)
  *   > 30% = gold  (#D4A017)
  *   <= 30% = red  (#CC3333)
+ *
+ * Draws at (0,0) relative to the Graphics object position, so the bar
+ * moves correctly when the Graphics object is added to a Container.
  */
 export class HealthBar {
   private scene: Phaser.Scene;
-  private x: number;
-  private y: number;
   private width: number;
   private height: number;
   private graphics: Phaser.GameObjects.Graphics;
@@ -25,13 +26,12 @@ export class HealthBar {
     maxHP: number,
   ) {
     this.scene = scene;
-    this.x = x;
-    this.y = y;
     this.width = width;
     this.height = height;
     this.max = maxHP;
     this.current = maxHP;
     this.graphics = scene.add.graphics();
+    this.graphics.setPosition(x, y);
     this.draw();
   }
 
@@ -42,9 +42,12 @@ export class HealthBar {
   }
 
   setPosition(x: number, y: number): void {
-    this.x = x;
-    this.y = y;
-    this.draw();
+    this.graphics.setPosition(x, y);
+  }
+
+  /** Return the underlying Graphics so it can be added to a Container. */
+  getGraphics(): Phaser.GameObjects.Graphics {
+    return this.graphics;
   }
 
   destroy(): void {
@@ -54,9 +57,9 @@ export class HealthBar {
   private draw(): void {
     this.graphics.clear();
 
-    // Background
+    // Background -- draw at (0,0) relative to graphics position
     this.graphics.fillStyle(0x252540, 1);
-    this.graphics.fillRect(this.x, this.y, this.width, this.height);
+    this.graphics.fillRect(0, 0, this.width, this.height);
 
     // Fill
     const pct = this.max > 0 ? this.current / this.max : 0;
@@ -67,11 +70,11 @@ export class HealthBar {
     const fillW = Math.floor(this.width * pct);
     if (fillW > 0) {
       this.graphics.fillStyle(color, 1);
-      this.graphics.fillRect(this.x, this.y, fillW, this.height);
+      this.graphics.fillRect(0, 0, fillW, this.height);
     }
 
     // Border
     this.graphics.lineStyle(1, 0x444466, 1);
-    this.graphics.strokeRect(this.x, this.y, this.width, this.height);
+    this.graphics.strokeRect(0, 0, this.width, this.height);
   }
 }

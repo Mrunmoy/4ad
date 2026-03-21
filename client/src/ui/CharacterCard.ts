@@ -3,7 +3,7 @@ import { HealthBar } from './HealthBar';
 import type { CharacterState } from '../types';
 
 /**
- * CharacterCard — displays a character with portrait placeholder,
+ * CharacterCard -- displays a character with portrait placeholder,
  * stats, and equipment slot indicators.
  */
 export class CharacterCard {
@@ -48,8 +48,9 @@ export class CharacterCard {
     });
     this.container.add(this.classText);
 
-    // HP bar
-    this.healthBar = new HealthBar(scene, x + 8, y + 56, 144, 10, 1);
+    // HP bar -- relative position within card, added to container
+    this.healthBar = new HealthBar(scene, 8, 56, 144, 10, 1);
+    this.container.add(this.healthBar.getGraphics());
 
     // Stats text
     this.statsText = scene.add.text(8, 72, 'ATK:0 DEF:0', {
@@ -62,12 +63,12 @@ export class CharacterCard {
 
   update(char: CharacterState): void {
     this.nameText.setText(char.name);
-    this.classText.setText(`Lv${char.level} ${char.class_type}`);
+    this.classText.setText('Lv' + char.level + ' ' + char.class_type);
     this.healthBar.setValue(char.life, char.max_life);
-    this.statsText.setText(`ATK:${char.attack} DEF:${char.defense}`);
+    this.statsText.setText('ATK:' + char.attack + ' DEF:' + char.defense);
 
     // Dim card if character cannot act
-    this.container.setAlpha(char.can_act ? 1 : 0.4);
+    this.container.setAlpha(char.can_act !== false ? 1 : 0.4);
   }
 
   destroy(): void {
