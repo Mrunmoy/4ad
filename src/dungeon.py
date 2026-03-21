@@ -141,9 +141,17 @@ class Party:
         self.treasure = 0
     
     def add_character(self, character) -> None:
-        """Add character to party."""
-        character.position = len(self.characters) + 1
+        """Add character to party.
+
+        Treats ``position == 1`` as the default for new characters.
+        For non-first party members whose position is still ``1``, assigns
+        the next available position in the party. Positions other than ``1``
+        are preserved as-is.
+        """
+        if character.position == 1 and len(self.characters) > 0:
+            character.position = len(self.characters) + 1
         self.characters.append(character)
+        self.characters.sort(key=lambda c: c.position)
     
     def move(self, direction: str) -> 'MoveResult':
         """Move in a direction."""
@@ -250,6 +258,7 @@ class Dungeon:
         """Create a new party at entrance."""
         self.party = Party()
         self.party.current_room = self.entrance
+        self.entrance.visited = True
         return self.party
     
     def to_dict(self) -> dict:

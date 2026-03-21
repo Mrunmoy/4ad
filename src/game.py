@@ -50,12 +50,28 @@ class GameManager:
         return player.id
     
     def create_character(self, player_id: str, class_name: str, char_name: str) -> Character:
-        """Create a character for a player."""
+        """Create a character for a player.
+
+        Must be called before the game has started; once start() has been
+        called the party roster is frozen.
+        """
+        if self.started:
+            raise ValueError("Cannot create characters after game has started")
+
         player = self.players.get(player_id)
         if not player:
             raise ValueError("Player not found")
         
+        # If replacing an existing character, preserve their position
+        old_position = player.character.position if player.character else None
         character = create_character(class_name, char_name)
+        if old_position is not None:
+            character.position = old_position
+        else:
+            character.position = sum(
+                1 for pid, p in self.players.items()
+                if p.character is not None and pid != player_id
+            ) + 1
         player.character = character
         self.log_message(f"{char_name} the {character.class_type} enters the dungeon")
         return character
@@ -71,7 +87,7 @@ class GameManager:
         self.dungeon = Dungeon()
         self.dungeon.create_party()
         self.started = True
-        
+
         # Add all characters to party
         for player in self.players.values():
             self.dungeon.party.add_character(player.character)

@@ -326,3 +326,59 @@ class TestSearchDuringCombat:
         result = gm.search_room()
         assert "error" in result
         assert "combat" in result["error"].lower()
+
+
+class TestCharacterPositionAssignment:
+    """Tests that characters get sequential positions 1..N at creation time."""
+
+    def test_single_character_gets_position_1(self):
+        """The first character created should get position 1."""
+        gm = GameManager("test-game")
+        pid = gm.add_player("Alice")
+        char = gm.create_character(pid, "Warrior", "Brynn")
+        assert char.position == 1
+
+    def test_four_characters_get_sequential_positions(self):
+        """Characters created in order should get positions 1, 2, 3, 4."""
+        gm = GameManager("test-game")
+        characters = []
+        for i, (name, cls) in enumerate([
+            ("Alice", "Warrior"),
+            ("Bob", "Cleric"),
+            ("Carol", "Wizard"),
+            ("Dave", "Rogue"),
+        ]):
+            pid = gm.add_player(name)
+            char = gm.create_character(pid, cls, f"Hero{i}")
+            characters.append(char)
+
+        for idx, char in enumerate(characters, start=1):
+            assert char.position == idx, (
+                f"Expected position {idx} for {char.name}, got {char.position}"
+            )
+
+
+    def test_recreated_character_gets_correct_position(self):
+        """Re-creating a character for player 1 should yield position 1, not 2 or 3."""
+        gm = GameManager("test-game")
+        pid1 = gm.add_player("Alice")
+        pid2 = gm.add_player("Bob")
+
+        gm.create_character(pid1, "Warrior", "Brynn")
+        gm.create_character(pid2, "Cleric", "Finn")
+
+        # Re-create character for player 1
+        new_char = gm.create_character(pid1, "Rogue", "Shadow")
+
+        assert new_char.position == 1, (
+            f"Expected position 1 for re-created character, got {new_char.position}"
+        )
+
+
+class TestEntranceRoomVisited:
+    """Tests that the entrance room is marked visited after game start."""
+
+    def test_entrance_visited_after_start(self):
+        """The entrance room should be marked visited once the game starts."""
+        gm = _setup_started_game()
+        assert gm.dungeon.entrance.visited is True
