@@ -369,19 +369,22 @@ function updateGameView() {
                 <strong>${monster.name}</strong> (Lvl ${monster.level})
                 <br>Life: ${monster.life}/${monster.max_life}
             `;
-            div.addEventListener('click', () => {
-                state.selectedTarget = idx;
-                // Update visual selection
-                document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
-                div.classList.add('selected');
-            });
-            if (idx === state.selectedTarget) {
-                div.classList.add('selected');
+            if (monster.life > 0) {
+                div.addEventListener('click', () => {
+                    state.selectedTarget = idx;
+                    // Update visual selection
+                    document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
+                    div.classList.add('selected');
+                });
+                if (idx === state.selectedTarget) {
+                    div.classList.add('selected');
+                }
             }
             monstersList.appendChild(div);
         });
     } else {
         combatPanel.classList.add('hidden');
+        state.selectedTarget = 0;
     }
     
     // Update message log
@@ -439,6 +442,12 @@ function showMessage(text, type = 'info') {
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = text;
+
+    // Stack toasts vertically to avoid overlap
+    const existingToasts = document.querySelectorAll('.toast');
+    const offset = existingToasts.length * 60;
+    toast.style.top = `${20 + offset}px`;
+
     document.body.appendChild(toast);
 
     // Auto-remove after 3 seconds

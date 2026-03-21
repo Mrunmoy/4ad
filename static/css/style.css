@@ -283,15 +283,18 @@ aside h3 {
 /* Monster Cards */
 .monster-card {
     background: #3d1f1f;
-    border: 1px solid #5c2a2a;
+    border: 2px solid transparent;
     border-radius: 8px;
     padding: 0.75rem;
     margin-bottom: 0.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
 }
 
 .monster-card.dead {
     opacity: 0.5;
     text-decoration: line-through;
+    cursor: default;
 }
 
 /* Message Log */
@@ -367,5 +370,4 @@ aside h3 {
 }
 
 /* Monster target selection */
-.monster-card.selected { border: 2px solid #e94560; box-shadow: 0 0 10px rgba(233, 69, 96, 0.5); }
-.monster-card { cursor: pointer; transition: border 0.2s; }
+.monster-card.selected { border-color: #e94560; box-shadow: 0 0 10px rgba(233, 69, 96, 0.5); }
