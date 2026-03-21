@@ -250,6 +250,7 @@ class Dungeon:
         """Create a new party at entrance."""
         self.party = Party()
         self.party.current_room = self.entrance
+        self.entrance.visited = True
         return self.party
     
     def to_dict(self) -> dict:

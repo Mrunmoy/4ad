@@ -57,6 +57,8 @@ class GameManager:
         
         character = create_character(class_name, char_name)
         player.character = character
+        # Assign preliminary position based on how many players have characters
+        character.position = sum(1 for p in self.players.values() if p.character is not None)
         self.log_message(f"{char_name} the {character.class_type} enters the dungeon")
         return character
     
