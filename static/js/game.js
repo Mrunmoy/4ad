@@ -25,8 +25,11 @@ function init() {
     setupSocket();
 
     // If loaded via /game/<game_id>, auto-fill the join form
-    if (window.GAME_ID) {
-        document.getElementById('join-game-id').value = window.GAME_ID;
+    const pathMatch = window.location && window.location.pathname
+        ? window.location.pathname.match(/^\/game\/([^/]+)$/)
+        : null;
+    if (pathMatch && pathMatch[1]) {
+        document.getElementById('join-game-id').value = pathMatch[1];
         document.getElementById('player-name').focus();
     }
 }
@@ -361,7 +364,9 @@ function updateGameView() {
         
         const monstersList = document.getElementById('monsters-list');
         monstersList.innerHTML = '';
-        
+        monstersList.setAttribute('role', 'listbox');
+        monstersList.setAttribute('aria-label', 'Monster targets');
+
         data.monsters.forEach((monster, idx) => {
             const div = document.createElement('div');
             div.className = `monster-card ${monster.life <= 0 ? 'dead' : ''}`;
@@ -370,11 +375,21 @@ function updateGameView() {
                 <br>Life: ${monster.life}/${monster.max_life}
             `;
             if (monster.life > 0) {
+                div.setAttribute('tabindex', '0');
+                div.setAttribute('role', 'option');
                 div.addEventListener('click', () => {
                     state.selectedTarget = idx;
                     // Update visual selection
                     document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
                     div.classList.add('selected');
+                });
+                div.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        state.selectedTarget = idx;
+                        document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
+                        div.classList.add('selected');
+                    }
                 });
                 if (idx === state.selectedTarget) {
                     div.classList.add('selected');
@@ -455,7 +470,14 @@ function showMessage(text, type = 'info') {
     }
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.setAttribute('role', 'alert');
+    if (type === 'error') {
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+    } else {
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+    }
+    toast.setAttribute('aria-atomic', 'true');
     toast.textContent = text;
     toastContainer.appendChild(toast);
 
