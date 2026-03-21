@@ -57,7 +57,7 @@ class GameManager:
         
         character = create_character(class_name, char_name)
         player.character = character
-        self.log_message(f"{char_name} the {class_name} enters the dungeon")
+        self.log_message(f"{char_name} the {character.class_type} enters the dungeon")
         return character
     
     def start(self) -> None:
