@@ -57,7 +57,7 @@ class GameManager:
         
         character = create_character(class_name, char_name)
         player.character = character
-        self.log_message(f"{char_name} the {class_name} enters the dungeon")
+        self.log_message(f"{char_name} the {character.class_type} enters the dungeon")
         return character
     
     def start(self) -> None:
@@ -237,6 +237,8 @@ class GameManager:
     
     def search_room(self) -> dict:
         """Search the current room."""
+        if self.combat_active:
+            return {"error": "Cannot search during combat"}
         if not self.dungeon:
             return {"error": "No dungeon"}
         

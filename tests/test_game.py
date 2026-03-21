@@ -297,3 +297,32 @@ class TestSmallDragonEncounter:
 
         assert gm.combat_active is False
         assert room.content.cleared is True
+
+
+class TestCreateCharacterCaseNormalization:
+    """Tests that create_character handles lowercase class names correctly."""
+
+    def test_create_character_with_lowercase_class_name(self):
+        """create_character('warrior', ...) should produce a Warrior with proper class_type."""
+        gm = GameManager("test-game")
+        player_id = gm.add_player("Alice")
+        character = gm.create_character(player_id, "warrior", "Test")
+        assert character.class_type == "Warrior"
+
+    def test_log_uses_normalized_class_name(self):
+        """The log message should use the normalized class name, not the raw input."""
+        gm = GameManager("test-game")
+        player_id = gm.add_player("Alice")
+        gm.create_character(player_id, "warrior", "Thorin")
+        assert any("Thorin the Warrior" in msg for msg in gm.message_log)
+
+
+class TestSearchDuringCombat:
+    """Tests that searching is blocked during active combat."""
+
+    def test_search_room_returns_error_during_combat(self):
+        """search_room() must return an error when combat is active."""
+        gm, _ = _setup_game_with_combat()
+        result = gm.search_room()
+        assert "error" in result
+        assert "combat" in result["error"].lower()

@@ -261,6 +261,9 @@ CHARACTER_CLASSES = {
 
 def create_character(class_name: str, name: str, level: int = 1) -> Character:
     """Create a character of the specified class."""
-    if class_name in CHARACTER_CLASSES:
-        return CHARACTER_CLASSES[class_name](name, level)
+    if not isinstance(class_name, str):
+        raise ValueError(f"Unknown character class: {class_name}")
+    normalized = class_name.title()
+    if normalized in CHARACTER_CLASSES:
+        return CHARACTER_CLASSES[normalized](name, level)
     raise ValueError(f"Unknown character class: {class_name}")
