@@ -41,6 +41,8 @@ class GameManager:
         self.message_log: List[str] = []
         self.current_reaction: Optional[ReactionResult] = None
         self.spell_killed_this_combat = False  # Track if spell killed a monster
+        self.kills_this_round = 0  # Track kills in current round for morale
+        self.dragon_breath_used = False  # Track if dragon used breath weapon
         self.party_gold = 0
 
     def add_player(self, name: str) -> str:
@@ -221,6 +223,11 @@ class GameManager:
             for m in self.current_monsters:
                 m.fights_to_death = True
 
+        # Surprise: monsters attack before player's first turn
+        if reaction.surprise and self.combat_active:
+            self.log_message("Surprise! The monsters act first!")
+            self._monster_attack()
+
     def handle_bribe(self, accept: bool) -> dict:
         """Handle a bribe offer. Returns result dict."""
         if not self.current_reaction or self.current_reaction.reaction_type != "bribe":
@@ -247,12 +254,19 @@ class GameManager:
         if not self.current_reaction or self.current_reaction.reaction_type != "puzzle":
             return {"error": "No puzzle active"}
 
-        # Find a wizard or rogue, or use specified character
+        # Honor solver_id if provided
         solver = None
-        for char in self._get_party():
-            if char.class_type in ("Wizard", "Rogue"):
-                solver = char
-                break
+        if solver_id is not None:
+            for char in self._get_party():
+                if getattr(char, 'name', None) == solver_id or getattr(char, 'id', None) == solver_id:
+                    solver = char
+                    break
+        # Fallback: find a wizard or rogue, or use first character
+        if solver is None:
+            for char in self._get_party():
+                if char.class_type in ("Wizard", "Rogue"):
+                    solver = char
+                    break
         if solver is None and self._get_party():
             solver = self._get_party()[0]
 
@@ -319,7 +333,11 @@ class GameManager:
         if not target:
             return {"error": "No living targets"}
 
+        # Count living monsters before attack for kill tracking
+        living_before = sum(1 for m in self.current_monsters if not m.is_dead())
         result = Combat.resolve_attack(attacker, target)
+        living_after = sum(1 for m in self.current_monsters if not m.is_dead())
+        self.kills_this_round += living_before - living_after
 
         response = {
             "attacker": attacker.name,
@@ -350,6 +368,8 @@ class GameManager:
                     self.log_message(morale.description)
                 # Monsters attack back
                 self._monster_attack()
+                # Check troll regeneration at end of round
+                self._check_troll_regeneration()
 
         return response
 
@@ -365,18 +385,24 @@ class GameManager:
         if not caster:
             return {"error": "No one can cast that spell"}
 
-        # Determine targets for offensive spells
+        # Determine targets based on spell type
+        ally_spells = {"Blessing", "Protect", "Escape"}
         spell_targets = target
-        if spell_targets is None and self.combat_active and self.current_monsters:
-            living_monsters = [m for m in self.current_monsters if not m.is_dead()]
-            if living_monsters:
-                spell_targets = living_monsters
+        if spell_targets is None and self.combat_active:
+            if spell_name in ally_spells:
+                # Ally spells default to the caster
+                spell_targets = caster
+            elif self.current_monsters:
+                living_monsters = [m for m in self.current_monsters if not m.is_dead()]
+                if living_monsters:
+                    spell_targets = living_monsters
 
         result = SpellCaster.cast_spell(caster, spell_name, spell_targets)
         self.log_message(result.description)
 
         if result.success and result.minions_killed > 0:
             self.spell_killed_this_combat = True
+            self.kills_this_round += result.minions_killed
 
         # Check if combat ends after spell
         if self.combat_active and self.current_monsters:
@@ -393,6 +419,8 @@ class GameManager:
                         self.log_message(morale.description)
                     # Monsters attack back (spell counts as caster's action)
                     self._monster_attack()
+                    # Check troll regeneration
+                    self._check_troll_regeneration()
             elif result.escaped:
                 # Caster escaped, monsters still attack remaining party
                 self._monster_attack()
@@ -430,6 +458,7 @@ class GameManager:
             self.current_monsters,
             self.original_monster_count,
             spell_killed=self.spell_killed_this_combat,
+            kills_this_round=self.kills_this_round,
         )
 
     def _monster_attack(self) -> None:
@@ -440,12 +469,48 @@ class GameManager:
             if monster.is_dead():
                 continue
 
+            # Dragon breath weapon: once per combat, d6 1-2 = breathe fire
+            if monster.is_dragon and not self.dragon_breath_used:
+                breath_roll = roll_d6()
+                if breath_roll <= 2:
+                    self.dragon_breath_used = True
+                    self.log_message(f"{monster.name} breathes fire!")
+                    breath_results = Combat.resolve_dragon_breath(monster, party)
+                    for br in breath_results:
+                        if br["damage_taken"] > 0:
+                            self.log_message(
+                                f"{br['character']} is burned by dragon fire! "
+                                f"(roll {br['roll']} vs 8)"
+                            )
+                        else:
+                            self.log_message(
+                                f"{br['character']} dodges the flames! "
+                                f"(roll {br['roll']} vs 8)"
+                            )
+                    # Check for deaths
+                    for c in party:
+                        if c.is_dead():
+                            self.log_message(f"{c.name} has fallen!")
+                    party = self.dungeon.party.get_living_characters()
+                    continue  # Breath replaces melee this turn
+
             results = Combat.resolve_monster_attack(monster, party)
             for char, result in zip(party, results):
                 if result.damage_taken > 0:
                     self.log_message(f"{monster.name} hits {char.name} for 1 damage!")
                     if char.is_dead():
                         self.log_message(f"{char.name} has fallen!")
+
+    def _check_troll_regeneration(self) -> None:
+        """Check for troll regeneration at end of round."""
+        if not self.current_monsters:
+            return
+        has_trolls = any("troll" in m.name.lower() for m in self.current_monsters)
+        if not has_trolls:
+            return
+        messages = Combat.check_troll_regeneration(self.current_monsters)
+        for msg in messages:
+            self.log_message(msg)
 
     def _end_combat(self) -> None:
         """End combat."""
@@ -454,12 +519,15 @@ class GameManager:
         self.current_reaction = None
         self.original_monster_count = 0
         self.spell_killed_this_combat = False
+        self.kills_this_round = 0
+        self.dragon_breath_used = False
         if self.dungeon.party.current_room:
             self.dungeon.party.current_room.content.cleared = True
 
-        # Reset Protect spell on all characters
-        for char in self._get_party():
-            char.protected = False
+        # Reset Protect spell on all characters (including fallen ones)
+        if self.dungeon and self.dungeon.party:
+            for char in self.dungeon.party.characters:
+                char.protected = False
 
         self.log_message("Combat ended")
 

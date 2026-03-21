@@ -14,6 +14,7 @@ class ReactionResult:
     monsters_flee: bool = False
     player_choices: List[str] = field(default_factory=list)
     sleeping_bonus: int = 0  # +2 to first attack if dragon is sleeping
+    surprise: bool = False  # Monsters act first in round 1
 
 
 def roll_monster_reaction(monster_type: str, monster_count: int, party_size: int,
@@ -59,7 +60,12 @@ def _skeleton_reaction(roll, count, party_size, has_dwarf):
 def _goblin_reaction(roll, count, party_size, has_dwarf):
     """
     Goblins: 1=flee if outnumbered, 2-3=bribe(5gp), 4-6=fight.
+    1-in-6 chance of surprise (goblins act first in round 1).
     """
+    # Roll for surprise (1-in-6)
+    surprise_roll = roll_d6()
+    goblin_surprise = (surprise_roll == 1)
+
     if roll == 1:
         if count < party_size:
             return ReactionResult(
@@ -67,12 +73,14 @@ def _goblin_reaction(roll, count, party_size, has_dwarf):
                 description="The goblins see they are outnumbered and flee!",
                 monsters_flee=True,
                 player_choices=["collect_treasure"],
+                surprise=goblin_surprise,
             )
         else:
             return ReactionResult(
                 reaction_type="fight",
                 description="The goblins consider fleeing but stand their ground!",
                 player_choices=["attack"],
+                surprise=goblin_surprise,
             )
     elif roll <= 3:
         return ReactionResult(
@@ -80,12 +88,17 @@ def _goblin_reaction(roll, count, party_size, has_dwarf):
             description=f"The goblins demand {5 * count} gold ({5} gp each) to leave peacefully.",
             bribe_cost=5,
             player_choices=["attack", "bribe"],
+            surprise=goblin_surprise,
         )
     else:
+        desc = "The goblins attack!"
+        if goblin_surprise:
+            desc = "The goblins ambush the party! (surprise - goblins act first)"
         return ReactionResult(
             reaction_type="fight",
-            description="The goblins attack!",
+            description=desc,
             player_choices=["attack"],
+            surprise=goblin_surprise,
         )
 
 
@@ -378,7 +391,7 @@ def resolve_puzzle(solver, monster_level: int, force_roll: int = None) -> dict:
     Roll d6 + bonus vs monster_level.
     Wizards and rogues add their level.
 
-    Returns dict with success, description, damage_on_fail.
+    Returns dict with success, description, damage_taken.
     """
     roll = force_roll if force_roll is not None else roll_d6()
     bonus = 0
@@ -429,14 +442,14 @@ def resolve_magic_challenge(wizard, monster_level: int,
             "description": f"{wizard.name} wins the magical duel! ({wizard_total} vs {monster_total})",
         }
     else:
-        # Wizard loses a level (minimum 1)
-        if wizard.level > 1:
-            wizard.level -= 1
+        # Loser takes 2 damage (spec section 4.2, Demon)
+        wizard.take_damage(2)
         return {
             "success": False,
             "wizard_roll": wizard_total,
             "monster_roll": monster_total,
-            "description": f"{wizard.name} loses the magical duel ({wizard_total} vs {monster_total}) and loses a level!",
+            "damage_taken": 2,
+            "description": f"{wizard.name} loses the magical duel ({wizard_total} vs {monster_total}) and takes 2 damage!",
         }
 
 

@@ -26,6 +26,7 @@ class Character:
     cursed: bool = False
     poisoned: bool = False
     petrified: bool = False
+    protected: bool = False  # Protect spell: +1 defense for current combat
     protected: bool = False  # +1 defense for current battle (Protect spell)
 
     # Spell system
@@ -98,6 +99,7 @@ class Character:
             "cursed": self.cursed,
             "poisoned": self.poisoned,
             "petrified": self.petrified,
+            "protected": self.protected,
             "protected": self.protected,
             "equipment": self.equipment,
             "spells_known": self.spells_known,

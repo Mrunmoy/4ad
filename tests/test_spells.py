@@ -294,14 +294,14 @@ class TestBlessing:
         assert not warrior.petrified
         assert "petrification" in result.condition_removed
 
-    def test_blessing_removes_poison(self):
-        """Blessing removes poisoned status."""
+    def test_blessing_does_not_remove_poison(self):
+        """Blessing does NOT remove poison (only Cleric Healing cures poison)."""
         cleric = Cleric("Friar")
         warrior = Warrior("Hero")
         warrior.poisoned = True
         result = SpellCaster.cast_spell(cleric, "Blessing", warrior)
         assert result.success
-        assert not warrior.poisoned
+        assert warrior.poisoned  # Poison remains
 
     def test_wizard_can_cast_blessing(self):
         """Wizard can also cast Blessing using spell slot."""

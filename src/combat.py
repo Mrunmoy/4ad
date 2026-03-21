@@ -6,6 +6,13 @@ from src.monster import Monster, Minion, Boss
 from src.dice import explosive_six, roll_d6
 
 
+def _pluralize(name: str) -> str:
+    """Pluralize a monster name, handling names that already end in 's'."""
+    if name.endswith("s"):
+        return name
+    return name + "s"
+
+
 @dataclass
 class AttackResult:
     """Result of an attack roll."""
@@ -160,11 +167,12 @@ class Combat:
         monsters: List[Monster],
         original_count: int,
         spell_killed: bool = False,
-        force_roll: int = None
+        force_roll: int = None,
+        kills_this_round: int = 0
     ) -> MoraleResult:
         """
         Check morale for minion groups.
-        Trigger: more than 50% of original count killed.
+        Trigger: more than 50% of INITIAL count killed in one round.
         Roll d6 + morale_modifier: 1-3 = flee, 4-6 = fight on.
 
         Args:
@@ -172,15 +180,15 @@ class Combat:
             original_count: How many there were at start
             spell_killed: Whether a spell killed a minion this combat (orcs fear magic)
             force_roll: For testing
+            kills_this_round: Number of minions killed this round
 
         Returns:
             MoraleResult
         """
         living = [m for m in monsters if not m.is_dead()]
-        dead_count = original_count - len(living)
 
-        # No check if not enough are dead
-        if dead_count <= original_count // 2:
+        # No check if not enough killed this round (>50% of initial count)
+        if kills_this_round <= original_count // 2:
             return MoraleResult(checked=False, fled=False)
 
         # Check if monsters fight to death
@@ -190,7 +198,7 @@ class Combat:
         if sample.fights_to_death:
             return MoraleResult(
                 checked=True, fled=False,
-                description=f"The {sample.name}s fight to the death!"
+                description=f"The {_pluralize(sample.name)} fight to the death!"
             )
 
         # Already checked morale this encounter
@@ -214,12 +222,12 @@ class Combat:
         if fled:
             return MoraleResult(
                 checked=True, fled=True, roll=total,
-                description=f"The {sample.name}s fail their morale check (roll {total}) and flee!"
+                description=f"The {_pluralize(sample.name)} fail their morale check (roll {total}) and flee!"
             )
         else:
             return MoraleResult(
                 checked=True, fled=False, roll=total,
-                description=f"The {sample.name}s hold their ground (roll {total})."
+                description=f"The {_pluralize(sample.name)} hold their ground (roll {total})."
             )
 
     @staticmethod
@@ -246,7 +254,7 @@ class Combat:
             return MoraleResult(checked=False, fled=False)
 
         # Check threshold: below 50% of max life
-        if boss.life > boss.max_life // 2:
+        if boss.life * 2 >= boss.max_life:
             return MoraleResult(checked=False, fled=False)
 
         # Boss level drops by 1
@@ -268,3 +276,79 @@ class Combat:
                 checked=True, fled=False, roll=roll,
                 description=f"{boss.name} is wounded but fights on! (roll {roll}, level reduced)"
             )
+
+    @staticmethod
+    def resolve_dragon_breath(
+        dragon: Monster,
+        party: List[Character],
+        force_roll: int = None
+    ) -> List[dict]:
+        """
+        Dragon breath weapon: once per combat.
+        All characters must make defense roll vs level 8.
+        No armor bonus (fire ignores armor). Shield still applies.
+
+        Returns list of dicts with character name, success, damage_taken.
+        """
+        results = []
+        for char in party:
+            if char.is_dead():
+                continue
+            roll = force_roll if force_roll is not None else roll_d6()
+            # Defense: roll only (no armor). Protect still applies.
+            total = roll
+            # Protect spell bonus
+            if getattr(char, 'protected', False):
+                total += 1
+            # Curse penalty
+            if char.cursed:
+                total -= 1
+
+            success = total > 8  # Must beat dragon level 8
+            damage = 0
+            if not success:
+                damage = 1
+                char.take_damage(1)
+            results.append({
+                "character": char.name,
+                "roll": total,
+                "success": success,
+                "damage_taken": damage,
+            })
+        return results
+
+    @staticmethod
+    def check_troll_regeneration(
+        monsters: List[Monster],
+        force_roll: int = None
+    ) -> List[str]:
+        """
+        Check if killed trolls regenerate at end of round.
+        If not chopped, roll d6: 5-6 = troll revives
+        (1 life for minion trolls, 3 life for boss trolls).
+
+        Returns list of regeneration messages.
+        """
+        messages = []
+        for m in monsters:
+            if not m.is_dead():
+                continue
+            if "troll" not in m.name.lower():
+                continue
+            if getattr(m, '_chopped', False):
+                continue
+
+            roll = force_roll if force_roll is not None else roll_d6()
+            if roll >= 5:
+                # Revive! Boss trolls get 3 life, minion trolls get 1
+                revive_life = 3 if m.max_life > 1 else 1
+                m.life = revive_life
+                messages.append(
+                    f"{m.name} regenerates and revives with {revive_life} life! (roll {roll})"
+                )
+            else:
+                m._chopped = True  # Mark as properly dead
+                messages.append(
+                    f"{m.name} stays dead. (regeneration roll {roll})"
+                )
+        return messages

@@ -132,6 +132,32 @@ class SpellCaster:
                 description=f"{caster.name} has no spell slots remaining"
             )
 
+        # Enforce spell restrictions against targets
+        # Block only when ALL living monster targets are immune
+        if spell.restrictions and targets is not None:
+            from src.monster import Monster
+            target_list = targets if isinstance(targets, list) else [targets]
+            living_monsters = [t for t in target_list
+                               if isinstance(t, Monster) and not t.is_dead()]
+            if living_monsters:
+                def _all_restricted(attr):
+                    return all(getattr(t, attr, False) for t in living_monsters)
+
+                blocked_reasons = []
+                for restriction in spell.restrictions:
+                    if restriction == NO_UNDEAD and _all_restricted("is_undead"):
+                        blocked_reasons.append("undead")
+                    if restriction == NO_DRAGONS and _all_restricted("is_dragon"):
+                        blocked_reasons.append("dragons")
+                    if restriction == NO_DEMONS and _all_restricted("is_demon"):
+                        blocked_reasons.append("demons")
+                if blocked_reasons:
+                    reason = "/".join(blocked_reasons)
+                    return SpellResult(
+                        success=False, caster=caster.name, spell=spell_name,
+                        description=f"{spell_name} has no effect on {reason}"
+                    )
+
         # Dispatch to specific spell handler
         handler = {
             "Blessing": SpellCaster._cast_blessing,
@@ -168,9 +194,7 @@ class SpellCaster:
             if target.petrified:
                 target.petrified = False
                 removed.append("petrification")
-            if target.poisoned:
-                target.poisoned = False
-                removed.append("poison")
+            # Note: Blessing does NOT cure poison. Only Cleric Healing cures poison.
 
             if removed:
                 conditions = ", ".join(removed)
@@ -187,11 +211,19 @@ class SpellCaster:
                     description=f"{caster.name} casts Blessing on {target.name} (no conditions to remove)"
                 )
 
-        # Blessing on undead/demon enemy -- force reroll (returns success indicator)
+        # Blessing on undead/demon enemy -- force reroll
+        from src.monster import Monster
+        if isinstance(target, Monster) and (target.is_undead or target.is_demon):
+            return SpellResult(
+                success=True, caster=caster.name, spell="Blessing",
+                targets_affected=[target.name],
+                description=f"{caster.name} casts Blessing, forcing {target.name} to reroll"
+            )
+
+        # Invalid target type
         return SpellResult(
-            success=True, caster=caster.name, spell="Blessing",
-            targets_affected=[getattr(target, 'name', 'enemy')],
-            description=f"{caster.name} casts Blessing, forcing {getattr(target, 'name', 'enemy')} to reroll"
+            success=False, caster=caster.name, spell="Blessing",
+            description="Blessing can only target a party member or an undead/demon enemy"
         )
 
     @staticmethod
@@ -448,21 +480,26 @@ class SpellCaster:
                     description="No target for Protect"
                 )
 
-        if isinstance(target, Character) and target.class_type == "Barbarian":
+        if not isinstance(target, Character):
+            return SpellResult(
+                success=False, caster=caster.name, spell="Protect",
+                description="Protect can only target a party member"
+            )
+
+        if target.class_type == "Barbarian":
             return SpellResult(
                 success=False, caster=caster.name, spell="Protect",
                 targets_affected=[target.name],
                 description=f"Protect has no effect on {target.name} (barbarians reject magic)"
             )
 
-        if isinstance(target, Character):
-            target.protected = True
+        target.protected = True
 
         return SpellResult(
             success=True,
             caster=caster.name,
             spell="Protect",
-            targets_affected=[getattr(target, 'name', 'unknown')],
-            protect_target=getattr(target, 'name', 'unknown'),
-            description=f"{caster.name} casts Protect on {getattr(target, 'name', 'unknown')} (+1 defense for this battle)"
+            targets_affected=[target.name],
+            protect_target=target.name,
+            description=f"{caster.name} casts Protect on {target.name} (+1 defense for this battle)"
         )
