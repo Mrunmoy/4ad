@@ -154,6 +154,13 @@ class TestPoisonGas:
         result = trigger_trap(trap, chars, force_rolls=[1])
         assert len(result.victims) == 1
 
+    def test_gas_sets_poisoned_flag(self):
+        chars = _make_party(Warrior)
+        assert chars[0].poisoned is False
+        trap = generate_trap(force_roll=2)  # level 3
+        result = trigger_trap(trap, chars, force_rolls=[1])  # 1 < 3 -> hit
+        assert chars[0].poisoned is True
+
     def test_gas_save_on_high_roll(self):
         chars = _make_party(Warrior, Cleric)
         trap = generate_trap(force_roll=2)

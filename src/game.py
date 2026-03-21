@@ -46,6 +46,7 @@ class GameManager:
         self.healer_met = False
         self.alchemist_met = False
         self.clues_found = 0
+        self.party_gold = 0
         self.pending_feature = None  # EventResult awaiting player choice
         self.pending_event = None    # EventResult awaiting player choice
 
@@ -200,10 +201,16 @@ class GameManager:
         else:
             self.log_message(result.description)
             for name, damage, effect in result.victims:
-                self.log_message(f"  {name} takes {damage} damage!")
+                if effect:
+                    self.log_message(f"  {name} takes {damage} damage! ({effect})")
+                else:
+                    self.log_message(f"  {name} takes {damage} damage!")
 
     def _handle_special_feature(self) -> None:
         """Handle a special feature room — generate and store for player choice."""
+        if self.pending_feature is not None:
+            self.log_message("Cannot handle new feature while one is pending.")
+            return
         feature = generate_special_feature()
         self.pending_feature = feature
         self.log_message(feature.description)
@@ -215,11 +222,10 @@ class GameManager:
         """Handle a special event — generate and store for player choice."""
         event = generate_special_event()
 
-        # One-time vendor checks
-        if event.event_type == "wandering_healer" and self.healer_met:
-            # Reroll if already met healer
+        # One-time vendor checks — reroll until we get a different event
+        while event.event_type == "wandering_healer" and self.healer_met:
             event = generate_special_event()
-        if event.event_type == "wandering_alchemist" and self.alchemist_met:
+        while event.event_type == "wandering_alchemist" and self.alchemist_met:
             event = generate_special_event()
 
         self.pending_event = event
@@ -237,7 +243,6 @@ class GameManager:
                 self.dungeon.party.current_room.content.cleared = True
 
         elif event.event_type == "wandering_monsters":
-            resolved = resolve_event(event, self.dungeon.party)
             self.log_message("Wandering monsters attack from behind!")
             self.combat_active = True
             from src.monster import MINIONS_TABLE
@@ -260,8 +265,8 @@ class GameManager:
         result = resolve_feature(self.pending_feature, party, choice)
         self.log_message(result.description)
 
-        # Track state
-        if result.event_type == "fountain":
+        # Track state — only mark fountain used if actually drunk from
+        if result.event_type == "fountain" and result.effects.get("healed") is not None:
             self.fountain_used = True
 
         # Handle combat from statue
@@ -282,12 +287,17 @@ class GameManager:
             return {"error": "No pending event"}
 
         party = self.dungeon.party
-        result = resolve_event(self.pending_event, party, choice)
+        result = resolve_event(self.pending_event, party, choice,
+                               party_gold=self.party_gold)
         self.log_message(result.description)
 
-        # Track one-time vendors
+        # Track one-time vendors and deduct gold
         if result.event_type == "wandering_healer":
             self.healer_met = True
+            total_cost = result.effects.get("total_cost", 0)
+            if total_cost > 0:
+                self.party_gold -= total_cost
+                self.log_message(f"Paid {total_cost} gold for healing.")
         elif result.event_type == "wandering_alchemist":
             self.alchemist_met = True
 
@@ -468,10 +478,21 @@ class GameManager:
             "combat_active": self.combat_active,
             "monsters": [m.to_dict() for m in self.current_monsters],
             "message_log": self.message_log[-20:],
+            "party_gold": self.party_gold,
             "fountain_used": self.fountain_used,
             "healer_met": self.healer_met,
             "alchemist_met": self.alchemist_met,
             "clues_found": self.clues_found,
-            "pending_feature": self.pending_feature.event_type if self.pending_feature else None,
-            "pending_event": self.pending_event.event_type if self.pending_event else None,
+            "pending_feature": {
+                "event_type": self.pending_feature.event_type,
+                "description": self.pending_feature.description,
+                "choices": self.pending_feature.player_choices,
+                "effects": self.pending_feature.effects,
+            } if self.pending_feature else None,
+            "pending_event": {
+                "event_type": self.pending_event.event_type,
+                "description": self.pending_event.description,
+                "choices": self.pending_event.player_choices,
+                "effects": self.pending_event.effects,
+            } if self.pending_event else None,
         }

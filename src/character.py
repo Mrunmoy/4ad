@@ -26,6 +26,7 @@ class Character:
     cursed: bool = False
     poisoned: bool = False
     petrified: bool = False
+    limping: bool = False
     
     def take_damage(self, amount: int) -> None:
         """Take damage."""
@@ -85,6 +86,7 @@ class Character:
             "cursed": self.cursed,
             "poisoned": self.poisoned,
             "petrified": self.petrified,
+            "limping": self.limping,
             "equipment": self.equipment,
         }
 

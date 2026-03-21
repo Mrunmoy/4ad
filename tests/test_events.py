@@ -273,9 +273,18 @@ class TestWanderingHealer:
         chars = _make_party(Warrior, wounded=True)
         old_life = chars[0].life
         evt = generate_special_event(force_roll=5)
-        result = resolve_event(evt, chars, choice="buy_healing")
+        result = resolve_event(evt, chars, choice="buy_healing", party_gold=200)
         assert result.effects.get("healed") is True
         assert chars[0].life > old_life
+        assert result.effects.get("total_cost", 0) > 0
+
+    def test_healer_no_gold_no_healing(self):
+        chars = _make_party(Warrior, wounded=True)
+        old_life = chars[0].life
+        evt = generate_special_event(force_roll=5)
+        result = resolve_event(evt, chars, choice="buy_healing", party_gold=0)
+        assert result.effects.get("healed") is False
+        assert chars[0].life == old_life
 
     def test_healer_leave(self):
         chars = _make_party(Warrior, wounded=True)

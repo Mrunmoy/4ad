@@ -57,16 +57,6 @@ def _get_armor_bonus(character) -> int:
     return bonus
 
 
-def _get_armor_only_bonus(character) -> int:
-    """Get armor bonus excluding shield (for certain traps)."""
-    equipment = [e.lower() for e in character.equipment]
-    if "heavy armor" in equipment:
-        return 2
-    elif "light armor" in equipment:
-        return 1
-    return 0
-
-
 def _get_shield_bonus(character) -> int:
     """Get shield bonus only."""
     equipment = [e.lower() for e in character.equipment]
@@ -106,14 +96,6 @@ def _pick_random_characters(party_chars, count: int):
     if len(living) <= count:
         return list(living)
     return random.sample(living, count)
-
-
-def _get_leader(party_chars):
-    """Get the character leading marching order (lowest position)."""
-    living = [c for c in party_chars if not c.is_dead()]
-    if not living:
-        return None
-    return min(living, key=lambda c: c.position)
 
 
 def _get_last(party_chars):
@@ -161,6 +143,7 @@ def _resolve_poison_gas(trap, party_chars, force_rolls: List[int] = None) -> Tra
 
         if total < trap.level:
             char.take_damage(1)
+            char.poisoned = True
             victims.append((char.name, 1, "poisoned"))
             descriptions.append(f"{char.name} is poisoned! (rolled {total} vs {trap.level})")
         else:

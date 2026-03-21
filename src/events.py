@@ -391,7 +391,8 @@ _EVENT_GENERATORS = {
 
 
 def resolve_event(event_result: EventResult, party, choice: str = None,
-                  force_roll: int = None, force_rolls: List[int] = None) -> EventResult:
+                  force_roll: int = None, force_rolls: List[int] = None,
+                  party_gold: int = None) -> EventResult:
     """Resolve a special event based on player choice.
 
     Args:
@@ -400,6 +401,7 @@ def resolve_event(event_result: EventResult, party, choice: str = None,
         choice: Player's chosen action (if applicable).
         force_roll: Force a specific d6 roll (for testing).
         force_rolls: Force specific d6 rolls for multi-target (for testing).
+        party_gold: Available gold for vendor purchases.
 
     Returns:
         Updated EventResult with resolution.
@@ -416,7 +418,8 @@ def resolve_event(event_result: EventResult, party, choice: str = None,
     elif event_type == "trap_event":
         return _resolve_trap_event(party, force_roll)
     elif event_type == "wandering_healer":
-        return _resolve_wandering_healer(event_result, chars, choice, force_roll)
+        return _resolve_wandering_healer(event_result, chars, choice, force_roll,
+                                         party_gold=party_gold)
     elif event_type == "wandering_alchemist":
         return _resolve_wandering_alchemist(event_result, chars, choice)
 
@@ -501,7 +504,8 @@ def _resolve_trap_event(party, force_roll=None) -> EventResult:
     )
 
 
-def _resolve_wandering_healer(event_result, chars, choice, force_roll=None) -> EventResult:
+def _resolve_wandering_healer(event_result, chars, choice, force_roll=None,
+                              party_gold: int = None) -> EventResult:
     if choice == "leave":
         return EventResult(
             event_type="wandering_healer",
@@ -512,18 +516,23 @@ def _resolve_wandering_healer(event_result, chars, choice, force_roll=None) -> E
     # Heal wounded characters who can afford it
     healed = []
     price_per_hp = event_result.effects.get("price_per_hp", 10)
+    gold_remaining = party_gold if party_gold is not None else float('inf')
+    total_gold_spent = 0
 
     for char in chars:
         if not char.is_dead() and char.life < char.max_life:
             missing = char.max_life - char.life
-            # For simplicity, heal all missing life (cost tracking is in game.py)
-            char.heal(missing)
-            healed.append((char.name, missing, missing * price_per_hp))
+            cost = missing * price_per_hp
+            if gold_remaining >= cost:
+                char.heal(missing)
+                gold_remaining -= cost
+                total_gold_spent += cost
+                healed.append((char.name, missing, cost))
 
     if not healed:
         return EventResult(
             event_type="wandering_healer",
-            description="No one needs healing.",
+            description="No one needs healing (or not enough gold).",
             effects={"healed": False},
         )
 
@@ -532,7 +541,7 @@ def _resolve_wandering_healer(event_result, chars, choice, force_roll=None) -> E
     return EventResult(
         event_type="wandering_healer",
         description="The healer tends to your wounds. " + "; ".join(desc_parts),
-        effects={"healed": True, "details": healed},
+        effects={"healed": True, "details": healed, "total_cost": total_gold_spent},
     )
 
 
