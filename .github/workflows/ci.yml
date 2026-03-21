@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [game-v2, main, new-web]
+    branches: [game-v2, new-web]
   pull_request:
-    branches: [game-v2, main, new-web]
+    branches: [game-v2, new-web]
 
 jobs:
   backend-tests:
@@ -14,23 +14,33 @@ jobs:
         python-version: ['3.10', '3.11']
     steps:
       - uses: actions/checkout@v4
+      - name: Check for Python project
+        id: check-python
+        run: |
+          if [ -f "requirements.txt" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
       - name: Set up Python ${{ matrix.python-version }}
+        if: steps.check-python.outputs.exists == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
+        if: steps.check-python.outputs.exists == 'true'
         run: pip install -r requirements.txt
       - name: Run tests
+        if: steps.check-python.outputs.exists == 'true'
         run: python -m pytest -v --tb=short
+      - name: Skip (not a Python project)
+        if: steps.check-python.outputs.exists != 'true'
+        run: echo "No requirements.txt found, skipping"
 
   frontend-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
       - name: Check for client directory
         id: check-client
         run: |
@@ -39,6 +49,11 @@ jobs:
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
+      - name: Set up Node.js
+        if: steps.check-client.outputs.exists == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - name: Install frontend dependencies
         if: steps.check-client.outputs.exists == 'true'
         working-directory: client
@@ -47,6 +62,6 @@ jobs:
         if: steps.check-client.outputs.exists == 'true'
         working-directory: client
         run: npm run build
-      - name: Skip frontend (no client dir)
+      - name: Skip (no client directory)
         if: steps.check-client.outputs.exists != 'true'
-        run: echo "No client directory found, skipping frontend build"
+        run: echo "No client directory found, skipping"
