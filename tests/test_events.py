@@ -74,7 +74,7 @@ class TestBlessedTemple:
         feat = generate_special_feature(force_roll=2)
         result = resolve_feature(feat, chars, "pray")
         assert result.effects.get("blessed") == "Char1"
-        assert getattr(chars[0], 'blessed_vs_undead', False) is True
+        assert getattr(chars[0], 'blessed_temple_bonus', False) is True
 
     def test_pray_cures_curse(self):
         chars = _make_party(Warrior)

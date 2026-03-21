@@ -8,6 +8,7 @@ from src.traps import generate_trap, handle_trap_encounter
 from src.events import (
     generate_special_feature, generate_special_event,
     resolve_feature, resolve_event, search_room as events_search_room,
+    ClueTracker,
 )
 import uuid
 
@@ -42,7 +43,7 @@ class GameManager:
         self.message_log: List[str] = []
 
         # Adventure state tracking
-        self.fountain_used = False
+        self.fountain_tracker = {}  # Tracks fountain drinks per adventure
         self.healer_met = False
         self.alchemist_met = False
         self.clues_found = 0
@@ -116,6 +117,11 @@ class GameManager:
 
         room = self.dungeon.party.current_room
         if not room:
+            return False
+
+        # Block movement if pending events need resolution
+        if self.pending_feature or self.pending_event:
+            self.log_message("Resolve the current event before moving!")
             return False
 
         # If exit exists but leads nowhere, generate a new room
@@ -262,7 +268,10 @@ class GameManager:
             return {"error": "No pending feature"}
 
         party = self.dungeon.party
-        result = resolve_feature(self.pending_feature, party, choice)
+        result = resolve_feature(
+            self.pending_feature, party, choice,
+            fountain_tracker=self.fountain_tracker,
+        )
         self.log_message(result.description)
 
         # Track state — only mark fountain used if actually drunk from
@@ -379,6 +388,20 @@ class GameManager:
     def _end_combat(self) -> None:
         """End combat."""
         self.combat_active = False
+
+        # Consume blessed_temple_bonus for characters who killed undead/demons
+        for char in self.dungeon.party.get_living_characters():
+            if getattr(char, "blessed_temple_bonus", False):
+                killed_undead = any(
+                    getattr(m, "is_undead", False) or getattr(m, "is_demon", False)
+                    for m in self.current_monsters if m.is_dead()
+                )
+                if killed_undead:
+                    char.blessed_temple_bonus = False
+                    self.log_message(
+                        f"{char.name}'s temple blessing is consumed!"
+                    )
+
         self.current_monsters = []
         if self.dungeon.party.current_room:
             self.dungeon.party.current_room.content.cleared = True
@@ -479,10 +502,10 @@ class GameManager:
             "monsters": [m.to_dict() for m in self.current_monsters],
             "message_log": self.message_log[-20:],
             "party_gold": self.party_gold,
-            "fountain_used": self.fountain_used,
+            "fountain_drinks": self.fountain_tracker.get("fountain_drinks", 0),
             "healer_met": self.healer_met,
             "alchemist_met": self.alchemist_met,
-            "clues_found": self.clues_found,
+            "clues_found": self.clue_tracker.clues,
             "pending_feature": {
                 "event_type": self.pending_feature.event_type,
                 "description": self.pending_feature.description,

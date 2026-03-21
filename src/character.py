@@ -27,6 +27,8 @@ class Character:
     poisoned: bool = False
     petrified: bool = False
     limping: bool = False
+    blessed_temple_bonus: bool = False  # +1 vs undead/demons, consumed on kill
+    separated: bool = False  # Trapdoor: separated from party
     
     def take_damage(self, amount: int) -> None:
         """Take damage."""
@@ -87,6 +89,8 @@ class Character:
             "poisoned": self.poisoned,
             "petrified": self.petrified,
             "limping": self.limping,
+            "blessed_temple_bonus": self.blessed_temple_bonus,
+            "separated": self.separated,
             "equipment": self.equipment,
         }
 

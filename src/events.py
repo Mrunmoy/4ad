@@ -101,7 +101,8 @@ _FEATURE_GENERATORS = {
 
 
 def resolve_feature(feature_result: EventResult, party, choice: str,
-                    force_roll: int = None) -> EventResult:
+                    force_roll: int = None,
+                    fountain_tracker: dict = None) -> EventResult:
     """Resolve a special feature based on player choice.
 
     Args:
@@ -117,7 +118,7 @@ def resolve_feature(feature_result: EventResult, party, choice: str,
     feature_type = feature_result.event_type
 
     if feature_type == "fountain":
-        return _resolve_fountain(chars, choice, force_roll)
+        return _resolve_fountain(chars, choice, force_roll, fountain_tracker)
     elif feature_type == "blessed_temple":
         return _resolve_blessed_temple(chars, choice)
     elif feature_type == "armory":
@@ -134,30 +135,60 @@ def resolve_feature(feature_result: EventResult, party, choice: str,
                        effects={})
 
 
-def _resolve_fountain(chars, choice, force_roll=None) -> EventResult:
+def _resolve_fountain(chars, choice, force_roll=None, fountain_tracker=None) -> EventResult:
     if choice == "leave":
         return EventResult(event_type="fountain",
                            description="You leave the fountain alone.",
                            effects={})
 
-    # First character to drink heals d6 life
+    # One-use-per-adventure enforcement
+    drink_count = 0
+    if fountain_tracker is not None:
+        drink_count = fountain_tracker.get("fountain_drinks", 0)
+
+    if drink_count >= 2:
+        return EventResult(event_type="fountain",
+                           description="The fountain has run dry.",
+                           effects={"dry": True})
+
     wounded = [c for c in chars if not c.is_dead() and c.life < c.max_life]
     if not wounded:
+        wounded = [c for c in chars if not c.is_dead()]
+    if not wounded:
         return EventResult(event_type="fountain",
-                           description="No one is wounded. The water tastes refreshing.",
-                           effects={"healed": []})
+                           description="No one can drink.",
+                           effects={})
 
     char = wounded[0]
-    heal_amount = force_roll if force_roll is not None else roll_d6()
-    old_life = char.life
-    char.heal(heal_amount)
-    actual_heal = char.life - old_life
 
-    return EventResult(
-        event_type="fountain",
-        description=f"{char.name} drinks from the fountain and heals {actual_heal} life!",
-        effects={"healed": [(char.name, actual_heal)]},
-    )
+    if drink_count == 0:
+        heal_amount = force_roll if force_roll is not None else roll_d6()
+        old_life = char.life
+        char.heal(heal_amount)
+        actual_heal = char.life - old_life
+        if fountain_tracker is not None:
+            fountain_tracker["fountain_drinks"] = 1
+        return EventResult(
+            event_type="fountain",
+            description=f"{char.name} drinks from the fountain and heals {actual_heal} life!",
+            effects={"healed": [(char.name, actual_heal)]},
+        )
+    else:
+        risk_roll = force_roll if force_roll is not None else roll_d6()
+        if fountain_tracker is not None:
+            fountain_tracker["fountain_drinks"] = 2
+        if risk_roll == 1:
+            char.poisoned = True
+            return EventResult(
+                event_type="fountain",
+                description=f"{char.name} drinks and is POISONED! (rolled {risk_roll})",
+                effects={"poisoned": char.name},
+            )
+        return EventResult(
+            event_type="fountain",
+            description=f"{char.name} drinks but nothing happens. (rolled {risk_roll})",
+            effects={"nothing": True},
+        )
 
 
 def _resolve_blessed_temple(chars, choice) -> EventResult:
@@ -177,7 +208,7 @@ def _resolve_blessed_temple(chars, choice) -> EventResult:
     # Also cures curse
     was_cursed = char.cursed
     char.cursed = False
-    char.blessed_vs_undead = True
+    char.blessed_temple_bonus = True
 
     desc = f"{char.name} receives a blessing (+1 attack vs undead/demons)."
     if was_cursed:
@@ -639,6 +670,43 @@ def search_room(party, force_roll: int = None, force_complication_roll: int = No
                           "complication": None},
             )
 
+
+
+
+# ---------------------------------------------------------------------------
+# Clue Tracker
+# ---------------------------------------------------------------------------
+
+class ClueTracker:
+    """Track clues collected. At 3, a major secret is revealed (Section 11.3)."""
+
+    def __init__(self):
+        self.clues = 0
+        self.resolved = False
+
+    def add_clue(self) -> int:
+        """Add a clue and return new total."""
+        self.clues += 1
+        return self.clues
+
+    def should_resolve(self) -> bool:
+        return self.clues >= 3 and not self.resolved
+
+    def resolve(self, force_roll: int = None) -> dict:
+        """Resolve the 3-clue secret."""
+        if not self.should_resolve():
+            return {"error": "Not enough clues or already resolved"}
+        self.resolved = True
+        roll = force_roll if force_roll is not None else roll_d6()
+        if roll <= 2:
+            return {"type": "hidden_treasure_room", "roll": roll,
+                    "description": "The clues reveal a hidden treasure room!"}
+        elif roll <= 4:
+            return {"type": "shortcut_to_boss", "roll": roll,
+                    "description": "The clues reveal a shortcut to the final boss!"}
+        else:
+            return {"type": "xp_for_party", "roll": roll,
+                    "description": "The clues grant wisdom! Each character gets an XP roll!"}
 
 # ---------------------------------------------------------------------------
 # Helpers

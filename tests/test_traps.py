@@ -172,14 +172,24 @@ class TestPoisonGas:
 class TestTrapdoor:
     """Test trapdoor/pit trap mechanics."""
 
-    def test_trapdoor_fail_causes_limping(self):
-        chars = _make_party(Warrior)
+    def test_trapdoor_fail_separates(self):
+        """Trapdoor fail with multiple party members = separated."""
+        chars = _make_party(Warrior, Cleric)
         chars[0].equipment = []  # no armor
         trap = generate_trap(force_roll=3)  # level 4
         result = trigger_trap(trap, chars, force_roll=1)  # 1 < 4
         assert len(result.victims) == 1
-        assert result.victims[0][2] == "limping"
-        assert _has_limping(chars[0])
+        assert result.victims[0][2] == "separated"
+
+    def test_trapdoor_fail_kills_if_alone(self):
+        """Trapdoor fail when alone = death."""
+        chars = _make_party(Warrior)
+        chars[0].equipment = []
+        trap = generate_trap(force_roll=3)  # level 4
+        result = trigger_trap(trap, chars, force_roll=1)  # 1 < 4
+        assert len(result.victims) == 1
+        assert result.victims[0][2] == "death_alone"
+        assert chars[0].is_dead()
 
     def test_trapdoor_rogue_bonus(self):
         chars = _make_party(Rogue)

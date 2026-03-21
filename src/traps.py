@@ -98,6 +98,14 @@ def _pick_random_characters(party_chars, count: int):
     return random.sample(living, count)
 
 
+def _get_leader(party_chars):
+    """Get the character leading marching order (lowest position)."""
+    living = [c for c in party_chars if not c.is_dead()]
+    if not living:
+        return None
+    return min(living, key=lambda c: c.position)
+
+
 def _get_last(party_chars):
     """Get the last character in marching order (highest position)."""
     living = [c for c in party_chars if not c.is_dead()]
@@ -186,11 +194,20 @@ def _resolve_trapdoor(trap, party_chars, force_roll: int = None) -> TrapResult:
 
     if total < trap.level:
         char.take_damage(1)
-        _apply_limping(char)
-        victims.append((char.name, 1, "limping"))
-        desc = (f"{char.name} falls through a trapdoor! "
-                f"(rolled {roll}{modifier:+d}={total} vs {trap.level}) "
-                f"Lost 1 life, now limping.")
+
+        # Check if character is alone (only living party member)
+        living_count = sum(1 for c in party_chars if not c.is_dead())
+        if living_count <= 1:
+            char.life = 0
+            victims.append((char.name, char.max_life, "death_alone"))
+            desc = (f"{char.name} falls through a trapdoor alone and perishes! "
+                    f"(rolled {roll}{modifier:+d}={total} vs {trap.level})")
+        else:
+            char.separated = True
+            victims.append((char.name, 1, "separated"))
+            desc = (f"{char.name} falls through a trapdoor! "
+                    f"(rolled {roll}{modifier:+d}={total} vs {trap.level}) "
+                    f"Lost 1 life, separated from party!")
     else:
         desc = (f"{char.name} avoids the trapdoor! "
                 f"(rolled {roll}{modifier:+d}={total} vs {trap.level})")
@@ -200,24 +217,25 @@ def _resolve_trapdoor(trap, party_chars, force_roll: int = None) -> TrapResult:
 
 
 def _resolve_bear_trap(trap, party_chars, force_roll: int = None) -> TrapResult:
-    """Resolve a bear trap targeting a random character."""
-    targets = _pick_random_characters(party_chars, 1)
-    if not targets:
+    """Resolve a bear trap targeting the character leading marching order (position 1).
+
+    Save: d6 + mods >= 3. Halfling +1, Rogue +level.
+    Effect: lose 1 life + limping (-1 attack, -1 defense, -2 vs future traps/trapdoors).
+    """
+    char = _get_leader(party_chars)
+    if not char:
         return TrapResult(trap=trap, triggered=True, disarmed=False,
                           description="Bear trap snaps but no one is caught.")
 
-    char = targets[0]
     roll = force_roll if force_roll is not None else roll_d6()
 
     modifier = 0
     if char.class_type == "Halfling":
         modifier += 1
-    if char.class_type == "Elf":
-        modifier += 1
     if char.class_type == "Rogue":
         modifier += char.level
 
-    # Limping penalty
+    # Limping penalty: -2 vs traps/trapdoors
     if _has_limping(char):
         modifier -= 2
 
@@ -227,12 +245,14 @@ def _resolve_bear_trap(trap, party_chars, force_roll: int = None) -> TrapResult:
     if total < trap.level:
         char.take_damage(1)
         _apply_limping(char)
+        char.attack -= 1
+        char.defense -= 1
         victims.append((char.name, 1, "limping"))
-        desc = (f"{char.name} is caught in a bear trap! "
+        desc = (f"{char.name} (position {char.position}) is caught in a bear trap! "
                 f"(rolled {roll}{modifier:+d}={total} vs {trap.level}) "
-                f"Lost 1 life, now limping.")
+                f"Lost 1 life, now limping (-1 attack, -1 defense, -2 vs traps).")
     else:
-        desc = (f"{char.name} avoids the bear trap! "
+        desc = (f"{char.name} (position {char.position}) avoids the bear trap! "
                 f"(rolled {roll}{modifier:+d}={total} vs {trap.level})")
 
     return TrapResult(trap=trap, triggered=True, disarmed=False,
