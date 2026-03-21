@@ -1,6 +1,6 @@
 """Final boss detection and dungeon exit for 4AD."""
 from src.dice import roll_d6
-from src.monster import Monster, Boss, MINIONS_TABLE
+from src.monster import Monster, MINIONS_TABLE
 
 
 def check_final_boss(bosses_encountered: int, force_roll: int = None) -> bool:

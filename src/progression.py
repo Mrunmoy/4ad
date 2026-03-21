@@ -1,5 +1,5 @@
 """XP and Leveling system for 4AD."""
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 from src.dice import roll_d6
 

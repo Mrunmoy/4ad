@@ -159,8 +159,8 @@ class Cleric(Character):
         return self.level // 2
 
     def can_cast(self, spell: str) -> bool:
-        """Cleric can cast Blessing."""
-        return spell == "Blessing"
+        """Cleric can cast Blessing if uses remain."""
+        return spell == "Blessing" and self.blessing_uses > 0
 
     def get_save_bonus(self, vs: str) -> int:
         """Cleric adds level vs undead and demons."""

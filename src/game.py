@@ -5,7 +5,7 @@ from src.dungeon import Dungeon, RoomContent, RoomType
 from src.character import Character, create_character
 from src.combat import Combat
 from src.dice import roll_d6, roll_2d6
-from src.progression import attempt_level_up, get_xp_rolls_earned, MAX_LEVEL
+from src.progression import attempt_level_up, MAX_LEVEL
 from src.quests import Quest, generate_quest, check_quest_completion, roll_epic_reward
 from src.final_boss import check_final_boss, create_final_boss, roll_exit_encounter, generate_exit_monster
 import uuid
@@ -285,6 +285,24 @@ class GameManager:
         no bribing allowed.
         """
         return any(m.is_final_boss for m in self.current_monsters if not m.is_dead())
+
+    def flee(self) -> dict:
+        """Attempt to flee from combat.
+
+        H8: Cannot flee from the final boss -- they fight to the death.
+        """
+        if not self.combat_active:
+            return {"error": "No combat active"}
+
+        if self._has_final_boss_in_combat():
+            return {"error": "Cannot flee from the final boss!"}
+
+        self.combat_active = False
+        self.fled_or_bribed = True
+        self.all_monsters_killed_so_far = False
+        self.current_monsters = []
+        self.log_message("The party flees from combat!")
+        return {"fled": True}
 
     def _end_combat(self) -> None:
         """End combat and process XP/quest rewards."""
@@ -595,11 +613,15 @@ class GameManager:
         if not caster:
             return {"error": "No one can cast that spell"}
 
-        # Consume spell slot or ability use
+        # Consume spell slot or ability use and check for failure
+        success = False
         if hasattr(caster, "cast_spell"):
-            caster.cast_spell(spell_name)
+            success = caster.cast_spell(spell_name)
         elif spell_name == "Blessing" and hasattr(caster, "use_blessing"):
-            caster.use_blessing()
+            success = caster.use_blessing()
+
+        if not success:
+            return {"error": f"{caster.name} has no remaining slots for {spell_name}"}
 
         self.log_message(f"{caster.name} casts {spell_name}!")
         return {"caster": caster.name, "spell": spell_name}
