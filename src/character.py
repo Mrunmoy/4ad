@@ -9,23 +9,29 @@ class Character:
     name: str
     level: int = 1
     class_type: str = "Character"
-    
+
     # Base stats (overridden by subclasses)
     attack: int = 2
     defense: int = 3
     life: int = 3
     max_life: int = 3
-    
+
     # Equipment
     equipment: List[str] = field(default_factory=list)
-    
+
     # Position in marching order (1-4)
     position: int = 1
-    
+
     # Status effects
     cursed: bool = False
     poisoned: bool = False
     petrified: bool = False
+    protected: bool = False  # +1 defense for current battle (Protect spell)
+
+    # Spell system
+    spells_known: List[str] = field(default_factory=list)
+    spells_remaining: int = 0
+    healing_remaining: int = 0  # For clerics (3 per adventure)
     
     def take_damage(self, amount: int) -> None:
         """Take damage."""
@@ -58,7 +64,14 @@ class Character:
     def can_cast(self, spell: str) -> bool:
         """Can character cast specific spell."""
         return False
-    
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """
+        Attempt to use a spell slot. Returns True if successful.
+        Override in subclasses for class-specific behaviour.
+        """
+        return False
+
     def get_save_bonus(self, vs: str) -> int:
         """Get save bonus vs specific threat."""
         return 0
@@ -85,7 +98,11 @@ class Character:
             "cursed": self.cursed,
             "poisoned": self.poisoned,
             "petrified": self.petrified,
+            "protected": self.protected,
             "equipment": self.equipment,
+            "spells_known": self.spells_known,
+            "spells_remaining": self.spells_remaining,
+            "healing_remaining": self.healing_remaining,
         }
 
 
@@ -115,11 +132,28 @@ class Cleric(Character):
             life=5,
             max_life=5
         )
-    
+        self.spells_known = ["Blessing"]
+        self.spells_remaining = 3  # 3 Blessing uses per adventure
+        self.healing_remaining = 3  # 3 Healing uses per adventure
+
     def can_cast(self, spell: str) -> bool:
-        """Cleric can cast Blessing."""
-        return spell == "Blessing"
-    
+        """Cleric can cast Blessing (with remaining charges)."""
+        return spell == "Blessing" and self.spells_remaining > 0
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a Blessing charge."""
+        if spell_name == "Blessing" and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            return True
+        return False
+
+    def use_healing(self) -> bool:
+        """Use a healing charge. Returns True if successful."""
+        if self.healing_remaining > 0:
+            self.healing_remaining -= 1
+            return True
+        return False
+
     def get_save_bonus(self, vs: str) -> int:
         """Cleric adds level vs undead and demons."""
         if vs in ("undead", "demon"):
@@ -157,11 +191,19 @@ class Wizard(Character):
             life=3,
             max_life=3
         )
-        self.spells = ["Blessing", "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"]
-    
+        self.spells_known = ["Blessing", "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"]
+        self.spells_remaining = 2 + level  # 3 at level 1
+
     def can_cast(self, spell: str) -> bool:
-        """Wizard can cast all spells."""
-        return spell in self.spells
+        """Wizard can cast all spells if slots remain."""
+        return spell in self.spells_known and self.spells_remaining > 0
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a spell slot."""
+        if spell_name in self.spells_known and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            return True
+        return False
 
 
 class Barbarian(Character):
@@ -198,11 +240,19 @@ class Elf(Character):
             life=4,
             max_life=4
         )
-        self.spells = ["Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"]
-    
+        self.spells_known = ["Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"]
+        self.spells_remaining = level  # 1 per level
+
     def can_cast(self, spell: str) -> bool:
-        """Elf can cast non-cleric spells."""
-        return spell in self.spells
+        """Elf can cast non-cleric spells if slots remain."""
+        return spell in self.spells_known and self.spells_remaining > 0
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a spell slot."""
+        if spell_name in self.spells_known and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            return True
+        return False
 
 
 class Dwarf(Character):
