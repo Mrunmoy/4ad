@@ -36,9 +36,8 @@ class GameManager:
         self.started = False
         self.combat_active = False
         self.current_monsters = []
-        self.current_monster_name: Optional[str] = None  # for treasure modifier lookup
+        self.current_monster_names: List[str] = []  # per-monster names for treasure modifier lookup
         self.message_log: List[str] = []
-        self.party_gold: int = 0  # shared gold pool
     
     def add_player(self, name: str) -> str:
         """Add a player to the game."""
@@ -132,7 +131,7 @@ class GameManager:
             num_minions = roll_2d6() // 3 + 1
             self.current_monsters = [MINIONS_TABLE[roll_d6()]() for _ in range(num_minions)]
             if self.current_monsters:
-                self.current_monster_name = self.current_monsters[0].name
+                self.current_monster_names = [m.name for m in self.current_monsters]
 
         elif content.type == RoomType.BOSS:
             self.log_message("A powerful enemy appears!")
@@ -140,7 +139,7 @@ class GameManager:
             from src.monster import BOSSES_TABLE
             self.current_monsters = [BOSSES_TABLE[roll_d6()]()]
             if self.current_monsters:
-                self.current_monster_name = self.current_monsters[0].name
+                self.current_monster_names = [m.name for m in self.current_monsters]
 
         elif content.type == RoomType.VERMIN:
             self.log_message("Vermin swarm!")
@@ -149,7 +148,7 @@ class GameManager:
             num_vermin = roll_d6()
             self.current_monsters = [VERMIN_TABLE[roll_d6()]() for _ in range(num_vermin)]
             if self.current_monsters:
-                self.current_monster_name = self.current_monsters[0].name
+                self.current_monster_names = [m.name for m in self.current_monsters]
 
         elif content.type == RoomType.WEIRD_MONSTERS:
             self.log_message("Strange creatures emerge!")
@@ -157,14 +156,14 @@ class GameManager:
             from src.monster import WEIRD_MONSTERS_TABLE
             self.current_monsters = [WEIRD_MONSTERS_TABLE[roll_d6()]()]
             if self.current_monsters:
-                self.current_monster_name = self.current_monsters[0].name
+                self.current_monster_names = [m.name for m in self.current_monsters]
 
         elif content.type == RoomType.SMALL_DRAGON:
             self.log_message("A small dragon guards this room!")
             self.combat_active = True
             from src.monster import Boss
             self.current_monsters = [Boss("Small Dragon", level=7, life=6, is_dragon=True)]
-            self.current_monster_name = "Small Dragon"
+            self.current_monster_names = ["Small Dragon"]
         
         elif content.type == RoomType.TREASURE:
             self.log_message("Treasure found!")
@@ -260,25 +259,33 @@ class GameManager:
         """End combat and roll for treasure."""
         self.combat_active = False
 
-        # Roll treasure based on defeated monster
-        monster_name = self.current_monster_name
-        treasure = roll_treasure(monster_name=monster_name)
-        self.log_message(f"Treasure: {treasure.description}")
+        # Roll treasure per defeated monster using its specific modifier
+        total_gold = 0
+        items_found = []
+        scrolls_found = []
+        for monster_name in self.current_monster_names:
+            treasure = roll_treasure(monster_name=monster_name)
+            self.log_message(f"Treasure from {monster_name}: {treasure.description}")
+            total_gold += treasure.gold
+            if treasure.item:
+                items_found.append(treasure.item)
+            if treasure.spell_scroll:
+                scrolls_found.append(treasure.spell_scroll)
 
-        if treasure.gold > 0:
+        if total_gold > 0:
             living = self.dungeon.party.get_living_characters()
-            dist = distribute_gold(treasure.gold, living)
+            dist = distribute_gold(total_gold, living)
             for char_name, amount in dist.items():
                 self.log_message(f"{char_name} receives {amount} gold")
 
-        if treasure.item:
-            self.log_message(f"Found: {treasure.item.name}")
+        for item in items_found:
+            self.log_message(f"Found: {item.name}")
 
-        if treasure.spell_scroll:
-            self.log_message(f"Found scroll of {treasure.spell_scroll}")
+        for scroll in scrolls_found:
+            self.log_message(f"Found scroll of {scroll}")
 
         self.current_monsters = []
-        self.current_monster_name = None
+        self.current_monster_names = []
         if self.dungeon.party.current_room:
             self.dungeon.party.current_room.content.cleared = True
         self.log_message("Combat ended")
@@ -435,5 +442,4 @@ class GameManager:
             "combat_active": self.combat_active,
             "monsters": [m.to_dict() for m in self.current_monsters],
             "message_log": self.message_log[-20:],
-            "party_gold": self.party_gold,
         }
