@@ -375,12 +375,19 @@ class GameManager:
 
     def cast_spell(self, spell_name: str, target=None, caster_id: str = None) -> dict:
         """Cast a spell during combat or out of combat."""
-        # Find a caster
+        # Honor caster_id if provided; otherwise pick first eligible caster
         caster = None
-        for char in self._get_party():
-            if char.can_cast(spell_name):
-                caster = char
-                break
+        if caster_id is not None:
+            for char in self._get_party():
+                if getattr(char, 'name', None) == caster_id or getattr(char, 'id', None) == caster_id:
+                    if char.can_cast(spell_name):
+                        caster = char
+                        break
+        if caster is None:
+            for char in self._get_party():
+                if char.can_cast(spell_name):
+                    caster = char
+                    break
 
         if not caster:
             return {"error": "No one can cast that spell"}
