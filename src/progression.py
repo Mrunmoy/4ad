@@ -78,6 +78,7 @@ def attempt_level_up(
     """Attempt to level up a character via XP roll.
 
     Roll d6: if result > character's current level, the character levels up.
+    Halfling luck CANNOT be used to reroll XP rolls (spec Section 1, Halfling).
 
     Args:
         character: The character attempting to level up.
@@ -105,25 +106,28 @@ def attempt_level_up(
             f"Cannot attempt {character.name} twice in a row"
         )
 
+    # Capture old level BEFORE applying level-up (M2 fix)
+    old_level = character.level
+
     roll = force_roll if force_roll is not None else roll_d6()
-    current_level = character.level  # Save before potential mutation
-    leveled_up = roll > current_level
+    leveled_up = roll > old_level
     stat_changes = {}
-    new_level = current_level
+    new_level = old_level
 
     if leveled_up:
-        new_level = current_level + 1
+        new_level = old_level + 1
         stat_changes = _apply_level_up(character)
 
+    # M3 fix: proper f-string (was printing literal {new_level})
     desc = (
-        f"{character.name} rolled {roll} vs level {current_level}: "
-        f"{'LEVEL UP to {new_level}!' if leveled_up else 'no level up.'}"
+        f"{character.name} rolled {roll} vs level {old_level}: "
+        + (f"LEVEL UP to {new_level}!" if leveled_up else "no level up.")
     )
 
     return XPRollResult(
         character_name=character.name,
         roll=roll,
-        current_level=current_level,
+        current_level=old_level,
         leveled_up=leveled_up,
         new_level=new_level,
         stat_changes=stat_changes,
@@ -184,10 +188,14 @@ def _apply_level_up(character) -> dict:
         changes["attack_bonus"] = 1
 
     elif class_type == "Halfling":
-        # +1 luck point, +1 defense vs giants/trolls/ogres, +1 poison save
+        # C1 fix: +1 luck point AND +1 max_luck_points
+        # +1 defense vs giants/trolls/ogres, +1 poison save
         if hasattr(character, "luck_points"):
             character.luck_points += 1
+        if hasattr(character, "max_luck_points"):
+            character.max_luck_points += 1
         changes["luck_points"] = 1
+        changes["max_luck_points"] = 1
         changes["defense_vs_large"] = 1
         changes["poison_save"] = 1
 

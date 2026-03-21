@@ -26,8 +26,9 @@ def create_final_boss(base_monster: Monster) -> Monster:
     Modifications:
         - +1 life (and max_life)
         - +1 level
-        - Fights to death (always)
+        - Fights to death (always, regardless of normal reaction table)
         - Treasure tripled (handled by caller), min 100 gp
+        - is_final_boss flag set for serialization
 
     Args:
         base_monster: The base monster to enhance.
