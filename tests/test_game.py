@@ -1,5 +1,4 @@
-"""Tests for GameManager, focusing on the attack() targeting logic."""
-import pytest
+"""Tests for GameManager attack(), movement, and encounter-clearing behavior."""
 from src.game import GameManager
 from src.dungeon import RoomContent, RoomType
 from src.monster import Boss
@@ -104,8 +103,10 @@ class TestMoveIntoUnexploredExit:
         assert new_room is not room
         # Original room's exit now points to the new room
         assert room.exits[direction] is new_room
-        # New room is tracked in the dungeon
-        assert new_room.number in gm.dungeon.rooms
+        # New room has a reciprocal exit that leads back to the original room
+        assert room in new_room.exits.values()
+        # New room is tracked in the dungeon and mapped to the same object
+        assert gm.dungeon.rooms[new_room.number] is new_room
 
     def test_move_into_none_exit_logs_message(self):
         """Moving into an unexplored exit should log the party's movement."""
@@ -118,7 +119,10 @@ class TestMoveIntoUnexploredExit:
         gm.move(direction)
 
         new_room = gm.dungeon.party.current_room
-        assert any(str(new_room.number) in msg for msg in gm.message_log)
+        assert any(
+            direction in msg and str(new_room.number) in msg
+            for msg in gm.message_log
+        )
 
 
 class TestEncounterClearing:
