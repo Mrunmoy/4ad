@@ -22,6 +22,12 @@ const screens = {
 function init() {
     setupEventListeners();
     setupSocket();
+
+    // If loaded via /game/<game_id>, auto-fill the join form
+    if (window.GAME_ID) {
+        document.getElementById('join-game-id').value = window.GAME_ID;
+        document.getElementById('player-name').focus();
+    }
 }
 
 function setupEventListeners() {
