@@ -10,6 +10,7 @@ const state = {
     socket: null,
     gameData: null,
     selectedTarget: 0,
+    clientErrors: [],
 };
 
 // DOM Elements
@@ -422,12 +423,18 @@ function updateGameView() {
         state.selectedTarget = 0;
     }
     
-    // Update message log
+    // Update message log (server messages + persisted client errors)
     const messagesDiv = document.getElementById('messages');
     messagesDiv.innerHTML = '';
     data.message_log.forEach(msg => {
         const div = document.createElement('div');
         div.className = 'message';
+        div.textContent = msg;
+        messagesDiv.appendChild(div);
+    });
+    state.clientErrors.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message message-error';
         div.textContent = msg;
         messagesDiv.appendChild(div);
     });
@@ -463,16 +470,9 @@ function showSearchResult(data) {
 }
 
 function showMessage(text, type = 'info') {
-    // Persist errors in the message log (info/success come from server via updateGameView)
+    // Persist client-side errors in state so they survive updateGameView re-renders
     if (type === 'error') {
-        const messagesDiv = document.getElementById('messages');
-        if (messagesDiv) {
-            const div = document.createElement('div');
-            div.className = 'message message-error';
-            div.textContent = text;
-            messagesDiv.appendChild(div);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        }
+        state.clientErrors.push(text);
     }
 
     // Show toast (all types)
