@@ -8,7 +8,10 @@ from src.dungeon import Dungeon, Party
 from src.character import create_character, CHARACTER_CLASSES
 from src.game import GameManager
 
-app = Flask(__name__)
+base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+app = Flask(__name__,
+            template_folder=os.path.join(base_dir, 'templates'),
+            static_folder=os.path.join(base_dir, 'static'))
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
 
@@ -24,6 +27,12 @@ def get_game(game_id: str):
 @app.route('/')
 def index():
     """Main page."""
+    return render_template('index.html')
+
+
+@app.route('/game/<game_id>')
+def game_page(game_id):
+    """Game page - serves SPA which handles game joining."""
     return render_template('index.html')
 
 
