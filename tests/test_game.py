@@ -197,3 +197,103 @@ class TestEncounterClearing:
 
         assert first_empty_count == 1
         assert second_empty_count == 1
+
+
+def _setup_game_with_room_type(room_type: RoomType, description: str = "") -> tuple:
+    """Return (GameManager, room) where room has the given content type adjacent north."""
+    gm = _setup_started_game()
+    entrance = gm.dungeon.party.current_room
+    room = gm.dungeon.add_room_from(entrance, "north")
+    room.content = RoomContent(room_type, description)
+    return gm, room
+
+
+class TestVerminEncounter:
+    """Tests for VERMIN encounter type."""
+
+    def test_vermin_room_starts_combat(self):
+        """Entering a VERMIN room must activate combat."""
+        gm, _ = _setup_game_with_room_type(RoomType.VERMIN)
+        gm.move("north")
+        assert gm.combat_active is True
+
+    def test_vermin_room_spawns_at_least_one_monster(self):
+        """Entering a VERMIN room must spawn at least one vermin monster."""
+        gm, _ = _setup_game_with_room_type(RoomType.VERMIN)
+        gm.move("north")
+        assert len(gm.current_monsters) >= 1
+
+    def test_vermin_combat_ends_and_clears_content(self):
+        """Killing all vermin must end combat and mark room content cleared."""
+        gm, room = _setup_game_with_room_type(RoomType.VERMIN)
+        gm.move("north")
+
+        assert gm.combat_active is True
+        # Kill all monsters directly then signal end-of-combat
+        for m in gm.current_monsters:
+            m.life = 0
+        gm._end_combat()
+
+        assert gm.combat_active is False
+        assert room.content.cleared is True
+
+
+class TestWeirdMonstersEncounter:
+    """Tests for WEIRD_MONSTERS encounter type."""
+
+    def test_weird_monsters_room_starts_combat(self):
+        """Entering a WEIRD_MONSTERS room must activate combat."""
+        gm, _ = _setup_game_with_room_type(RoomType.WEIRD_MONSTERS)
+        gm.move("north")
+        assert gm.combat_active is True
+
+    def test_weird_monsters_spawns_exactly_one_monster(self):
+        """Entering a WEIRD_MONSTERS room must spawn exactly one weird monster."""
+        gm, _ = _setup_game_with_room_type(RoomType.WEIRD_MONSTERS)
+        gm.move("north")
+        assert len(gm.current_monsters) == 1
+
+    def test_weird_monsters_combat_ends_and_clears_content(self):
+        """Killing the weird monster must end combat and mark room content cleared."""
+        gm, room = _setup_game_with_room_type(RoomType.WEIRD_MONSTERS)
+        gm.move("north")
+
+        assert gm.combat_active is True
+        for m in gm.current_monsters:
+            m.life = 0
+        gm._end_combat()
+
+        assert gm.combat_active is False
+        assert room.content.cleared is True
+
+
+class TestSmallDragonEncounter:
+    """Tests for SMALL_DRAGON encounter type."""
+
+    def test_small_dragon_room_starts_combat(self):
+        """Entering a SMALL_DRAGON room must activate combat."""
+        gm, _ = _setup_game_with_room_type(RoomType.SMALL_DRAGON)
+        gm.move("north")
+        assert gm.combat_active is True
+
+    def test_small_dragon_spawns_exactly_one_dragon(self):
+        """Entering a SMALL_DRAGON room must spawn exactly one Boss with is_dragon=True."""
+        gm, _ = _setup_game_with_room_type(RoomType.SMALL_DRAGON)
+        gm.move("north")
+        assert len(gm.current_monsters) == 1
+        dragon = gm.current_monsters[0]
+        assert dragon.is_dragon is True
+        assert dragon.name == "Small Dragon"
+
+    def test_small_dragon_combat_ends_and_clears_content(self):
+        """Killing the small dragon must end combat and mark room content cleared."""
+        gm, room = _setup_game_with_room_type(RoomType.SMALL_DRAGON)
+        gm.move("north")
+
+        assert gm.combat_active is True
+        for m in gm.current_monsters:
+            m.life = 0
+        gm._end_combat()
+
+        assert gm.combat_active is False
+        assert room.content.cleared is True
