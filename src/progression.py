@@ -106,23 +106,24 @@ def attempt_level_up(
         )
 
     roll = force_roll if force_roll is not None else roll_d6()
-    leveled_up = roll > character.level
+    current_level = character.level  # Save before potential mutation
+    leveled_up = roll > current_level
     stat_changes = {}
-    new_level = character.level
+    new_level = current_level
 
     if leveled_up:
-        new_level = character.level + 1
+        new_level = current_level + 1
         stat_changes = _apply_level_up(character)
 
     desc = (
-        f"{character.name} rolled {roll} vs level {character.level}: "
+        f"{character.name} rolled {roll} vs level {current_level}: "
         f"{'LEVEL UP to {new_level}!' if leveled_up else 'no level up.'}"
     )
 
     return XPRollResult(
         character_name=character.name,
         roll=roll,
-        current_level=character.level if not leveled_up else new_level,
+        current_level=current_level,
         leveled_up=leveled_up,
         new_level=new_level,
         stat_changes=stat_changes,

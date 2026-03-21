@@ -68,11 +68,19 @@ class Character:
         return 0
 
     def attack_bonus(self, **kwargs) -> int:
-        """Get attack bonus. Override in subclasses."""
+        """Get attack bonus. Override in subclasses.
+
+        TODO: Wire into Combat.resolve_attack() when combat is refactored
+        to use class-specific bonuses (e.g. Warrior +level, Rogue conditional).
+        """
         return 0
 
     def defense_bonus(self, **kwargs) -> int:
-        """Get defense bonus. Override in subclasses."""
+        """Get defense bonus. Override in subclasses.
+
+        TODO: Wire into Combat.resolve_defense() when combat is refactored
+        to use class-specific bonuses (e.g. Rogue +level, Dwarf vs large).
+        """
         return 0
 
     def can_attack_in_melee(self) -> bool:

@@ -46,10 +46,12 @@ class GameManager:
 
         # Quest tracking
         self.active_quest: Optional[Quest] = None
+        self.quest_rewarded = False
         self.used_epic_rewards: List[str] = []
         self.peaceful_encounters = 0
         self.bosses_killed: List[str] = []
         self.bosses_captured: List[str] = []
+        self.magic_items: List[str] = []
         self.fled_or_bribed = False
         self.all_monsters_killed_so_far = True
 
@@ -432,6 +434,7 @@ class GameManager:
         """Accept a new quest (or replace existing one)."""
         quest = generate_quest(force_roll=force_roll)
         self.active_quest = quest
+        self.quest_rewarded = False
         self.log_message(f"Quest accepted: {quest.description} (Target: {quest.target})")
         return {
             "quest_type": quest.quest_type,
@@ -448,7 +451,7 @@ class GameManager:
             "party_gold": self.dungeon.party.treasure if self.dungeon else 0,
             "bosses_killed": self.bosses_killed,
             "bosses_captured": self.bosses_captured,
-            "magic_items": [],
+            "magic_items": self.magic_items,
             "peaceful_encounters": self.peaceful_encounters,
             "all_monsters_killed": self.all_monsters_killed_so_far,
             "fled_or_bribed": self.fled_or_bribed,
@@ -456,7 +459,8 @@ class GameManager:
 
         completed = check_quest_completion(self.active_quest, game_state)
 
-        if completed:
+        if completed and not self.quest_rewarded:
+            self.quest_rewarded = True
             self.log_message(f"Quest completed: {self.active_quest.description}")
             self.pending_xp_rolls += 1
 
@@ -515,21 +519,6 @@ class GameManager:
             "rooms_remaining": self.exit_rooms_remaining,
         }
 
-    def _monster_attack(self) -> None:
-        """Handle monster attacks."""
-        party = self.dungeon.party.get_living_characters()
-
-        for monster in self.current_monsters:
-            if monster.is_dead():
-                continue
-
-            results = Combat.resolve_monster_attack(monster, party)
-            for char, result in zip(party, results):
-                if result.damage_taken > 0:
-                    self.log_message(f"{monster.name} hits {char.name} for 1 damage!")
-                    if char.is_dead():
-                        self.log_message(f"{char.name} has fallen!")
-
     def search_room(self) -> dict:
         """Search the current room."""
         if self.combat_active:
@@ -563,9 +552,11 @@ class GameManager:
         if not caster:
             return {"error": "No one can cast that spell"}
 
-        # Consume spell slot if applicable
+        # Consume spell slot or ability use
         if hasattr(caster, "cast_spell"):
             caster.cast_spell(spell_name)
+        elif spell_name == "Blessing" and hasattr(caster, "use_blessing"):
+            caster.use_blessing()
 
         self.log_message(f"{caster.name} casts {spell_name}!")
         return {"caster": caster.name, "spell": spell_name}
