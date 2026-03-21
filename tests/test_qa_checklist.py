@@ -84,6 +84,7 @@ class TestPartyInvariants:
         gm.combat_active = True
         gm.current_monsters = [Minion("Rat", level=1)]
         room_before = gm.dungeon.party.current_room
+        original_room = room_before.number
 
         direction = None
         for d, r in room_before.exits.items():
@@ -98,6 +99,7 @@ class TestPartyInvariants:
         # changed rooms in a way that loses the combat context.
         assert gm.combat_active, "Combat should still be active after move attempt"
         assert len(gm.current_monsters) > 0, "Monsters should still be present"
+        assert gm.dungeon.party.current_room.number == original_room
 
     def test_dungeon_always_has_entrance(self):
         """A freshly created dungeon always has an entrance room."""

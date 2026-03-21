@@ -103,17 +103,17 @@ class TestDungeonCompletionRate:
 
         return not gm.dungeon.party.is_wiped_out()
 
-    def test_party_survives_more_than_20_percent(self):
-        """A standard 4-person party should survive >20% of 200 runs.
+    def test_party_survives_more_than_25_percent(self):
+        """A standard 4-person party should survive >25% of 200 runs.
 
-        Uses a larger sample size (200) and a wider tolerance (20%) to
+        Uses a larger sample size (200) and a wider tolerance (25%) to
         reduce flakiness from random variance in Monte Carlo simulation.
         """
         trials = 200
         survivals = sum(1 for _ in range(trials) if self._simulate_dungeon_run())
         survival_rate = survivals / trials
-        assert survival_rate > 0.20, (
-            f"Party survival rate {survival_rate:.0%} is below 20% threshold"
+        assert survival_rate > 0.25, (
+            f"Party survival rate {survival_rate:.0%} is below 25% threshold"
         )
 
 

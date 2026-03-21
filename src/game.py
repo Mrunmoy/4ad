@@ -97,6 +97,8 @@ class GameManager:
     
     def move(self, direction: str) -> bool:
         """Move the party in a direction."""
+        if self.combat_active:
+            return False
         if not self.dungeon:
             return False
         

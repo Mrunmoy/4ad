@@ -57,7 +57,7 @@ The design spec (DESIGN_SYSTEMS.md) defines character stats using a `base + leve
 - The warrior's attack=4 combined with the goblin's level=3 means almost any roll (1+4=5 >= 3) hits. The warrior's defense=5 vs goblin level=3 makes defense failures rare. Combat is heavily weighted toward the player in 1v1 minion encounters.
 
 ### 3.2 Dungeon Completion Rate
-- **4-person party through 16 rooms:** Survival rate ~40-60% across 100 runs.
+- **4-person party through 16 rooms:** Survival rate ~30-60% across 200 runs, regression threshold 25%.
 - Boss encounters (level 5-8) are the primary threat. A party encountering multiple bosses or a dragon often wipes.
 - Vermin encounters (level 0-1) are trivially defeated.
 
