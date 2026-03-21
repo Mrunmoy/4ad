@@ -9,6 +9,7 @@ const state = {
     playerName: null,
     socket: null,
     gameData: null,
+    selectedTarget: 0,
 };
 
 // DOM Elements
@@ -244,7 +245,7 @@ function searchRoom() {
 function attack() {
     state.socket.emit('attack', {
         game_id: state.gameId,
-        target: 0,
+        target: state.selectedTarget || 0,
     });
 }
 
@@ -368,6 +369,15 @@ function updateGameView() {
                 <strong>${monster.name}</strong> (Lvl ${monster.level})
                 <br>Life: ${monster.life}/${monster.max_life}
             `;
+            div.addEventListener('click', () => {
+                state.selectedTarget = idx;
+                // Update visual selection
+                document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
+                div.classList.add('selected');
+            });
+            if (idx === state.selectedTarget) {
+                div.classList.add('selected');
+            }
             monstersList.appendChild(div);
         });
     } else {
@@ -415,8 +425,27 @@ function showSearchResult(data) {
 }
 
 function showMessage(text, type = 'info') {
-    // Simple console log for now - could be expanded to toast notifications
-    console.log(`[${type.toUpperCase()}] ${text}`);
+    // Add to message log if game is active
+    const messagesDiv = document.getElementById('messages');
+    if (messagesDiv) {
+        const div = document.createElement('div');
+        div.className = `message message-${type}`;
+        div.textContent = text;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    // Also show as toast notification
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.textContent = text;
+    document.body.appendChild(toast);
+
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        toast.classList.add('toast-fade');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
 
 // Start the app

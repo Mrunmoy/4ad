@@ -343,3 +343,29 @@ aside h3 {
 .card {
     animation: fadeIn 0.3s ease-out;
 }
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    color: white;
+    font-weight: bold;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+    max-width: 400px;
+}
+.toast-info { background: #3498db; }
+.toast-success { background: #16c79a; }
+.toast-error { background: #e94560; }
+.toast-fade { opacity: 0; transition: opacity 0.3s; }
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Monster target selection */
+.monster-card.selected { border: 2px solid #e94560; box-shadow: 0 0 10px rgba(233, 69, 96, 0.5); }
+.monster-card { cursor: pointer; transition: border 0.2s; }
