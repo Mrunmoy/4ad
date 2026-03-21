@@ -424,7 +424,7 @@ def resolve_magic_challenge(wizard, monster_level: int,
     Resolve a magic challenge (wizard duel).
     Wizard rolls d6 + level vs monster rolls d6 + monster_level.
     Win = monster leaves + treasure.
-    Lose = wizard loses a level (minimum 1).
+    Lose = wizard takes 2 damage.
 
     Returns dict with success, description, etc.
     """

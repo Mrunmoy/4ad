@@ -244,6 +244,7 @@ class GameManager:
                 return {"success": True, "gold_spent": total_cost}
             else:
                 self.log_message("Not enough gold! The monsters attack!")
+                self.combat_active = True
                 return {"success": False, "reason": "not_enough_gold"}
         else:
             self.log_message("The party refuses the bribe. Combat begins!")
@@ -429,8 +430,23 @@ class GameManager:
                     # Check troll regeneration
                     self._check_troll_regeneration()
             elif result.escaped:
-                # Caster escaped, monsters still attack remaining party
-                self._monster_attack()
+                # Remove caster from combat (mark as escaped)
+                for char in self._get_party():
+                    if char.name == result.caster:
+                        char._escaped = True
+                        break
+
+                # If all living party members have escaped, end combat
+                living = self._get_party()
+                all_escaped = living and all(
+                    getattr(c, '_escaped', False) for c in living
+                )
+                if all_escaped:
+                    self.log_message("All party members have escaped!")
+                    self._end_combat()
+                else:
+                    # Monsters still attack remaining (non-escaped) party
+                    self._monster_attack()
 
         response = {
             "caster": result.caster,

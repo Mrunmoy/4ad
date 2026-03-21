@@ -304,7 +304,7 @@ class Combat:
             if char.cursed:
                 total -= 1
 
-            success = total > 8  # Must beat dragon level 8
+            success = total >= 6  # Save vs level 6 per rulebook
             damage = 0
             if not success:
                 damage = 1

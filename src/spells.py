@@ -132,6 +132,16 @@ class SpellCaster:
                 description=f"{caster.name} has no spell slots remaining"
             )
 
+        # Enforce NO_BARBARIAN_TARGET restriction
+        if NO_BARBARIAN_TARGET in spell.restrictions and targets is not None:
+            from src.character import Barbarian
+            check_target = targets[0] if isinstance(targets, list) else targets
+            if isinstance(check_target, Barbarian):
+                return SpellResult(
+                    success=False, caster=caster.name, spell=spell_name,
+                    description=f"{spell_name} cannot target a barbarian"
+                )
+
         # Enforce spell restrictions against targets
         # Block only when ALL living monster targets are immune
         if spell.restrictions and targets is not None:
@@ -376,6 +386,15 @@ class SpellCaster:
         if not isinstance(targets, list):
             targets = [targets]
 
+        # Type guard: skip non-monster targets that lack monster attributes
+        targets = [t for t in targets if hasattr(t, 'is_undead')]
+
+        if not targets:
+            return SpellResult(
+                success=False, caster=caster.name, spell="Sleep",
+                description=f"{caster.name} casts Sleep, but there are no valid targets"
+            )
+
         # Check immunity
         immune_targets = [t for t in targets if t.is_undead or t.is_dragon or t.is_demon]
         if len(immune_targets) == len([t for t in targets if not t.is_dead()]):
@@ -471,14 +490,12 @@ class SpellCaster:
                 description="No target specified for Protect"
             )
 
-        # Handle list input
+        # Validate target is a single Character, not a list or Monster
         if isinstance(target, list):
-            target = target[0] if target else None
-            if target is None:
-                return SpellResult(
-                    success=False, caster=caster.name, spell="Protect",
-                    description="No target for Protect"
-                )
+            return SpellResult(
+                success=False, caster=caster.name, spell="Protect",
+                description="Protect targets a single party member, not a group"
+            )
 
         if not isinstance(target, Character):
             return SpellResult(
