@@ -237,6 +237,8 @@ class GameManager:
     
     def search_room(self) -> dict:
         """Search the current room."""
+        if self.combat_active:
+            return {"error": "Cannot search during combat"}
         if not self.dungeon:
             return {"error": "No dungeon"}
         
