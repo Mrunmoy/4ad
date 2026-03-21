@@ -386,20 +386,13 @@ function updateGameView() {
                 div.setAttribute('aria-selected', idx === state.selectedTarget ? 'true' : 'false');
                 div.addEventListener('click', () => {
                     state.selectedTarget = idx;
-                    // Update visual and ARIA selection
-                    monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
-                        c.classList.toggle('selected', i === state.selectedTarget);
-                        c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
-                    });
+                    applyMonsterSelection(monstersList);
                 });
                 div.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         state.selectedTarget = idx;
-                        monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
-                            c.classList.toggle('selected', i === state.selectedTarget);
-                            c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
-                        });
+                        applyMonsterSelection(monstersList);
                     }
                 });
                 if (idx === state.selectedTarget) {
@@ -414,33 +407,14 @@ function updateGameView() {
         if (!selected || selected.life <= 0) {
             state.selectedTarget = data.monsters.findIndex(m => m.life > 0);
             if (state.selectedTarget < 0) state.selectedTarget = 0;
-            // Update visual and ARIA selection
-            monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
-                c.classList.toggle('selected', i === state.selectedTarget);
-                c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
-            });
+            applyMonsterSelection(monstersList);
         }
     } else {
         combatPanel.classList.add('hidden');
         state.selectedTarget = 0;
     }
     
-    // Update message log (server messages + persisted client errors)
-    const messagesDiv = document.getElementById('messages');
-    messagesDiv.innerHTML = '';
-    data.message_log.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = 'message';
-        div.textContent = msg;
-        messagesDiv.appendChild(div);
-    });
-    state.clientErrors.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = 'message message-error';
-        div.textContent = msg;
-        messagesDiv.appendChild(div);
-    });
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    renderMessageLog(data);
 }
 
 function showCombatResult(data) {
@@ -471,12 +445,41 @@ function showSearchResult(data) {
     showMessage(messages[data.result] || 'Search complete', 'info');
 }
 
+function applyMonsterSelection(monstersList) {
+    monstersList.querySelectorAll('.monster-card').forEach((c, i) => {
+        c.classList.toggle('selected', i === state.selectedTarget);
+        c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
+    });
+}
+
+function renderMessageLog(data) {
+    const messagesDiv = document.getElementById('messages');
+    messagesDiv.innerHTML = '';
+    data.message_log.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.textContent = msg;
+        messagesDiv.appendChild(div);
+    });
+    state.clientErrors.forEach(msg => {
+        const div = document.createElement('div');
+        div.className = 'message message-error';
+        div.textContent = msg;
+        messagesDiv.appendChild(div);
+    });
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
 function showMessage(text, type = 'info') {
     // Persist client-side errors in state so they survive updateGameView re-renders
     if (type === 'error') {
         state.clientErrors.push(text);
         if (state.clientErrors.length > 20) {
             state.clientErrors = state.clientErrors.slice(-20);
+        }
+        // Re-render message log immediately so the error appears without waiting for game_update
+        if (state.gameData) {
+            renderMessageLog(state.gameData);
         }
     }
 
