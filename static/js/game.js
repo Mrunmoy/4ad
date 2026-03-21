@@ -439,16 +439,20 @@ function showMessage(text, type = 'info') {
     }
 
     // Also show as toast notification
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.style.position = 'fixed';
+        toastContainer.style.top = '20px';
+        toastContainer.style.right = '20px';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     toast.textContent = text;
-
-    // Stack toasts vertically to avoid overlap
-    const existingToasts = document.querySelectorAll('.toast');
-    const offset = existingToasts.length * 60;
-    toast.style.top = `${20 + offset}px`;
-
-    document.body.appendChild(toast);
+    toastContainer.appendChild(toast);
 
     // Auto-remove after 3 seconds
     setTimeout(() => {
