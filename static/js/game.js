@@ -370,25 +370,33 @@ function updateGameView() {
         data.monsters.forEach((monster, idx) => {
             const div = document.createElement('div');
             div.className = `monster-card ${monster.life <= 0 ? 'dead' : ''}`;
+            div.setAttribute('role', 'option');
             div.innerHTML = `
                 <strong>${monster.name}</strong> (Lvl ${monster.level})
                 <br>Life: ${monster.life}/${monster.max_life}
             `;
-            if (monster.life > 0) {
+            if (monster.life <= 0) {
+                div.setAttribute('aria-disabled', 'true');
+                div.setAttribute('aria-selected', 'false');
+            } else {
                 div.setAttribute('tabindex', '0');
-                div.setAttribute('role', 'option');
+                div.setAttribute('aria-selected', idx === state.selectedTarget ? 'true' : 'false');
                 div.addEventListener('click', () => {
                     state.selectedTarget = idx;
-                    // Update visual selection
-                    document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
-                    div.classList.add('selected');
+                    // Update visual and ARIA selection
+                    document.querySelectorAll('.monster-card').forEach((c, i) => {
+                        c.classList.toggle('selected', i === state.selectedTarget);
+                        c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
+                    });
                 });
                 div.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         state.selectedTarget = idx;
-                        document.querySelectorAll('.monster-card').forEach(c => c.classList.remove('selected'));
-                        div.classList.add('selected');
+                        document.querySelectorAll('.monster-card').forEach((c, i) => {
+                            c.classList.toggle('selected', i === state.selectedTarget);
+                            c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
+                        });
                     }
                 });
                 if (idx === state.selectedTarget) {
@@ -403,9 +411,10 @@ function updateGameView() {
         if (!selected || selected.life <= 0) {
             state.selectedTarget = data.monsters.findIndex(m => m.life > 0);
             if (state.selectedTarget < 0) state.selectedTarget = 0;
-            // Update visual selection
+            // Update visual and ARIA selection
             document.querySelectorAll('.monster-card').forEach((c, i) => {
                 c.classList.toggle('selected', i === state.selectedTarget);
+                c.setAttribute('aria-selected', i === state.selectedTarget ? 'true' : 'false');
             });
         }
     } else {
