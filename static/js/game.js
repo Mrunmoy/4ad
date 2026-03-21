@@ -93,6 +93,21 @@ async function createGame() {
         const data = await response.json();
         state.gameId = data.game_id;
         
+        // Auto-join as host player
+        const playerName = document.getElementById('player-name').value.trim() || 'Host';
+        const joinResponse = await fetch(`/api/game/${state.gameId}/join`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ player_name: playerName }),
+        });
+        const joinData = await joinResponse.json();
+        if (!joinResponse.ok || joinData.error) {
+            showMessage(`Failed to join game: ${joinData.error || joinResponse.statusText}`, 'error');
+            return;
+        }
+        state.playerId = joinData.player_id;
+        state.playerName = playerName;
+        
         document.getElementById('game-id-display').textContent = state.gameId;
         showScreen('setup');
         
@@ -101,6 +116,8 @@ async function createGame() {
         
         // Join socket room
         state.socket.emit('join_game', { game_id: state.gameId });
+        
+        updatePlayerList();
         
     } catch (error) {
         showMessage('Failed to create game', 'error');

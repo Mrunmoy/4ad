@@ -3,7 +3,7 @@ from typing import Dict, List, Optional
 from src.dungeon import Dungeon, RoomContent, RoomType
 from src.character import Character, create_character
 from src.combat import Combat
-from src.dice import roll_2d6
+from src.dice import roll_d6, roll_2d6
 import uuid
 
 
@@ -69,6 +69,7 @@ class GameManager:
             raise ValueError("All players need characters")
         
         self.dungeon = Dungeon()
+        self.dungeon.create_party()
         self.started = True
         
         # Add all characters to party
@@ -82,6 +83,14 @@ class GameManager:
         """Move the party in a direction."""
         if not self.dungeon:
             return False
+        
+        room = self.dungeon.party.current_room
+        if not room:
+            return False
+        
+        # If exit exists but leads nowhere, generate a new room
+        if direction in room.exits and room.exits[direction] is None:
+            self.dungeon.add_room_from(room, direction)
         
         result = self.dungeon.party.move(direction)
         if result.success:
@@ -99,29 +108,61 @@ class GameManager:
         if content.type == RoomType.MINIONS:
             self.log_message("Minions attack!")
             self.combat_active = True
-            # Generate minions
             from src.monster import MINIONS_TABLE
             num_minions = roll_2d6() // 3 + 1
-            self.current_monsters = [MINIONS_TABLE[roll_2d6()]() for _ in range(num_minions)]
+            self.current_monsters = [MINIONS_TABLE[roll_d6()]() for _ in range(num_minions)]
         
         elif content.type == RoomType.BOSS:
             self.log_message("A powerful enemy appears!")
             self.combat_active = True
             from src.monster import BOSSES_TABLE
-            self.current_monsters = [BOSSES_TABLE[roll_2d6]()]
+            self.current_monsters = [BOSSES_TABLE[roll_d6()]()]
+        
+        elif content.type == RoomType.VERMIN:
+            self.log_message("Vermin swarm!")
+            self.combat_active = True
+            from src.monster import VERMIN_TABLE
+            num_vermin = roll_d6()
+            self.current_monsters = [VERMIN_TABLE[roll_d6()]() for _ in range(num_vermin)]
+        
+        elif content.type == RoomType.WEIRD_MONSTERS:
+            self.log_message("Strange creatures emerge!")
+            self.combat_active = True
+            from src.monster import WEIRD_MONSTERS_TABLE
+            self.current_monsters = [WEIRD_MONSTERS_TABLE[roll_d6()]()]
+        
+        elif content.type == RoomType.SMALL_DRAGON:
+            self.log_message("A small dragon guards this room!")
+            self.combat_active = True
+            from src.monster import Boss
+            self.current_monsters = [Boss("Small Dragon", level=7, life=6, is_dragon=True)]
         
         elif content.type == RoomType.TREASURE:
             self.log_message("Treasure found!")
+            content.cleared = True
         
         elif content.type == RoomType.EMPTY:
             self.log_message("The room appears empty")
+            content.cleared = True
+        
+        elif content.type == RoomType.SPECIAL_FEATURE:
+            self.log_message("You find something unusual...")
+            content.cleared = True
+        
+        elif content.type == RoomType.SPECIAL_EVENT:
+            self.log_message("A special event occurs!")
+            content.cleared = True
+        
+        elif content.type == RoomType.TREASURE_TRAP:
+            self.log_message("Treasure! But there's a trap...")
+            content.cleared = True
     
     def attack(self, target_idx: int = 0) -> dict:
         """Handle attack action."""
         if not self.combat_active or not self.current_monsters:
             return {"error": "No combat active"}
         
-        # Get first living character
+        # Get first living character that can attack
         attacker = None
         for char in self.dungeon.party.get_living_characters():
             if char.can_attack_in_melee():
@@ -131,9 +172,19 @@ class GameManager:
         if not attacker:
             return {"error": "No one can attack"}
         
-        target = self.current_monsters[target_idx] if target_idx < len(self.current_monsters) else None
-        if not target or target.is_dead():
-            return {"error": "Target not found or dead"}
+        # Find target monster: honor target_idx if it points to a living monster,
+        # otherwise fall back to the first living monster
+        target = None
+        if 0 <= target_idx < len(self.current_monsters) and not self.current_monsters[target_idx].is_dead():
+            target = self.current_monsters[target_idx]
+        else:
+            for monster in self.current_monsters:
+                if not monster.is_dead():
+                    target = monster
+                    break
+        
+        if not target:
+            return {"error": "No living targets"}
         
         result = Combat.resolve_attack(attacker, target)
         
