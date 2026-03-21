@@ -50,7 +50,14 @@ class GameManager:
         return player.id
     
     def create_character(self, player_id: str, class_name: str, char_name: str) -> Character:
-        """Create a character for a player."""
+        """Create a character for a player.
+
+        Must be called before the game has started; once start() has been
+        called the party roster is frozen.
+        """
+        if self.started:
+            raise ValueError("Cannot create characters after game has started")
+
         player = self.players.get(player_id)
         if not player:
             raise ValueError("Player not found")

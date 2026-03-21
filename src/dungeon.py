@@ -141,8 +141,14 @@ class Party:
         self.treasure = 0
     
     def add_character(self, character) -> None:
-        """Add character to party."""
-        character.position = len(self.characters) + 1
+        """Add character to party.
+
+        Preserves character.position if it was already explicitly set.
+        Only assigns a default position when the character still has the
+        dataclass default (1) and is not the first member of the party.
+        """
+        if character.position == 1 and len(self.characters) > 0:
+            character.position = len(self.characters) + 1
         self.characters.append(character)
     
     def move(self, direction: str) -> 'MoveResult':
