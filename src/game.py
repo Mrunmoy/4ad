@@ -55,11 +55,16 @@ class GameManager:
         if not player:
             raise ValueError("Player not found")
         
+        # If replacing an existing character, preserve their position
+        old_position = player.character.position if player.character else None
         character = create_character(class_name, char_name)
-        # Assign position before setting player.character to avoid counting self
-        character.position = sum(
-            1 for p in self.players.values() if p.character is not None
-        ) + 1
+        if old_position is not None:
+            character.position = old_position
+        else:
+            character.position = sum(
+                1 for pid, p in self.players.items()
+                if p.character is not None and pid != player_id
+            ) + 1
         player.character = character
         self.log_message(f"{char_name} the {character.class_type} enters the dungeon")
         return character
@@ -74,7 +79,6 @@ class GameManager:
         
         self.dungeon = Dungeon()
         self.dungeon.create_party()
-        self.dungeon.entrance.visited = True
         self.started = True
 
         # Add all characters to party

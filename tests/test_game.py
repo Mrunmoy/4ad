@@ -358,6 +358,23 @@ class TestCharacterPositionAssignment:
             )
 
 
+    def test_recreated_character_gets_correct_position(self):
+        """Re-creating a character for player 1 should yield position 1, not 2 or 3."""
+        gm = GameManager("test-game")
+        pid1 = gm.add_player("Alice")
+        pid2 = gm.add_player("Bob")
+
+        gm.create_character(pid1, "Warrior", "Brynn")
+        gm.create_character(pid2, "Cleric", "Finn")
+
+        # Re-create character for player 1
+        new_char = gm.create_character(pid1, "Rogue", "Shadow")
+
+        assert new_char.position == 1, (
+            f"Expected position 1 for re-created character, got {new_char.position}"
+        )
+
+
 class TestEntranceRoomVisited:
     """Tests that the entrance room is marked visited after game start."""
 
