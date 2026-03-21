@@ -33,7 +33,7 @@ def index():
 @app.route('/game/<game_id>')
 def game_page(game_id):
     """Game page - serves SPA which handles game joining."""
-    return render_template('index.html')
+    return render_template('index.html', game_id=game_id)
 
 
 @app.route('/api/classes')
