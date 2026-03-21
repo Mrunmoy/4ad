@@ -330,6 +330,11 @@ aside h3 {
     border-bottom: none;
 }
 
+.message-error {
+    color: var(--accent);
+    font-weight: bold;
+}
+
 /* Utility */
 .hidden {
     display: none !important;

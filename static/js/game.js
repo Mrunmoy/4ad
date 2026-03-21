@@ -93,6 +93,8 @@ function setupSocket() {
 
 // Screen Management
 function showScreen(screenName) {
+    // Clear client errors on screen transitions (lobby→setup→game)
+    state.clientErrors = [];
     Object.values(screens).forEach(s => s.classList.remove('active'));
     screens[screenName].classList.add('active');
 }
@@ -473,6 +475,9 @@ function showMessage(text, type = 'info') {
     // Persist client-side errors in state so they survive updateGameView re-renders
     if (type === 'error') {
         state.clientErrors.push(text);
+        if (state.clientErrors.length > 20) {
+            state.clientErrors = state.clientErrors.slice(-20);
+        }
     }
 
     // Show toast (all types)
