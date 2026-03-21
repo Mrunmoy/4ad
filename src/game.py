@@ -88,6 +88,7 @@ class GameManager:
         
         self.dungeon = Dungeon()
         self.dungeon.create_party()
+        self.dungeon.entrance.visited = True
         self.started = True
 
         # Add all characters to party
