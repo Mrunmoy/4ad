@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import ApiClient from '../network/ApiClient';
 
 /** Color constants from DESIGN_UX */
 const COLORS = {
@@ -6,8 +7,6 @@ const COLORS = {
   STONE_WALL: 0x1a1a2e,
   TORCH_SHADOW: 0x252540,
   BLOOD_CRIMSON: 0xc4243b,
-  DEEP_CRIMSON: 0x9e1c2f,
-  DUNGEON_TEAL: 0x2e8b8b,
   TREASURE_GOLD: 0xd4a017,
   PARCHMENT: 0xe8dcc8,
 };
@@ -17,8 +16,11 @@ const COLORS = {
  * dark background, and Press Start 2P font.
  */
 export class TitleScene extends Phaser.Scene {
+  private api: ApiClient;
+
   constructor() {
     super({ key: 'TitleScene' });
+    this.api = ApiClient.getInstance();
   }
 
   preload(): void {
@@ -62,24 +64,22 @@ export class TitleScene extends Phaser.Scene {
     // Menu buttons
     const buttonY = 400;
     const buttonGap = 60;
-    const buttons = [
-      { label: 'New Adventure', scene: 'PartyCreateScene' },
-      { label: 'Continue', scene: null },
-      { label: 'How to Play', scene: null },
-    ];
 
-    buttons.forEach((btn, i) => {
-      this.createMenuButton(
-        width / 2,
-        buttonY + i * buttonGap,
-        btn.label,
-        btn.scene,
-      );
+    this.createMenuButton(width / 2, buttonY, 'New Adventure', () => {
+      this.startNewAdventure();
+    });
+
+    this.createMenuButton(width / 2, buttonY + buttonGap, 'Continue', () => {
+      this.showComingSoon();
+    });
+
+    this.createMenuButton(width / 2, buttonY + buttonGap * 2, 'How to Play', () => {
+      this.showComingSoon();
     });
 
     // Version tag
     this.add
-      .text(width - 30, height - 30, 'v0.1.0', {
+      .text(width - 30, height - 30, 'v0.2.0', {
         fontFamily: '"Press Start 2P", monospace',
         fontSize: '8px',
         color: '#778899',
@@ -90,11 +90,70 @@ export class TitleScene extends Phaser.Scene {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   update(): void {}
 
+  private async startNewAdventure(): Promise<void> {
+    try {
+      const result = await this.api.createGame();
+      this.cameras.main.fadeOut(300, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('PartyCreateScene', { gameId: result.game_id });
+      });
+    } catch (err) {
+      console.error('Failed to create game:', err);
+      this.showError('Failed to create game');
+    }
+  }
+
+  private showComingSoon(): void {
+    const { width, height } = this.cameras.main;
+    const toast = this.add
+      .text(width / 2, height / 2 + 100, 'Coming Soon!', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '14px',
+        color: '#D4A017',
+        backgroundColor: '#1a1a2e',
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 1500,
+      onComplete: () => toast.destroy(),
+    });
+  }
+
+  private showError(message: string): void {
+    const { width, height } = this.cameras.main;
+    const toast = this.add
+      .text(width / 2, height / 2 + 100, message, {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '10px',
+        color: '#CC3333',
+        backgroundColor: '#1a1a2e',
+        padding: { x: 16, y: 8 },
+      })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: toast,
+      alpha: 1,
+      duration: 200,
+      yoyo: true,
+      hold: 2000,
+      onComplete: () => toast.destroy(),
+    });
+  }
+
   private createMenuButton(
     x: number,
     y: number,
     label: string,
-    targetScene: string | null,
+    callback: () => void,
   ): void {
     const btnW = 320;
     const btnH = 44;
@@ -140,12 +199,7 @@ export class TitleScene extends Phaser.Scene {
     });
 
     zone.on('pointerdown', () => {
-      if (targetScene) {
-        this.cameras.main.fadeOut(300, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-          this.scene.start(targetScene);
-        });
-      }
+      callback();
     });
   }
 }

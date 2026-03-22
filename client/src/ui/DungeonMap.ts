@@ -38,7 +38,7 @@ export class DungeonMap {
     }
 
     for (const room of rooms) {
-      this.drawRoom(room, dungeon.party_room, minX, minY, dungeon.entrance);
+      this.drawRoom(room, dungeon.party_room, minX, minY, dungeon.entrance ?? undefined);
     }
   }
 

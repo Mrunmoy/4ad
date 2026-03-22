@@ -215,11 +215,59 @@ def handle_cast_spell(data):
     game_id = data.get('game_id')
     spell_name = data.get('spell')
     target = data.get('target')
-    
+
     game = get_game(game_id)
     if game:
         result = game.cast_spell(spell_name, target)
         emit('spell_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('flee')
+def handle_flee(data):
+    """Handle flee from combat."""
+    game_id = data.get('game_id')
+
+    game = get_game(game_id)
+    if game:
+        result = game.flee()
+        if result.get('error'):
+            emit('move_failed', {'message': result['error']})
+        else:
+            emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('use_item')
+def handle_use_item(data):
+    """Handle using an item (potion, scroll, etc.).
+
+    Stub handler -- delegates to GameManager when item-use logic
+    is wired in.  For now it logs the attempt and pushes state.
+    """
+    game_id = data.get('game_id')
+    item_name = data.get('item')
+
+    game = get_game(game_id)
+    if game:
+        game.log_message(f"Item use attempted: {item_name} (not yet implemented)")
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('react_choice')
+def handle_react_choice(data):
+    """Handle player reaction choice (event/feature choices)."""
+    game_id = data.get('game_id')
+    choice = data.get('choice')
+
+    game = get_game(game_id)
+    if game:
+        # Resolve pending feature/event if present
+        if hasattr(game, 'resolve_pending_choice'):
+            result = game.resolve_pending_choice(choice)
+            if result and result.get('error'):
+                emit('move_failed', {'message': result['error']})
+        else:
+            game.log_message(f"Choice: {choice} (handler not yet wired)")
         emit('game_update', game.to_dict(), room=game_id)
 
 
