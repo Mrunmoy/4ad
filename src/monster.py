@@ -15,6 +15,12 @@ class Monster:
     is_dragon: bool = False
     is_final_boss: bool = False
 
+    # Morale fields
+    morale_modifier: int = 0
+    fights_to_death: bool = False
+    treasure_modifier: int = 0
+    morale_checked: bool = False
+
     def take_damage(self, amount: int) -> None:
         """Take damage."""
         self.life -= amount
@@ -36,6 +42,9 @@ class Monster:
             "is_demon": self.is_demon,
             "is_dragon": self.is_dragon,
             "is_final_boss": self.is_final_boss,
+            "fights_to_death": self.fights_to_death,
+            "morale_modifier": self.morale_modifier,
+            "treasure_modifier": self.treasure_modifier,
         }
 
 
@@ -51,42 +60,98 @@ class Boss(Monster):
         super().__init__(name=name, level=level, life=life, max_life=life, **kwargs)
 
 
+# ---------------------------------------------------------------------------
 # Predefined minions from the rulebook
+# ---------------------------------------------------------------------------
+
 MINIONS_TABLE = {
-    1: lambda: Minion("Giant Rat", level=1),
-    2: lambda: Minion("Goblin", level=3),
-    3: lambda: Minion("Skeleton", level=2, is_undead=True),
-    4: lambda: Minion("Orc", level=4),
-    5: lambda: Minion("Zombie", level=3, is_undead=True),
-    6: lambda: Minion("Kobold", level=2),
+    1: lambda: Minion("Giant Rat", level=1,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    2: lambda: Minion("Goblin", level=3,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=-1),
+
+    3: lambda: Minion("Skeleton", level=3, is_undead=True,
+                       fights_to_death=True, morale_modifier=0, treasure_modifier=0),
+
+    4: lambda: Minion("Orc", level=4,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    5: lambda: Minion("Zombie", level=3, is_undead=True,
+                       fights_to_death=True, morale_modifier=0, treasure_modifier=0),
+
+    6: lambda: Minion("Kobold", level=2,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
 }
 
+# ---------------------------------------------------------------------------
 # Predefined bosses from the rulebook
+# ---------------------------------------------------------------------------
+
 BOSSES_TABLE = {
-    1: lambda: Boss("Chaos Warrior", level=5, life=6, is_demon=True),
-    2: lambda: Boss("Ogre", level=5, life=6),
-    3: lambda: Boss("Vampire", level=6, life=6, is_undead=True),
-    4: lambda: Boss("Demon", level=7, life=8, is_demon=True),
-    5: lambda: Boss("Troll", level=6, life=8),
-    6: lambda: Boss("Dragon", level=8, life=10, is_dragon=True),
+    1: lambda: Boss("Chaos Warrior", level=5, life=6, is_demon=True,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=1),
+
+    2: lambda: Boss("Ogre", level=5, life=6,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    3: lambda: Boss("Vampire", level=6, life=6, is_undead=True,
+                     fights_to_death=True, morale_modifier=0, treasure_modifier=1),
+
+    4: lambda: Boss("Demon", level=7, life=8, is_demon=True,
+                     fights_to_death=True, morale_modifier=0, treasure_modifier=2),
+
+    5: lambda: Boss("Troll", level=6, life=8,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    6: lambda: Boss("Dragon", level=8, life=10, is_dragon=True,
+                     fights_to_death=True, morale_modifier=0, treasure_modifier=3),
 }
 
+# ---------------------------------------------------------------------------
 # Weird monsters
+# ---------------------------------------------------------------------------
+
 WEIRD_MONSTERS_TABLE = {
-    1: lambda: Minion("Gelatinous Cube", level=4),
-    2: lambda: Minion("Rust Monster", level=3),
-    3: lambda: Minion("Carrion Crawler", level=4),
-    4: lambda: Minion("Mimic", level=5),
-    5: lambda: Boss("Medusa", level=5, life=5),
-    6: lambda: Boss("Mind Flayer", level=6, life=6),
+    1: lambda: Boss("Gelatinous Cube", level=4, life=4,
+                     fights_to_death=True, morale_modifier=0, treasure_modifier=0),
+
+    2: lambda: Minion("Rust Monster", level=3,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    3: lambda: Boss("Carrion Crawler", level=4, life=4,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    4: lambda: Boss("Mimic", level=5, life=5,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=1),
+
+    5: lambda: Boss("Medusa", level=5, life=5,
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=1),
+
+    6: lambda: Boss("Mind Flayer", level=6, life=6,
+                     fights_to_death=True, morale_modifier=0, treasure_modifier=2),
 }
 
+# ---------------------------------------------------------------------------
 # Vermin
+# ---------------------------------------------------------------------------
+
 VERMIN_TABLE = {
-    1: lambda: Minion("Rats", level=0),
-    2: lambda: Minion("Spiders", level=0),
-    3: lambda: Minion("Bats", level=0),
-    4: lambda: Minion("Snakes", level=1),
-    5: lambda: Minion("Insects", level=0),
-    6: lambda: Minion("Scorpions", level=1),
+    1: lambda: Minion("Rats", level=0,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    2: lambda: Minion("Spiders", level=0,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    3: lambda: Minion("Bats", level=0,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    4: lambda: Minion("Snakes", level=1,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    5: lambda: Minion("Insects", level=0,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+
+    6: lambda: Minion("Scorpions", level=1,
+                       fights_to_death=False, morale_modifier=0, treasure_modifier=0),
 }
