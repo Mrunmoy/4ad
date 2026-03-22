@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { HealthBar } from './HealthBar';
+import { getMonsterTextureKey } from '../utils/assetMapping';
 import type { MonsterState } from '../types';
 
 /**
- * MonsterCard -- displays a monster with portrait placeholder and HP bar.
+ * MonsterCard -- displays a monster with real portrait image and HP bar.
  */
 export class MonsterCard {
   private scene: Phaser.Scene;
@@ -11,6 +12,7 @@ export class MonsterCard {
   private healthBar: HealthBar;
   private nameText: Phaser.GameObjects.Text;
   private levelText: Phaser.GameObjects.Text;
+  private portrait: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
@@ -24,11 +26,10 @@ export class MonsterCard {
     bg.strokeRect(0, 0, 120, 100);
     this.container.add(bg);
 
-    // Portrait placeholder
-    const portrait = scene.add.graphics();
-    portrait.fillStyle(0x252540, 1);
-    portrait.fillRect(36, 4, 48, 48);
-    this.container.add(portrait);
+    // Monster portrait image (default, updated on update())
+    this.portrait = scene.add.image(60, 28, 'monster_default');
+    this.portrait.setDisplaySize(48, 48);
+    this.container.add(this.portrait);
 
     // Name
     this.nameText = scene.add.text(60, 56, 'Monster', {
@@ -57,6 +58,12 @@ export class MonsterCard {
     this.nameText.setText(monster.name);
     this.levelText.setText('Lv ' + monster.level);
     this.healthBar.setValue(monster.life, monster.max_life);
+
+    // Update portrait to match monster type
+    const textureKey = getMonsterTextureKey(monster.name);
+    if (this.scene.textures.exists(textureKey)) {
+      this.portrait.setTexture(textureKey);
+    }
 
     // Dim if fled
     this.container.setAlpha(monster.fled ? 0.3 : 1);

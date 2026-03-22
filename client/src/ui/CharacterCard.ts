@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
 import { HealthBar } from './HealthBar';
+import { getClassPortraitKey } from '../utils/assetMapping';
 import type { CharacterState } from '../types';
 
 /**
- * CharacterCard -- displays a character with portrait placeholder,
+ * CharacterCard -- displays a character with real portrait image,
  * stats, and equipment slot indicators.
  */
 export class CharacterCard {
@@ -13,6 +14,7 @@ export class CharacterCard {
   private nameText: Phaser.GameObjects.Text;
   private classText: Phaser.GameObjects.Text;
   private statsText: Phaser.GameObjects.Text;
+  private portrait: Phaser.GameObjects.Image;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
@@ -26,11 +28,10 @@ export class CharacterCard {
     bg.strokeRect(0, 0, 160, 140);
     this.container.add(bg);
 
-    // Portrait placeholder
-    const portrait = scene.add.graphics();
-    portrait.fillStyle(0x252540, 1);
-    portrait.fillRect(8, 8, 40, 40);
-    this.container.add(portrait);
+    // Portrait image (default to warrior, updated on update())
+    this.portrait = scene.add.image(28, 28, 'portrait_warrior');
+    this.portrait.setDisplaySize(40, 40);
+    this.container.add(this.portrait);
 
     // Name
     this.nameText = scene.add.text(56, 8, 'Name', {
@@ -66,6 +67,12 @@ export class CharacterCard {
     this.classText.setText('Lv' + char.level + ' ' + char.class_type);
     this.healthBar.setValue(char.life, char.max_life);
     this.statsText.setText('ATK:' + char.attack + ' DEF:' + char.defense);
+
+    // Update portrait to match character class
+    const portraitKey = getClassPortraitKey(char.class_type);
+    if (this.scene.textures.exists(portraitKey)) {
+      this.portrait.setTexture(portraitKey);
+    }
 
     // Dim card if character cannot act
     this.container.setAlpha(char.can_act !== false ? 1 : 0.4);
