@@ -235,6 +235,19 @@ class Warrior(Character):
         """Warrior adds level to all attack rolls."""
         return self.level
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "Warrior":
+        """Restore a Warrior from serialized dict (campaign persistence)."""
+        w = cls(name=data["name"], level=data.get("level", 1))
+        w.life = data.get("life", w.life)
+        w.max_life = data.get("max_life", w.max_life)
+        w.cursed = data.get("cursed", False)
+        w.poisoned = data.get("poisoned", False)
+        w.petrified = data.get("petrified", False)
+        w.equipment = data.get("equipment", [])
+        w.position = data.get("position", 1)
+        return w
+
 
 class Cleric(Character):
     """Cleric class - page 9.
@@ -330,6 +343,23 @@ class Cleric(Character):
         d["blessing_uses"] = self.blessing_uses
         return d
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "Cleric":
+        """Restore a Cleric from serialized dict (campaign persistence)."""
+        c = cls(name=data["name"], level=data.get("level", 1))
+        c.life = data.get("life", c.life)
+        c.max_life = data.get("max_life", c.max_life)
+        c.healing_uses = data.get("healing_uses", 3)
+        c.blessing_uses = data.get("blessing_uses", 3)
+        c.spells_remaining = data.get("spells_remaining", 3)
+        c.healing_remaining = data.get("healing_remaining", 3)
+        c.cursed = data.get("cursed", False)
+        c.poisoned = data.get("poisoned", False)
+        c.petrified = data.get("petrified", False)
+        c.equipment = data.get("equipment", [])
+        c.position = data.get("position", 1)
+        return c
+
 
 class Rogue(Character):
     """Rogue class - page 10.
@@ -387,6 +417,20 @@ class Rogue(Character):
         d = super().to_dict()
         d["has_lockpicks"] = self.has_lockpicks
         return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Rogue":
+        """Restore a Rogue from serialized dict (campaign persistence)."""
+        r = cls(name=data["name"], level=data.get("level", 1))
+        r.life = data.get("life", r.life)
+        r.max_life = data.get("max_life", r.max_life)
+        r.has_lockpicks = data.get("has_lockpicks", True)
+        r.cursed = data.get("cursed", False)
+        r.poisoned = data.get("poisoned", False)
+        r.petrified = data.get("petrified", False)
+        r.equipment = data.get("equipment", [])
+        r.position = data.get("position", 1)
+        return r
 
 
 class Wizard(Character):
@@ -466,6 +510,22 @@ class Wizard(Character):
         d["spells_used"] = self.spells_used
         d["spells"] = self.spells
         return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Wizard":
+        """Restore a Wizard from serialized dict (campaign persistence)."""
+        w = cls(name=data["name"], level=data.get("level", 1))
+        w.life = data.get("life", w.life)
+        w.max_life = data.get("max_life", w.max_life)
+        w.spell_slots = data.get("spell_slots", 2 + w.level)
+        w.spells_used = data.get("spells_used", 0)
+        w.spells_remaining = data.get("spells_remaining", 2 + w.level)
+        w.cursed = data.get("cursed", False)
+        w.poisoned = data.get("poisoned", False)
+        w.petrified = data.get("petrified", False)
+        w.equipment = data.get("equipment", [])
+        w.position = data.get("position", 1)
+        return w
 
 
 class Barbarian(Character):
@@ -632,6 +692,22 @@ class Elf(Character):
         d["spells"] = self.spells
         return d
 
+    @classmethod
+    def from_dict(cls, data: dict) -> "Elf":
+        """Restore an Elf from serialized dict (campaign persistence)."""
+        e = cls(name=data["name"], level=data.get("level", 1))
+        e.life = data.get("life", e.life)
+        e.max_life = data.get("max_life", e.max_life)
+        e.spell_slots = data.get("spell_slots", e.level)
+        e.spells_used = data.get("spells_used", 0)
+        e.spells_remaining = data.get("spells_remaining", e.level)
+        e.cursed = data.get("cursed", False)
+        e.poisoned = data.get("poisoned", False)
+        e.petrified = data.get("petrified", False)
+        e.equipment = data.get("equipment", [])
+        e.position = data.get("position", 1)
+        return e
+
 
 class Dwarf(Character):
     """Dwarf class - page 14.
@@ -689,6 +765,19 @@ class Dwarf(Character):
         from src.dice import roll_d6
         roll = force_roll if force_roll is not None else roll_d6()
         return (roll + self.level) >= 6
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Dwarf":
+        """Restore a Dwarf from serialized dict (campaign persistence)."""
+        d = cls(name=data["name"], level=data.get("level", 1))
+        d.life = data.get("life", d.life)
+        d.max_life = data.get("max_life", d.max_life)
+        d.cursed = data.get("cursed", False)
+        d.poisoned = data.get("poisoned", False)
+        d.petrified = data.get("petrified", False)
+        d.equipment = data.get("equipment", [])
+        d.position = data.get("position", 1)
+        return d
 
 
 class Halfling(Character):
@@ -765,6 +854,21 @@ class Halfling(Character):
         d["luck_points"] = self.luck_points
         d["max_luck_points"] = self.max_luck_points
         return d
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Halfling":
+        """Restore a Halfling from serialized dict (campaign persistence)."""
+        h = cls(name=data["name"], level=data.get("level", 1))
+        h.life = data.get("life", h.life)
+        h.max_life = data.get("max_life", h.max_life)
+        h.luck_points = data.get("luck_points", h.level + 1)
+        h.max_luck_points = data.get("max_luck_points", h.level + 1)
+        h.cursed = data.get("cursed", False)
+        h.poisoned = data.get("poisoned", False)
+        h.petrified = data.get("petrified", False)
+        h.equipment = data.get("equipment", [])
+        h.position = data.get("position", 1)
+        return h
 
 
 # Character creation helper
