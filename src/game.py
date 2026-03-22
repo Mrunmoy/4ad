@@ -43,6 +43,7 @@ class GameManager:
         self.spell_killed_this_combat = False  # Track if spell killed a monster
         self.kills_this_round = 0  # Track kills in current round for morale
         self.dragon_breath_used = False  # Track if dragon used breath weapon
+        self.sleeping_bonus = 0  # +2 to first attack if dragon is sleeping
         self.party_gold = 0
 
     def add_player(self, name: str) -> str:
@@ -223,6 +224,10 @@ class GameManager:
             for m in self.current_monsters:
                 m.fights_to_death = True
 
+        # Store sleeping bonus for first attack
+        if reaction.sleeping_bonus > 0:
+            self.sleeping_bonus = reaction.sleeping_bonus
+
         # Surprise: monsters attack before player's first turn
         if reaction.surprise and self.combat_active:
             self.log_message("Surprise! The monsters act first!")
@@ -311,6 +316,9 @@ class GameManager:
         if not self.combat_active or not self.current_monsters:
             return {"error": "No combat active"}
 
+        # Reset kills counter at start of each combat round
+        self.kills_this_round = 0
+
         # Get first living character that can attack
         attacker = None
         for char in self.dungeon.party.get_living_characters():
@@ -336,7 +344,20 @@ class GameManager:
 
         # Count living monsters before attack for kill tracking
         living_before = sum(1 for m in self.current_monsters if not m.is_dead())
+
+        # Apply sleeping bonus to first attack against sleeping dragon
+        bonus_applied = 0
+        if self.sleeping_bonus > 0:
+            bonus_applied = self.sleeping_bonus
+            attacker.attack += bonus_applied
+            self.sleeping_bonus = 0
+
         result = Combat.resolve_attack(attacker, target)
+
+        # Remove temporary bonus
+        if bonus_applied > 0:
+            attacker.attack -= bonus_applied
+
         living_after = sum(1 for m in self.current_monsters if not m.is_dead())
         self.kills_this_round += living_before - living_after
 
@@ -436,7 +457,8 @@ class GameManager:
                         char._escaped = True
                         break
 
-                # If all living party members have escaped, end combat
+                # If all living party members have escaped, end combat and
+                # move party to dungeon entrance
                 living = self._get_party()
                 all_escaped = living and all(
                     getattr(c, '_escaped', False) for c in living
@@ -444,6 +466,8 @@ class GameManager:
                 if all_escaped:
                     self.log_message("All party members have escaped!")
                     self._end_combat()
+                    self.dungeon.party.current_room = self.dungeon.entrance
+                    self.log_message("The party escapes back to the dungeon entrance!")
                 else:
                     # Monsters still attack remaining (non-escaped) party
                     self._monster_attack()
@@ -544,6 +568,7 @@ class GameManager:
         self.spell_killed_this_combat = False
         self.kills_this_round = 0
         self.dragon_breath_used = False
+        self.sleeping_bonus = 0
         if self.dungeon.party.current_room:
             self.dungeon.party.current_room.content.cleared = True
 

@@ -125,14 +125,7 @@ class SpellCaster:
                 description=f"{caster.name} cannot cast {spell_name}"
             )
 
-        # Check remaining spell slots
-        if not caster.use_spell(spell_name):
-            return SpellResult(
-                success=False, caster=caster.name, spell=spell_name,
-                description=f"{caster.name} has no spell slots remaining"
-            )
-
-        # Enforce NO_BARBARIAN_TARGET restriction
+        # Enforce NO_BARBARIAN_TARGET restriction BEFORE consuming a slot
         if NO_BARBARIAN_TARGET in spell.restrictions and targets is not None:
             from src.character import Barbarian
             check_target = targets[0] if isinstance(targets, list) else targets
@@ -142,7 +135,7 @@ class SpellCaster:
                     description=f"{spell_name} cannot target a barbarian"
                 )
 
-        # Enforce spell restrictions against targets
+        # Enforce spell restrictions against targets BEFORE consuming a slot
         # Block only when ALL living monster targets are immune
         if spell.restrictions and targets is not None:
             from src.monster import Monster
@@ -167,6 +160,13 @@ class SpellCaster:
                         success=False, caster=caster.name, spell=spell_name,
                         description=f"{spell_name} has no effect on {reason}"
                     )
+
+        # Check remaining spell slots (AFTER all restriction checks pass)
+        if not caster.use_spell(spell_name):
+            return SpellResult(
+                success=False, caster=caster.name, spell=spell_name,
+                description=f"{caster.name} has no spell slots remaining"
+            )
 
         # Dispatch to specific spell handler
         handler = {
@@ -412,37 +412,32 @@ class SpellCaster:
         affected = []
         minions_killed = 0
 
-        for target in targets:
-            if target.is_dead():
-                continue
-            if target.is_undead or target.is_dragon or target.is_demon:
-                continue
+        # Process minions and bosses separately so mixed groups work
+        living_minions = [t for t in targets if isinstance(t, Minion)
+                          and not t.is_dead()
+                          and not (t.is_undead or t.is_dragon or t.is_demon)]
+        living_bosses = [t for t in targets if isinstance(t, Boss)
+                         and not t.is_dead()
+                         and not (t.is_undead or t.is_dragon or t.is_demon)]
 
-            if isinstance(target, Boss):
-                if total >= target.level:
-                    # Boss falls asleep = defeated
-                    target.take_damage(target.life)
-                    affected.append(target.name)
-                break  # Sleep one boss only
-
-        # For minion groups
-        if targets and all(isinstance(t, Minion) for t in targets):
-            sample = next((t for t in targets if not t.is_dead() and not t.is_undead
-                          and not t.is_dragon and not t.is_demon), None)
-            if sample and total >= sample.level:
+        # Sleep minions
+        if living_minions:
+            sample = living_minions[0]
+            if total >= sample.level:
                 max_sleep = max(1, total - sample.level)
-                affected = []
-                minions_killed = 0
-                for target in targets:
-                    if target.is_dead():
-                        continue
-                    if target.is_undead or target.is_dragon or target.is_demon:
-                        continue
+                for minion in living_minions:
                     if minions_killed >= max_sleep:
                         break
-                    target.take_damage(1)
+                    minion.take_damage(1)
                     minions_killed += 1
-                    affected.append(target.name)
+                    affected.append(minion.name)
+
+        # Sleep bosses (one boss only)
+        for boss in living_bosses:
+            if total >= boss.level:
+                boss.take_damage(boss.life)
+                affected.append(boss.name)
+            break
 
         desc = f"{caster.name} casts Sleep (roll {total})"
         if minions_killed > 0:
@@ -501,13 +496,6 @@ class SpellCaster:
             return SpellResult(
                 success=False, caster=caster.name, spell="Protect",
                 description="Protect can only target a party member"
-            )
-
-        if target.class_type == "Barbarian":
-            return SpellResult(
-                success=False, caster=caster.name, spell="Protect",
-                targets_affected=[target.name],
-                description=f"Protect has no effect on {target.name} (barbarians reject magic)"
             )
 
         target.protected = True

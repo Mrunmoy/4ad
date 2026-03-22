@@ -216,12 +216,12 @@ class TestSleep:
         assert not result.success
         assert demon.life == 8
 
-    def test_sleep_still_consumes_slot_on_immune_target(self):
-        """Casting sleep on immune target still uses a spell slot."""
+    def test_sleep_does_not_consume_slot_on_immune_target(self):
+        """Casting sleep on immune target does NOT use a spell slot (C1 fix)."""
         wiz = Wizard("Gandalf")
         skeletons = [Minion("Skeleton", level=2, is_undead=True)]
         SpellCaster.cast_spell(wiz, "Sleep", skeletons, force_rolls=[5])
-        assert wiz.spells_remaining == 2
+        assert wiz.spells_remaining == 3
 
 
 class TestEscape:
