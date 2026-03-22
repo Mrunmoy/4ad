@@ -22,12 +22,13 @@ All 157 tests pass. Runtime: ~0.4 seconds.
 
 ## 2. Bugs and Inconsistencies Found
 
-### 2.1 Movement Not Blocked During Combat (design gap)
+### 2.1 Movement Not Blocked During Combat ~~(design gap)~~ — FIXED
 
-`GameManager.move()` does not check `self.combat_active` before allowing movement. A player could theoretically move the party to a new room while monsters are still alive in the current room. The existing code relies on the frontend to prevent this, but the backend should enforce it.
+~~`GameManager.move()` does not check `self.combat_active` before allowing movement.~~
 
-**Severity:** Medium
-**Recommendation:** Add `if self.combat_active: return False` at the top of `GameManager.move()`.
+**Status:** Found and fixed in this PR. `GameManager.move()` now checks `if self.combat_active: return False` at the top of the method, preventing movement while monsters are alive.
+
+**Severity:** Medium (resolved)
 
 ### 2.2 Stats Differ From DESIGN_SYSTEMS.md
 

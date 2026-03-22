@@ -73,12 +73,10 @@ class TestPartyInvariants:
     """Invariants about party state and movement."""
 
     def test_party_cannot_move_during_combat(self):
-        """Movement during combat should not change the party's room.
+        """Movement during combat is blocked by GameManager.move().
 
-        GameManager.move() does not currently block movement during combat
-        explicitly (documented in the QA report as a known gap). This test
-        asserts that regardless of the move() return value, the party
-        remains in the same room and combat is still active.
+        GameManager.move() returns False when self.combat_active is True,
+        preventing the party from leaving a room while monsters are alive.
         """
         gm = _started_game()
         gm.combat_active = True
@@ -240,3 +238,70 @@ class TestMonsterInvariants:
         b.take_damage(3)
         assert b.max_life == 6
         assert b.life == 3
+
+
+# ---------------------------------------------------------------------------
+# _monster_attack stale-list regression (QA Report §2.3)
+# ---------------------------------------------------------------------------
+
+class TestMonsterAttackStaleList:
+    """Regression test for the stale living-character list in _monster_attack.
+
+    _monster_attack() captures party = get_living_characters() once, then
+    iterates over every monster using the same list.  If an earlier monster
+    kills a character, resolve_monster_attack() skips the dead character
+    (returning fewer results), but the outer zip(party, results) still pairs
+    the first result with the first (now-dead) character.  This causes:
+      • a duplicate "has fallen!" log for the already-dead character, and
+      • the actually-targeted character's hit going unlogged.
+    """
+
+    def test_stale_list_causes_duplicate_fallen_message(self, monkeypatch):
+        """Demonstrate the zip-misalignment bug in _monster_attack.
+
+        Setup:
+          - Two characters: Hero0 (1 HP), Hero1 (full HP)
+          - Two monsters (level 10) so every defense roll fails
+          - Monkeypatch explosive_six to always return 1
+
+        Expected bug behaviour:
+          Monster 1 kills Hero0 and hits Hero1.
+          Monster 2 should target only Hero1 (Hero0 is dead), but because
+          resolve_monster_attack returns one fewer result while the stale
+          party list still starts with Hero0, zip pairs Hero0 with Hero1's
+          result → duplicate "Hero0 has fallen!" in the log.
+        """
+        from src.dice import DiceResult
+
+        # Force every die roll to 1 so defense always fails (1 + 5 = 6 < 10)
+        monkeypatch.setattr(
+            "src.combat.explosive_six",
+            lambda force_rolls=None: DiceResult(total=1, rolls=[1]),
+        )
+
+        gm = _started_game(("Warrior", "Warrior"))
+        hero0 = gm.dungeon.party.characters[0]
+        hero1 = gm.dungeon.party.characters[1]
+
+        # Weaken Hero0 so one hit kills them
+        hero0.take_damage(hero0.life - 1)
+        assert hero0.life == 1
+
+        gm.combat_active = True
+        gm.current_monsters = [
+            Minion("Orc_A", level=10),
+            Minion("Orc_B", level=10),
+        ]
+        gm.message_log.clear()
+
+        gm._monster_attack()
+
+        fallen_messages = [m for m in gm.message_log if "has fallen" in m]
+        hero0_fallen = [m for m in fallen_messages if hero0.name in m]
+
+        # BUG: Hero0's "has fallen!" message appears twice due to stale list.
+        # When the bug is fixed this assertion should be changed to == 1.
+        assert len(hero0_fallen) == 2, (
+            "Expected the stale-list bug to produce a duplicate 'has fallen!' "
+            f"message for {hero0.name}. Got: {hero0_fallen}"
+        )
