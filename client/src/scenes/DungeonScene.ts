@@ -3,6 +3,7 @@ import SocketManager from '../network/SocketManager';
 import ApiClient from '../network/ApiClient';
 import { CharacterCard } from '../ui/CharacterCard';
 import { DungeonMap } from '../ui/DungeonMap';
+import { RoomView } from '../ui/RoomView';
 import { ActionPanel, ActionButton } from '../ui/ActionPanel';
 import { MessageLog } from '../ui/MessageLog';
 import { getContentTextureKey, getMonsterTextureKey } from '../utils/assetMapping';
@@ -23,6 +24,7 @@ export class DungeonScene extends Phaser.Scene {
   // UI components
   private charCards: CharacterCard[] = [];
   private dungeonMap: DungeonMap | null = null;
+  private roomView: RoomView | null = null;
   private actionPanel: ActionPanel | null = null;
   private messageLog: MessageLog | null = null;
   private contentImage: Phaser.GameObjects.Image | null = null;
@@ -91,10 +93,17 @@ export class DungeonScene extends Phaser.Scene {
       this.charCards.push(card);
     }
 
-    // Dungeon map in center
-    const centerX = this.leftW + 20;
-    const centerY = 40;
-    this.dungeonMap = new DungeonMap(this, centerX, centerY);
+    // Large room view in center panel
+    const centerPanelX = this.leftW + 10;
+    const centerPanelW = this.rightX - this.leftW - 20;
+    const centerPanelY = 30;
+    const centerPanelH = height - 40;
+    this.roomView = new RoomView(this, centerPanelX, centerPanelY, centerPanelW, centerPanelH);
+
+    // Small mini-map in top-right of center panel
+    const miniMapX = this.rightX - 210;
+    const miniMapY = 35;
+    this.dungeonMap = new DungeonMap(this, miniMapX, miniMapY, 16);
 
     // Room content image (centered below dungeon map area)
     const contentCenterX = (this.leftW + this.rightX) / 2;
@@ -215,6 +224,12 @@ export class DungeonScene extends Phaser.Scene {
     // Update dungeon map
     if (this.gameState.dungeon && this.dungeonMap) {
       this.dungeonMap.update(this.gameState.dungeon);
+    }
+
+    // Update room view
+    const currentRoom = this.getCurrentRoom();
+    if (currentRoom && this.roomView) {
+      this.roomView.update(currentRoom, this.gameState.monsters ?? []);
     }
 
     // Update message log

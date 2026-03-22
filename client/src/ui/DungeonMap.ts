@@ -8,14 +8,15 @@ import type { DungeonState, RoomState } from '../types';
 export class DungeonMap {
   private scene: Phaser.Scene;
   private container: Phaser.GameObjects.Container;
-  private tileSize = 32;
+  private tileSize: number;
   private offsetX: number;
   private offsetY: number;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, tileSize = 32) {
     this.scene = scene;
     this.offsetX = x;
     this.offsetY = y;
+    this.tileSize = tileSize;
     this.container = scene.add.container(x, y);
   }
 
