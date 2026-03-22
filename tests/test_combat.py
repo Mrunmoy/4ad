@@ -44,16 +44,14 @@ class TestDefenseRolls:
         assert result.damage_taken == 0
     
     def test_defense_fails_when_roll_plus_defense_less_than_level(self):
-        """Defense fails when roll + defense < monster level."""
-        warrior = Warrior("Hero", level=1)  # Defense 5
-        goblin = Minion("Goblin", level=3)
-        
-        # Roll 1 + Defense 5 = 6, but monster level 3
-        # Wait, 6 > 3 so this succeeds
-        # Let me use a higher level monster
-        ogre = Minion("Ogre", level=7)
-        result = Combat.resolve_defense(warrior, ogre, force_roll=1)
-        # 1 + 5 = 6 < 7 = Fail (take damage)
+        """Defense fails when roll + defense + equipment < monster level."""
+        warrior = Warrior("Hero", level=1)  # Defense 5, equipment +2 (light armor + shield)
+
+        # Use a high-level monster so total is still too low
+        # Roll 1 + Defense 5 + Equipment 2 = 8; need level > 8
+        dragon = Minion("Dragon", level=9)
+        result = Combat.resolve_defense(warrior, dragon, force_roll=1)
+        # 1 + 5 + 2 = 8, not > 9 = Fail (take damage)
         assert not result.success
         assert result.damage_taken == 1
 

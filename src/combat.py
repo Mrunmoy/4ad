@@ -1,6 +1,6 @@
 """Combat mechanics for 4AD."""
-from dataclasses import dataclass
-from typing import List, Union
+from dataclasses import dataclass, field
+from typing import List, Optional, Union
 from src.character import Character
 from src.monster import Monster, Minion, Boss
 from src.dice import explosive_six, roll_d6
@@ -11,6 +11,86 @@ def _pluralize(name: str) -> str:
     if name.endswith("s"):
         return name
     return name + "s"
+
+
+# ---------------------------------------------------------------------------
+# Weapon type helpers
+# ---------------------------------------------------------------------------
+
+def _get_weapon_damage_type(character: Character) -> str:
+    """Get the damage type of the character's equipped weapon."""
+    inv = getattr(character, 'inventory', None)
+    if inv and inv.weapons:
+        return inv.weapons[0].damage_type
+    return "slashing"
+
+
+def _is_weapon_ranged(character: Character) -> bool:
+    """Check if the character has any ranged weapon equipped."""
+    inv = getattr(character, 'inventory', None)
+    if inv and inv.weapons:
+        return any(w.is_ranged for w in inv.weapons)
+    return False
+
+
+def _is_weapon_two_handed(character: Character) -> bool:
+    """Check if the character's equipped weapon is two-handed."""
+    inv = getattr(character, 'inventory', None)
+    if inv and inv.weapons:
+        return inv.weapons[0].hands == 2
+    return False
+
+
+def _is_weapon_light(character: Character) -> bool:
+    """Check if the character's equipped weapon is a light weapon."""
+    inv = getattr(character, 'inventory', None)
+    if inv and inv.weapons:
+        return inv.weapons[0].attack_modifier < 0
+    return False
+
+
+def _get_weapon_modifier(character: Character, target: Monster) -> int:
+    """Get weapon combat modifiers based on weapon type and target.
+
+    - Two-handed weapons: +1
+    - Light weapons: -1
+    - Crushing vs skeletons/statues: +1
+    """
+    inv = getattr(character, 'inventory', None)
+    if not inv or not inv.weapons:
+        return 0
+
+    weapon = inv.weapons[0]
+    modifier = 0
+
+    # Two-handed bonus
+    if weapon.hands == 2 and not weapon.is_ranged:
+        modifier += 1
+
+    # Light weapon penalty
+    if weapon.attack_modifier < 0:
+        modifier += weapon.attack_modifier  # Usually -1
+
+    # Crushing bonus vs skeletons and statues
+    if weapon.damage_type == "crushing":
+        target_name = getattr(target, 'name', '').lower()
+        if 'skeleton' in target_name or 'statue' in target_name:
+            modifier += 1
+
+    return modifier
+
+
+def _get_equipment_defense_bonus(character: Character) -> int:
+    """Get defense bonus from equipped armor and shield.
+
+    - Light armor: +1
+    - Heavy armor: +2
+    - Shield: +1
+    """
+    inv = getattr(character, 'inventory', None)
+    if not inv:
+        return 0
+    return inv.get_defense_bonus()
 
 
 @dataclass
@@ -41,6 +121,13 @@ class MoraleResult:
     description: str = ""
 
 
+@dataclass
+class RangedPhaseResult:
+    """Result of ranged attacks in the first round."""
+    attacks: List[AttackResult] = field(default_factory=list)
+    attackers: List[str] = field(default_factory=list)
+
+
 class Combat:
     """Combat resolution."""
 
@@ -49,20 +136,66 @@ class Combat:
         attacker: Character,
         target: Union[Monster, List[Monster]],
         force_roll: int = None,
-        force_rolls: List[int] = None
+        force_rolls: List[int] = None,
+        party_size: int = 0,
+        enemy_count: int = 0,
+        corridor: bool = False,
+        attacker_position: int = 1,
     ) -> AttackResult:
         """
         Resolve an attack roll.
-        Rule: Roll + Attack >= Monster Level = Hit
+        Rule: Roll + Attack + class_bonus + weapon_modifier >= Monster Level = Hit
+
+        Args:
+            attacker: Character making the attack.
+            target: Monster or list of minions to attack.
+            force_roll: Override dice roll for testing.
+            force_rolls: Override multiple dice rolls for testing.
+            party_size: Number of living party members (for Rogue bonus).
+            enemy_count: Number of living enemies (for Rogue bonus).
+            corridor: Whether combat is in a corridor.
+            attacker_position: Position in corridor (1 or 2).
         """
         if force_rolls:
             dice_result = explosive_six(force_rolls=force_rolls)
-        elif force_roll:
+        elif force_roll is not None:
             dice_result = explosive_six(force_rolls=[force_roll])
         else:
             dice_result = explosive_six()
 
+        # Determine the actual single target for bonus calculations
+        actual_target = target
+        if isinstance(target, list):
+            actual_target = target[0] if target else None
+
+        # Base attack stat
         total = dice_result.total + attacker.attack
+
+        # Class ability bonus
+        ranged = _is_weapon_ranged(attacker)
+        two_handed = _is_weapon_two_handed(attacker)
+        class_bonus = attacker.attack_bonus(
+            target=actual_target,
+            party_size=party_size,
+            enemy_count=enemy_count,
+            ranged=ranged,
+            two_handed=two_handed,
+        )
+        total += class_bonus
+
+        # Weapon modifier (two-handed +1, light -1, crushing vs skeleton +1)
+        if actual_target is not None:
+            weapon_mod = _get_weapon_modifier(attacker, actual_target)
+            total += weapon_mod
+
+        # Equipment attack modifier from inventory
+        inv = getattr(attacker, 'inventory', None)
+        if inv:
+            total += inv.get_attack_modifier()
+
+        # Corridor penalty: position 2 gets -1
+        if corridor and attacker_position == 2:
+            total -= 1
 
         # Handle multiple minions (explosive six can kill multiple)
         if isinstance(target, list) and all(isinstance(m, Minion) for m in target):
@@ -115,14 +248,27 @@ class Combat:
     ) -> DefenseResult:
         """
         Resolve a defense roll.
-        Rule: Roll + Defense > Monster Level = Success (no damage)
+        Rule: Roll + Defense + class_bonus + equipment_bonus > Monster Level = Success
+
+        Class bonuses:
+        - Rogue: +level to all defense
+        - Dwarf: +1 vs trolls/ogres/giants
+        - Halfling: +level vs trolls/ogres/giants
         """
-        if force_roll:
+        if force_roll is not None:
             dice_result = explosive_six(force_rolls=[force_roll])
         else:
             dice_result = explosive_six()
 
         total = dice_result.total + defender.defense
+
+        # Class defense bonus
+        class_bonus = defender.defense_bonus(attacker=attacker)
+        total += class_bonus
+
+        # Equipment defense bonus (armor + shield)
+        equip_bonus = _get_equipment_defense_bonus(defender)
+        total += equip_bonus
 
         # Apply curse penalty
         if defender.cursed:
@@ -133,10 +279,10 @@ class Combat:
             total += 1
 
         success = total > attacker.level
-        damage = 0 if success else 1
+        damage = 0 if success else getattr(attacker, 'damage_per_hit', 1)
 
         if not success:
-            defender.take_damage(1)
+            defender.take_damage(damage)
 
         return DefenseResult(
             success=success,
@@ -149,18 +295,110 @@ class Combat:
     def resolve_monster_attack(
         monster: Monster,
         party: List[Character],
-        force_roll: int = None
+        force_roll: int = None,
+        corridor: bool = False,
     ) -> List[DefenseResult]:
         """
-        Resolve monster attacking entire party.
-        Each character makes defense roll.
+        Resolve monster attacking the party.
+
+        Multi-attack bosses attack multiple times per round, each attack
+        targeting one living character (cycling through the party).
+
+        In corridors, only 2 monsters can attack per round (enforced by caller).
+
+        Args:
+            monster: The attacking monster.
+            party: Living party members.
+            force_roll: Override dice for testing.
+            corridor: Whether combat is in a corridor.
         """
         results = []
-        for character in party:
-            if not character.is_dead():
-                result = Combat.resolve_defense(character, monster, force_roll)
-                results.append(result)
+        num_attacks = getattr(monster, 'num_attacks', 1)
+        living = [c for c in party if not c.is_dead()]
+
+        if not living:
+            return results
+
+        for i in range(num_attacks):
+            # Cycle through living party members
+            target_idx = i % len(living)
+            target = living[target_idx]
+            if target.is_dead():
+                # Refresh living list in case someone died
+                living = [c for c in party if not c.is_dead()]
+                if not living:
+                    break
+                target = living[0]
+
+            result = Combat.resolve_defense(target, monster, force_roll)
+            results.append(result)
+
+            # Refresh living list after potential kill
+            if result.damage_taken > 0:
+                living = [c for c in party if not c.is_dead()]
+                if not living:
+                    break
+
         return results
+
+    @staticmethod
+    def get_corridor_attackers(
+        party: List[Character],
+    ) -> List[Character]:
+        """Get characters that can attack in corridor combat.
+
+        In corridors (room width == 1), only 2 characters can fight.
+        Position 1 attacks normally, position 2 attacks at -1.
+        """
+        living = [c for c in party if not c.is_dead()]
+        # Sort by position
+        living.sort(key=lambda c: c.position)
+        return living[:2]
+
+    @staticmethod
+    def get_corridor_monster_attackers(
+        monsters: List[Monster],
+    ) -> List[Monster]:
+        """Get monsters that can attack in corridor combat.
+
+        Max 2 monsters can attack per round in corridors.
+        """
+        living = [m for m in monsters if not m.is_dead()]
+        return living[:2]
+
+    @staticmethod
+    def resolve_ranged_phase(
+        party: List[Character],
+        targets: Union[Monster, List[Monster]],
+        party_size: int = 0,
+        enemy_count: int = 0,
+        force_roll: int = None,
+    ) -> RangedPhaseResult:
+        """Resolve the ranged attack phase (first round only).
+
+        Characters with bows attack before monsters act.
+        Characters with slings attack before monsters but at -1.
+
+        After first round, ranged characters must switch to melee.
+        """
+        result = RangedPhaseResult()
+        for char in party:
+            if char.is_dead():
+                continue
+            if not _is_weapon_ranged(char):
+                continue
+
+            # Slings get -1 penalty (already handled by weapon modifier)
+            attack_result = Combat.resolve_attack(
+                char, targets,
+                force_roll=force_roll,
+                party_size=party_size,
+                enemy_count=enemy_count,
+            )
+            result.attacks.append(attack_result)
+            result.attackers.append(char.name)
+
+        return result
 
     @staticmethod
     def check_minion_morale(
