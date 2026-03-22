@@ -22,10 +22,14 @@ export interface ServerToClientEvents {
   move_failed: MoveFailedEvent;
   search_result: SearchResultEvent;
   combat_result: CombatResult;
+  /** @planned - Backend handler not yet implemented */
   monster_attack: MonsterAttackResult;
   spell_result: SpellResultEvent;
+  /** @planned - Backend emitter not yet implemented */
   treasure_found: TreasureFound;
+  /** @planned - Backend emitter not yet implemented */
   level_up: LevelUpData;
+  /** @planned - Backend emitter not yet implemented */
   game_over: GameOverData;
 }
 
@@ -139,6 +143,7 @@ class SocketManager {
     this.emit('cast_spell', { spell, target });
   }
 
+  /** @planned - Backend handler not yet implemented */
   useItem(item: string, target?: number): void {
     this.emit('use_item', { item, target });
   }
@@ -147,30 +152,37 @@ class SocketManager {
     this.emit('search_room');
   }
 
+  /** @planned - Backend handler not yet implemented */
   flee(type: 'withdraw' | 'flight'): void {
     this.emit('flee', { type });
   }
 
+  /** @planned - Backend handler not yet implemented */
   bribe(amount: number): void {
     this.emit('bribe', { amount });
   }
 
+  /** @planned - Backend handler not yet implemented */
   acceptQuest(): void {
     this.emit('accept_quest');
   }
 
+  /** @planned - Backend handler not yet implemented */
   refuseQuest(): void {
     this.emit('refuse_quest');
   }
 
+  /** @planned - Backend handler not yet implemented */
   reactChoice(choice: string): void {
     this.emit('react_choice', { choice });
   }
 
+  /** @planned - Backend handler not yet implemented */
   changeOrder(order: number[]): void {
     this.emit('change_order', { order });
   }
 
+  /** @planned - Backend handler not yet implemented */
   equip(characterId: string, itemId: string, slot: string): void {
     this.emit('equip', { character_id: characterId, item_id: itemId, slot });
   }

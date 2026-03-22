@@ -222,5 +222,17 @@ def handle_cast_spell(data):
         emit('game_update', game.to_dict(), room=game_id)
 
 
+# SPA catch-all: serve index.html for any non-API client-side route
+@app.route('/<path:path>')
+def catch_all(path):
+    """Catch-all route for SPA client-side routing."""
+    if path.startswith('api/') or path.startswith('socket.io'):
+        from flask import abort
+        abort(404)
+    if HAS_CLIENT_BUILD:
+        return send_from_directory(CLIENT_DIST, 'index.html')
+    return render_template('index.html')
+
+
 if __name__ == '__main__':
     socketio.run(app, debug=True, host='0.0.0.0', port=5000)

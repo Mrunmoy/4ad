@@ -38,7 +38,7 @@ export class DungeonMap {
     }
 
     for (const room of rooms) {
-      this.drawRoom(room, dungeon.party_room, minX, minY);
+      this.drawRoom(room, dungeon.party_room, minX, minY, dungeon.entrance);
     }
   }
 
@@ -51,6 +51,7 @@ export class DungeonMap {
     partyRoom: number,
     offsetX: number,
     offsetY: number,
+    entrance?: number,
   ): void {
     const rx = (room.x - offsetX) * this.tileSize;
     const ry = (room.y - offsetY) * this.tileSize;
@@ -81,7 +82,7 @@ export class DungeonMap {
       }
 
       // Entrance marker
-      if (room.number === 1) {
+      if (entrance != null && String(room.number) === String(entrance)) {
         gfx.lineStyle(1, 0x2e8b8b, 1);
         gfx.strokeCircle(rx + rw / 2, ry + rh / 2, 6);
       }
