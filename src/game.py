@@ -4,6 +4,8 @@ from src.dungeon import Dungeon, RoomContent, RoomType
 from src.character import Character, create_character
 from src.combat import Combat
 from src.dice import roll_d6, roll_2d6
+from src.treasure import roll_treasure, distribute_gold
+from src.equipment import SHOP_INVENTORY, EquipmentItem, Weapon, Armor, Item
 import uuid
 
 
@@ -34,6 +36,7 @@ class GameManager:
         self.started = False
         self.combat_active = False
         self.current_monsters = []
+        self.current_monster_names: List[str] = []  # per-monster names for treasure modifier lookup
         self.message_log: List[str] = []
     
     def add_player(self, name: str) -> str:
@@ -127,31 +130,40 @@ class GameManager:
             from src.monster import MINIONS_TABLE
             num_minions = roll_2d6() // 3 + 1
             self.current_monsters = [MINIONS_TABLE[roll_d6()]() for _ in range(num_minions)]
-        
+            if self.current_monsters:
+                self.current_monster_names = [m.name for m in self.current_monsters]
+
         elif content.type == RoomType.BOSS:
             self.log_message("A powerful enemy appears!")
             self.combat_active = True
             from src.monster import BOSSES_TABLE
             self.current_monsters = [BOSSES_TABLE[roll_d6()]()]
-        
+            if self.current_monsters:
+                self.current_monster_names = [m.name for m in self.current_monsters]
+
         elif content.type == RoomType.VERMIN:
             self.log_message("Vermin swarm!")
             self.combat_active = True
             from src.monster import VERMIN_TABLE
             num_vermin = roll_d6()
             self.current_monsters = [VERMIN_TABLE[roll_d6()]() for _ in range(num_vermin)]
-        
+            if self.current_monsters:
+                self.current_monster_names = [m.name for m in self.current_monsters]
+
         elif content.type == RoomType.WEIRD_MONSTERS:
             self.log_message("Strange creatures emerge!")
             self.combat_active = True
             from src.monster import WEIRD_MONSTERS_TABLE
             self.current_monsters = [WEIRD_MONSTERS_TABLE[roll_d6()]()]
-        
+            if self.current_monsters:
+                self.current_monster_names = [m.name for m in self.current_monsters]
+
         elif content.type == RoomType.SMALL_DRAGON:
             self.log_message("A small dragon guards this room!")
             self.combat_active = True
             from src.monster import Boss
             self.current_monsters = [Boss("Small Dragon", level=7, life=6, is_dragon=True)]
+            self.current_monster_names = ["Small Dragon"]
         
         elif content.type == RoomType.TREASURE:
             self.log_message("Treasure found!")
@@ -244,9 +256,36 @@ class GameManager:
                         self.log_message(f"{char.name} has fallen!")
     
     def _end_combat(self) -> None:
-        """End combat."""
+        """End combat and roll for treasure."""
         self.combat_active = False
+
+        # Roll treasure per defeated monster using its specific modifier
+        total_gold = 0
+        items_found = []
+        scrolls_found = []
+        for monster_name in self.current_monster_names:
+            treasure = roll_treasure(monster_name=monster_name)
+            self.log_message(f"Treasure from {monster_name}: {treasure.description}")
+            total_gold += treasure.gold
+            if treasure.item:
+                items_found.append(treasure.item)
+            if treasure.spell_scroll:
+                scrolls_found.append(treasure.spell_scroll)
+
+        if total_gold > 0:
+            living = self.dungeon.party.get_living_characters()
+            dist = distribute_gold(total_gold, living)
+            for char_name, amount in dist.items():
+                self.log_message(f"{char_name} receives {amount} gold")
+
+        for item in items_found:
+            self.log_message(f"Found: {item.name}")
+
+        for scroll in scrolls_found:
+            self.log_message(f"Found scroll of {scroll}")
+
         self.current_monsters = []
+        self.current_monster_names = []
         if self.dungeon.party.current_room:
             self.dungeon.party.current_room.content.cleared = True
         self.log_message("Combat ended")
@@ -295,6 +334,106 @@ class GameManager:
         if len(self.message_log) > 100:
             self.message_log = self.message_log[-100:]
     
+    def buy_equipment(self, player_id: str, item_key: str) -> dict:
+        """Buy equipment from the shop for a character.
+
+        Args:
+            player_id: The player's ID.
+            item_key: Key from SHOP_INVENTORY.
+
+        Returns:
+            Dict with success/error info.
+        """
+        player = self.players.get(player_id)
+        if not player or not player.character:
+            return {"error": "Player or character not found"}
+
+        if item_key not in SHOP_INVENTORY:
+            return {"error": f"Item '{item_key}' not in shop"}
+
+        template = SHOP_INVENTORY[item_key]
+        cost = template.cost
+        inv = player.character.inventory
+
+        if inv.gold < cost:
+            return {"error": f"Not enough gold ({inv.gold}/{cost})"}
+
+        # Create a copy of the item
+        if isinstance(template, Weapon):
+            item = Weapon(
+                name=template.name, cost=template.cost, hands=template.hands,
+                attack_modifier=template.attack_modifier,
+                damage_type=template.damage_type,
+                is_ranged=template.is_ranged, is_magic=template.is_magic,
+            )
+        elif isinstance(template, Armor):
+            item = Armor(
+                name=template.name, cost=template.cost,
+                defense_bonus=template.defense_bonus,
+                is_heavy=template.is_heavy, save_penalty=template.save_penalty,
+                is_shield=template.is_shield,
+            )
+        else:
+            item = Item(
+                name=template.name, cost=template.cost,
+                one_use=template.one_use, description=template.description,
+                charges=template.charges, is_magic=template.is_magic,
+            )
+
+        if not inv.can_equip(item):
+            return {"error": f"Cannot equip {item.name} (class/slot restriction)"}
+
+        inv.spend_gold(cost)
+        if not inv.add_item(item):
+            inv.add_gold(cost)  # refund
+            return {"error": f"Failed to add {item.name} to inventory"}
+        self.log_message(f"{player.character.name} bought {item.name} for {cost} gp")
+        return {"success": True, "item": item.name, "cost": cost, "gold_remaining": inv.gold}
+
+    def sell_equipment(self, player_id: str, item_index: int,
+                       slot_type: str = "items") -> dict:
+        """Sell equipment from a character's inventory.
+
+        Args:
+            player_id: The player's ID.
+            item_index: Index into the slot list.
+            slot_type: One of "weapons", "shields", "items", or "armor".
+
+        Returns:
+            Dict with success/error info.
+        """
+        player = self.players.get(player_id)
+        if not player or not player.character:
+            return {"error": "Player or character not found"}
+
+        inv = player.character.inventory
+
+        if slot_type == "weapons":
+            if item_index < 0 or item_index >= len(inv.weapons):
+                return {"error": "Invalid weapon index"}
+            item = inv.weapons[item_index]
+        elif slot_type == "shields":
+            if item_index < 0 or item_index >= len(inv.shields):
+                return {"error": "Invalid shield index"}
+            item = inv.shields[item_index]
+        elif slot_type == "armor":
+            if inv.armor is None:
+                return {"error": "No armor to sell"}
+            item = inv.armor
+        elif slot_type == "items":
+            if item_index < 0 or item_index >= len(inv.items):
+                return {"error": "Invalid item index"}
+            item = inv.items[item_index]
+        else:
+            return {"error": f"Unknown slot type: {slot_type}"}
+
+        gold_earned = inv.sell_item(item)
+        self.log_message(
+            f"{player.character.name} sold {item.name} for {gold_earned} gp"
+        )
+        return {"success": True, "item": item.name, "gold_earned": gold_earned,
+                "gold_remaining": inv.gold}
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
