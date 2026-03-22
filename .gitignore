@@ -17,6 +17,9 @@ data/
 # Phaser client build output
 client/dist/
 
+# Generated art assets (regenerate with scripts/create_placeholders.py)
+assets/generated/
+
 # IDE
 .idea/
 .vscode/
