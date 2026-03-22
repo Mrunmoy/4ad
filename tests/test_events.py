@@ -1,11 +1,10 @@
 """Tests for special features, events, and room search (src/events.py)."""
-import pytest
 from src.events import (
     generate_special_feature, generate_special_event,
     resolve_feature, resolve_event, search_room,
     EventResult,
 )
-from src.character import Warrior, Rogue, Wizard, Cleric, Elf, Halfling, Dwarf
+from src.character import Warrior, Rogue, Wizard, Cleric, Dwarf
 
 
 def _make_party(*classes, wounded=False):

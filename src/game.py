@@ -47,7 +47,9 @@ class GameManager:
         self.healer_met = False
         self.alchemist_met = False
         self.clues_found = 0
+        self.clue_tracker = None
         self.party_gold = 0
+        self.fountain_used = False
         self.pending_feature = None  # EventResult awaiting player choice
         self.pending_event = None    # EventResult awaiting player choice
 
@@ -228,11 +230,15 @@ class GameManager:
         """Handle a special event — generate and store for player choice."""
         event = generate_special_event()
 
-        # One-time vendor checks — reroll until we get a different event
-        while event.event_type == "wandering_healer" and self.healer_met:
-            event = generate_special_event()
-        while event.event_type == "wandering_alchemist" and self.alchemist_met:
-            event = generate_special_event()
+        # One-time vendor checks — reroll up to 3 times, then accept as-is
+        max_rerolls = 3
+        for _ in range(max_rerolls):
+            if event.event_type == "wandering_healer" and self.healer_met:
+                event = generate_special_event()
+            elif event.event_type == "wandering_alchemist" and self.alchemist_met:
+                event = generate_special_event()
+            else:
+                break
 
         self.pending_event = event
         self.log_message(event.description)
@@ -461,6 +467,7 @@ class GameManager:
                 self.current_monsters = [MINIONS_TABLE[roll_d6()]() for _ in range(num)]
 
             party.treasure += gold
+            self.party_gold += gold
             return {"result": "hidden_treasure", "gold": gold,
                     "complication": complication,
                     "description": result.description}
@@ -505,7 +512,7 @@ class GameManager:
             "fountain_drinks": self.fountain_tracker.get("fountain_drinks", 0),
             "healer_met": self.healer_met,
             "alchemist_met": self.alchemist_met,
-            "clues_found": self.clue_tracker.clues,
+            "clues_found": self.clue_tracker.clues if self.clue_tracker else self.clues_found,
             "pending_feature": {
                 "event_type": self.pending_feature.event_type,
                 "description": self.pending_feature.description,

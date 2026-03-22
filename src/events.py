@@ -525,7 +525,7 @@ def _resolve_trap_event(party, force_roll=None) -> EventResult:
     result = handle_trap_encounter(trap, party)
     return EventResult(
         event_type="trap_event",
-        description=f"Trap triggered: {result.description}",
+        description=f"Trap encountered: {result.description}",
         effects={"trap_result": {
             "trap_name": result.trap.name,
             "triggered": result.triggered,

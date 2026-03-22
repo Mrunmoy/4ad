@@ -1,6 +1,6 @@
 """Tests for PR #22 review fixes (critical, high, and medium severity)."""
 from src.character import Warrior, Cleric, Rogue, Halfling
-from src.traps import generate_trap, trigger_trap, _has_limping
+from src.traps import generate_trap, trigger_trap
 from src.events import (
     generate_special_feature, generate_special_event,
     resolve_feature, resolve_event, ClueTracker,

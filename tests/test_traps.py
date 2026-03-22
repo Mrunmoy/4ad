@@ -1,11 +1,10 @@
 """Tests for the trap system (src/traps.py)."""
-import pytest
 from src.traps import (
-    Trap, TrapResult, generate_trap, attempt_disarm,
-    trigger_trap, handle_trap_encounter, TRAP_TABLE,
+    Trap, generate_trap, attempt_disarm,
+    trigger_trap, handle_trap_encounter,
     _get_armor_bonus, _get_shield_bonus, _has_limping, _apply_limping,
 )
-from src.character import Warrior, Rogue, Wizard, Cleric, Elf, Halfling, Dwarf
+from src.character import Warrior, Rogue, Wizard, Cleric, Elf, Halfling
 
 
 def _make_party(*classes):

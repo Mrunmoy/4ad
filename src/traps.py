@@ -193,16 +193,17 @@ def _resolve_trapdoor(trap, party_chars, force_roll: int = None) -> TrapResult:
     victims = []
 
     if total < trap.level:
-        char.take_damage(1)
-
         # Check if character is alone (only living party member)
         living_count = sum(1 for c in party_chars if not c.is_dead())
         if living_count <= 1:
+            # Alone: set damage to full life (instant death)
+            damage = char.life
             char.life = 0
-            victims.append((char.name, char.max_life, "death_alone"))
+            victims.append((char.name, damage, "death_alone"))
             desc = (f"{char.name} falls through a trapdoor alone and perishes! "
                     f"(rolled {roll}{modifier:+d}={total} vs {trap.level})")
         else:
+            char.take_damage(1)
             char.separated = True
             victims.append((char.name, 1, "separated"))
             desc = (f"{char.name} falls through a trapdoor! "
