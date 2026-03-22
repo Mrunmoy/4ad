@@ -5,6 +5,7 @@ import { CharacterCard } from '../ui/CharacterCard';
 import { DungeonMap } from '../ui/DungeonMap';
 import { ActionPanel, ActionButton } from '../ui/ActionPanel';
 import { MessageLog } from '../ui/MessageLog';
+import { getContentTextureKey, getMonsterTextureKey } from '../utils/assetMapping';
 import type { GameState, RoomState, SearchResultEvent, CombatResult, MonsterAttackResult } from '../types';
 
 /**
@@ -24,6 +25,8 @@ export class DungeonScene extends Phaser.Scene {
   private dungeonMap: DungeonMap | null = null;
   private actionPanel: ActionPanel | null = null;
   private messageLog: MessageLog | null = null;
+  private contentImage: Phaser.GameObjects.Image | null = null;
+  private contentLabel: Phaser.GameObjects.Text | null = null;
 
   // Layout dimensions
   private leftW = 0;
@@ -92,6 +95,21 @@ export class DungeonScene extends Phaser.Scene {
     const centerX = this.leftW + 20;
     const centerY = 40;
     this.dungeonMap = new DungeonMap(this, centerX, centerY);
+
+    // Room content image (centered below dungeon map area)
+    const contentCenterX = (this.leftW + this.rightX) / 2;
+    const contentCenterY = height - 140;
+    this.contentImage = this.add.image(contentCenterX, contentCenterY, 'content_empty_room');
+    this.contentImage.setDisplaySize(64, 64);
+    this.contentImage.setAlpha(0);
+
+    this.contentLabel = this.add
+      .text(contentCenterX, contentCenterY + 42, '', {
+        fontFamily: '"Press Start 2P", monospace',
+        fontSize: '7px',
+        color: '#778899',
+      })
+      .setOrigin(0.5);
 
     // Action panel on right
     this.actionPanel = new ActionPanel(this, this.rightX + 10, 35, this.rightW - 20);
@@ -204,6 +222,9 @@ export class DungeonScene extends Phaser.Scene {
       this.messageLog.setMessages(this.gameState.message_log);
     }
 
+    // Update room content image
+    this.updateRoomContentImage();
+
     // Update action panel based on current state
     this.updateActions();
 
@@ -211,6 +232,49 @@ export class DungeonScene extends Phaser.Scene {
     if (this.gameState.combat_active) {
       this.showCombatOverlay();
     }
+  }
+
+  private updateRoomContentImage(): void {
+    if (!this.contentImage || !this.contentLabel || !this.gameState) return;
+
+    const room = this.getCurrentRoom();
+    if (!room || !room.content) {
+      this.contentImage.setAlpha(0);
+      this.contentLabel.setText('');
+      return;
+    }
+
+    const contentType = room.content;
+    let textureKey: string;
+    let label: string = contentType;
+
+    // For monster encounters, show the monster portrait
+    if (
+      contentType === 'minions' ||
+      contentType === 'boss' ||
+      contentType === 'vermin' ||
+      contentType === 'weird_monsters' ||
+      contentType === 'small_dragon' ||
+      contentType === 'wandering_monster'
+    ) {
+      const monsters = this.gameState.monsters ?? [];
+      if (monsters.length > 0) {
+        textureKey = getMonsterTextureKey(monsters[0].name);
+        label = monsters[0].name;
+      } else {
+        textureKey = getContentTextureKey(contentType);
+      }
+    } else {
+      textureKey = getContentTextureKey(contentType);
+    }
+
+    if (this.textures.exists(textureKey)) {
+      this.contentImage.setTexture(textureKey);
+      this.contentImage.setAlpha(1);
+    } else {
+      this.contentImage.setAlpha(0);
+    }
+    this.contentLabel.setText(label.replace(/_/g, ' '));
   }
 
   private updateActions(): void {
