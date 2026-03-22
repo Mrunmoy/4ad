@@ -21,6 +21,10 @@ class Monster:
     treasure_modifier: int = 0
     morale_checked: bool = False
 
+    # Multi-attack fields
+    num_attacks: int = 1       # Number of attacks per round
+    damage_per_hit: int = 1    # Damage dealt per successful hit
+
     def take_damage(self, amount: int) -> None:
         """Take damage."""
         self.life -= amount
@@ -45,6 +49,8 @@ class Monster:
             "fights_to_death": self.fights_to_death,
             "morale_modifier": self.morale_modifier,
             "treasure_modifier": self.treasure_modifier,
+            "num_attacks": self.num_attacks,
+            "damage_per_hit": self.damage_per_hit,
         }
 
 
@@ -93,7 +99,8 @@ BOSSES_TABLE = {
                      fights_to_death=False, morale_modifier=0, treasure_modifier=1),
 
     2: lambda: Boss("Ogre", level=5, life=6,
-                     fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+                     fights_to_death=False, morale_modifier=0, treasure_modifier=0,
+                     damage_per_hit=2),
 
     3: lambda: Boss("Vampire", level=6, life=6, is_undead=True,
                      fights_to_death=True, morale_modifier=0, treasure_modifier=1),
@@ -154,4 +161,26 @@ VERMIN_TABLE = {
 
     6: lambda: Minion("Scorpions", level=1,
                        fights_to_death=False, morale_modifier=0, treasure_modifier=0),
+}
+
+# ---------------------------------------------------------------------------
+# Multi-attack bosses (extended boss table from rulebook)
+# ---------------------------------------------------------------------------
+
+MULTI_ATTACK_BOSSES = {
+    "Mummy": lambda: Boss("Mummy", level=5, life=6, is_undead=True,
+                           fights_to_death=True, morale_modifier=0, treasure_modifier=1,
+                           num_attacks=2),
+
+    "Orc Brute": lambda: Boss("Orc Brute", level=5, life=6,
+                               fights_to_death=False, morale_modifier=0, treasure_modifier=0,
+                               num_attacks=2),
+
+    "Chimera": lambda: Boss("Chimera", level=7, life=8,
+                             fights_to_death=True, morale_modifier=0, treasure_modifier=2,
+                             num_attacks=3),
+
+    "Small Dragon": lambda: Boss("Small Dragon", level=6, life=7, is_dragon=True,
+                                  fights_to_death=True, morale_modifier=0, treasure_modifier=2,
+                                  num_attacks=2),
 }
