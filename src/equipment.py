@@ -452,9 +452,15 @@ class Inventory:
                 "name": self.armor.name, "cost": self.armor.cost,
                 "defense_bonus": self.armor.defense_bonus,
                 "is_heavy": self.armor.is_heavy,
+                "save_penalty": self.armor.save_penalty,
+                "is_shield": self.armor.is_shield,
             } if self.armor else None,
             "shields": [
-                {"name": s.name, "defense_bonus": s.defense_bonus}
+                {"name": s.name, "cost": s.cost,
+                 "defense_bonus": s.defense_bonus,
+                 "is_heavy": s.is_heavy,
+                 "save_penalty": s.save_penalty,
+                 "is_shield": s.is_shield}
                 for s in self._shields
             ],
             "items": [
