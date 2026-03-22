@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "paths": {
+      "@scenes/*": ["scenes/*"],
+      "@ui/*": ["ui/*"],
+      "@network/*": ["network/*"],
+      "@sprites/*": ["sprites/*"],
+      "@game-types/*": ["types/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

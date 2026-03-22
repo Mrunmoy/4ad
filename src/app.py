@@ -1,5 +1,5 @@
 """Flask web application for 4AD."""
-from flask import Flask, render_template, jsonify, request, session
+from flask import Flask, render_template, jsonify, request, session, send_from_directory
 from flask_socketio import SocketIO, emit, join_room, leave_room
 import uuid
 import os
@@ -18,22 +18,48 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="gevent")
 # In-memory game storage
 games: dict = {}
 
+# Determine if we're serving the built Phaser app
+CLIENT_DIST = os.path.join(base_dir, 'client', 'dist')
+HAS_CLIENT_BUILD = os.path.exists(os.path.join(CLIENT_DIST, 'index.html'))
+
 
 def get_game(game_id: str):
     """Get game by ID."""
     return games.get(game_id)
 
 
-@app.route('/')
-def index():
-    """Main page."""
-    return render_template('index.html')
+if HAS_CLIENT_BUILD:
+    # Production: serve built Phaser app for non-API routes
+    @app.route('/')
+    def index():
+        """Serve Phaser client."""
+        return send_from_directory(CLIENT_DIST, 'index.html')
 
+    @app.route('/game/<game_id>')
+    def game_page(game_id):
+        """Game page - serves SPA which handles game joining."""
+        return send_from_directory(CLIENT_DIST, 'index.html')
 
-@app.route('/game/<game_id>')
-def game_page(game_id):
-    """Game page - serves SPA which handles game joining."""
-    return render_template('index.html', game_id=game_id)
+    @app.route('/assets/<path:path>')
+    def serve_client_assets(path):
+        """Serve static assets from client/dist/assets."""
+        return send_from_directory(os.path.join(CLIENT_DIST, 'assets'), path)
+
+    @app.route('/favicon.ico')
+    def serve_favicon():
+        """Serve favicon from client/dist."""
+        return send_from_directory(CLIENT_DIST, 'favicon.ico')
+else:
+    # Development: Vite dev server handles frontend; keep legacy template serving
+    @app.route('/')
+    def index():
+        """Main page."""
+        return render_template('index.html')
+
+    @app.route('/game/<game_id>')
+    def game_page(game_id):
+        """Game page - serves SPA which handles game joining."""
+        return render_template('index.html', game_id=game_id)
 
 
 @app.route('/api/classes')
@@ -194,6 +220,18 @@ def handle_cast_spell(data):
         result = game.cast_spell(spell_name, target)
         emit('spell_result', result, room=game_id)
         emit('game_update', game.to_dict(), room=game_id)
+
+
+# SPA catch-all: serve index.html for any non-API client-side route
+@app.route('/<path:path>')
+def catch_all(path):
+    """Catch-all route for SPA client-side routing."""
+    if path.startswith('api/') or path.startswith('socket.io'):
+        from flask import abort
+        abort(404)
+    if HAS_CLIENT_BUILD:
+        return send_from_directory(CLIENT_DIST, 'index.html')
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
