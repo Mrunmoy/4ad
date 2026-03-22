@@ -1307,6 +1307,194 @@ class GameManager:
         return {"success": True, "item": item.name, "gold_earned": gold_earned,
                 "gold_remaining": inv.gold}
 
+    def use_item(self, player_id: str, item_index: int) -> dict:
+        """Use a consumable item from a character's inventory.
+
+        Args:
+            player_id: The player's ID.
+            item_index: Index into the character's items list.
+
+        Returns:
+            Dict with result info.
+        """
+        player = self.players.get(player_id)
+        if not player or not player.character:
+            return {"error": "Player or character not found"}
+
+        inv = player.character.inventory
+        if item_index < 0 or item_index >= len(inv.items):
+            return {"error": "Invalid item index"}
+
+        item = inv.items[item_index]
+        char = player.character
+
+        # Handle healing potions
+        if "healing" in item.name.lower() or "potion" in item.name.lower():
+            healed = roll_d6()
+            char.heal(healed)
+            self.log_message(f"{char.name} uses {item.name} and heals {healed} HP!")
+            if item.one_use:
+                inv.items.pop(item_index)
+            return {"success": True, "item": item.name, "healed": healed}
+
+        # Generic one-use item
+        self.log_message(f"{char.name} uses {item.name}")
+        if item.one_use:
+            inv.items.pop(item_index)
+        return {"success": True, "item": item.name}
+
+    def use_healing(self, caster_name: str, target_name: str) -> dict:
+        """Cleric uses healing power on a target character.
+
+        Args:
+            caster_name: Name of the Cleric character.
+            target_name: Name of the character to heal.
+
+        Returns:
+            Dict with healing result.
+        """
+        caster = None
+        target = None
+        for player in self.players.values():
+            if player.character:
+                if player.character.name == caster_name:
+                    caster = player.character
+                if player.character.name == target_name:
+                    target = player.character
+
+        if not caster:
+            return {"error": f"Caster '{caster_name}' not found"}
+        if not target:
+            return {"error": f"Target '{target_name}' not found"}
+        if caster.class_type != "Cleric":
+            return {"error": f"{caster_name} is not a Cleric"}
+        if not hasattr(caster, 'use_healing'):
+            return {"error": f"{caster_name} cannot heal"}
+
+        healed = caster.use_healing(target)
+        if healed == 0:
+            return {"error": "No healing uses remaining"}
+
+        self.log_message(f"{caster_name} heals {target_name} for {healed} HP!")
+        return {
+            "success": True,
+            "caster": caster_name,
+            "target": target_name,
+            "healed": healed,
+        }
+
+    def use_rage(self, character_name: str) -> dict:
+        """Barbarian uses rage ability.
+
+        Args:
+            character_name: Name of the Barbarian character.
+
+        Returns:
+            Dict with rage result.
+        """
+        char = None
+        for player in self.players.values():
+            if player.character and player.character.name == character_name:
+                char = player.character
+                break
+
+        if not char:
+            return {"error": f"Character '{character_name}' not found"}
+        if char.class_type != "Barbarian":
+            return {"error": f"{character_name} is not a Barbarian"}
+        if not hasattr(char, 'use_rage'):
+            return {"error": f"{character_name} cannot rage"}
+
+        if not char.use_rage():
+            return {"error": "Rage already used this game"}
+
+        # Roll 3d6, pick best for next attack
+        rolls = [roll_d6() for _ in range(3)]
+        best_roll = max(rolls)
+        self.log_message(
+            f"{character_name} enters a RAGE! (rolled {rolls}, best: {best_roll})"
+        )
+        return {
+            "success": True,
+            "character": character_name,
+            "rolls": rolls,
+            "best_roll": best_roll,
+        }
+
+    def use_luck(self, character_name: str, roll_type: str = "reroll") -> dict:
+        """Halfling uses luck to reroll or flee safely.
+
+        Args:
+            character_name: Name of the Halfling character.
+            roll_type: 'reroll' or 'flee'.
+
+        Returns:
+            Dict with luck result.
+        """
+        char = None
+        for player in self.players.values():
+            if player.character and player.character.name == character_name:
+                char = player.character
+                break
+
+        if not char:
+            return {"error": f"Character '{character_name}' not found"}
+        if char.class_type != "Halfling":
+            return {"error": f"{character_name} is not a Halfling"}
+        if not hasattr(char, 'use_luck'):
+            return {"error": f"{character_name} cannot use luck"}
+
+        if not char.use_luck():
+            return {"error": "No luck points remaining"}
+
+        self.log_message(
+            f"{character_name} spends a luck point! "
+            f"({char.luck_points} remaining)"
+        )
+        return {
+            "success": True,
+            "character": character_name,
+            "luck_remaining": char.luck_points,
+            "roll_type": roll_type,
+        }
+
+    def handle_reaction_choice(self, choice: str) -> dict:
+        """Process the player's response to a monster reaction.
+
+        Args:
+            choice: One of 'attack', 'bribe', 'accept_quest', 'flee',
+                    'puzzle', 'magic_challenge'.
+
+        Returns:
+            Dict with reaction result.
+        """
+        if not self.current_reaction:
+            return {"error": "No pending reaction"}
+
+        reaction_type = self.current_reaction.reaction_type
+
+        if choice == "bribe":
+            return self.handle_bribe(accept=True)
+        elif choice == "refuse_bribe":
+            return self.handle_bribe(accept=False)
+        elif choice == "puzzle":
+            return self.handle_puzzle()
+        elif choice == "magic_challenge":
+            return self.handle_magic_challenge()
+        elif choice == "flee":
+            return self.flee()
+        elif choice == "attack":
+            # Player chooses to fight -- combat is already active
+            self.current_reaction = None
+            self.log_message("The party attacks!")
+            return {"success": True, "combat_starts": True}
+        elif choice == "accept_quest":
+            result = self.accept_quest()
+            self._end_combat()
+            return result
+        else:
+            return {"error": f"Unknown choice: {choice}"}
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -1345,10 +1533,18 @@ class GameManager:
             "final_boss_killed": self.final_boss_killed,
             "exiting": self.exiting,
             "exit_rooms_remaining": self.exit_rooms_remaining,
-            "reaction": {
+            "pending_reaction": {
                 "type": self.current_reaction.reaction_type,
                 "description": self.current_reaction.description,
                 "player_choices": self.current_reaction.player_choices,
                 "bribe_cost": self.current_reaction.bribe_cost,
             } if self.current_reaction else None,
+            "quest": {
+                "type": self.active_quest.quest_type,
+                "description": self.active_quest.description,
+                "target": self.active_quest.target,
+                "completed": self.active_quest.completed,
+                "progress": self.active_quest.progress,
+            } if self.active_quest else None,
+            "exit_phase": self.exiting,
         }
