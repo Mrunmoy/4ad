@@ -7,6 +7,7 @@ import os
 from src.dungeon import Dungeon, Party
 from src.character import create_character, CHARACTER_CLASSES
 from src.game import GameManager
+from src.equipment import SHOP_INVENTORY
 
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 app = Flask(__name__,
@@ -62,6 +63,8 @@ else:
         return render_template('index.html', game_id=game_id)
 
 
+# --- REST Endpoints ---
+
 @app.route('/api/classes')
 def get_classes():
     """Get available character classes."""
@@ -95,13 +98,13 @@ def join_game(game_id: str):
     game = get_game(game_id)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    
+
     data = request.json
     player_name = data.get('player_name')
-    
+
     if not player_name:
         return jsonify({"error": "Player name required"}), 400
-    
+
     player_id = game.add_player(player_name)
     return jsonify({"player_id": player_id, "player_name": player_name})
 
@@ -112,15 +115,15 @@ def create_character_endpoint(game_id: str):
     game = get_game(game_id)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    
+
     data = request.json
     player_id = data.get('player_id')
     class_name = data.get('class_name')
     char_name = data.get('char_name')
-    
+
     if not all([player_id, class_name, char_name]):
         return jsonify({"error": "Missing data"}), 400
-    
+
     try:
         character = game.create_character(player_id, class_name, char_name)
         # Notify other players
@@ -139,7 +142,7 @@ def start_game(game_id: str):
     game = get_game(game_id)
     if not game:
         return jsonify({"error": "Game not found"}), 404
-    
+
     try:
         game.start()
         socketio.emit('game_started', game.to_dict(), room=game_id)
@@ -148,7 +151,67 @@ def start_game(game_id: str):
         return jsonify({"error": str(e)}), 400
 
 
-# WebSocket events
+@app.route('/api/game/<game_id>/party', methods=['GET'])
+def get_party(game_id: str):
+    """Get detailed party info including equipment, spells, etc."""
+    game = get_game(game_id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    party_info = []
+    for player in game.players.values():
+        if player.character:
+            char = player.character
+            char_info = char.to_dict()
+            char_info["player_id"] = player.id
+            char_info["player_name"] = player.name
+            party_info.append(char_info)
+
+    return jsonify({
+        "party": party_info,
+        "party_gold": game.party_gold,
+        "party_size": len(party_info),
+    })
+
+
+@app.route('/api/game/<game_id>/quest', methods=['GET'])
+def get_quest(game_id: str):
+    """Get active quest status."""
+    game = get_game(game_id)
+    if not game:
+        return jsonify({"error": "Game not found"}), 404
+
+    if not game.active_quest:
+        return jsonify({"quest": None})
+
+    return jsonify({
+        "quest": {
+            "type": game.active_quest.quest_type,
+            "description": game.active_quest.description,
+            "target": game.active_quest.target,
+            "completed": game.active_quest.completed,
+            "progress": game.active_quest.progress,
+        }
+    })
+
+
+@app.route('/api/equipment/shop', methods=['GET'])
+def get_shop():
+    """Get available equipment for purchase."""
+    shop_items = {}
+    for key, item in SHOP_INVENTORY.items():
+        shop_items[key] = {
+            "name": item.name,
+            "cost": item.cost,
+            "type": type(item).__name__,
+        }
+        if hasattr(item, 'description') and item.description:
+            shop_items[key]["description"] = item.description
+    return jsonify(shop_items)
+
+
+# --- WebSocket Events ---
+
 @socketio.on('connect')
 def handle_connect():
     """Handle client connection."""
@@ -175,7 +238,7 @@ def handle_move(data):
     """Handle player movement."""
     game_id = data.get('game_id')
     direction = data.get('direction')
-    
+
     game = get_game(game_id)
     if game and game.move(direction):
         emit('game_update', game.to_dict(), room=game_id)
@@ -187,7 +250,7 @@ def handle_move(data):
 def handle_search(data):
     """Handle room search."""
     game_id = data.get('game_id')
-    
+
     game = get_game(game_id)
     if game:
         result = game.search_room()
@@ -200,7 +263,7 @@ def handle_attack(data):
     """Handle attack action."""
     game_id = data.get('game_id')
     target_idx = data.get('target', 0)
-    
+
     game = get_game(game_id)
     if game:
         result = game.attack(target_idx)
@@ -210,15 +273,140 @@ def handle_attack(data):
 
 @socketio.on('cast_spell')
 def handle_cast_spell(data):
-    """Handle spell casting."""
+    """Handle spell casting with full parameters."""
     game_id = data.get('game_id')
     spell_name = data.get('spell')
     target = data.get('target')
-    
+    caster_id = data.get('caster_id')
+
     game = get_game(game_id)
     if game:
-        result = game.cast_spell(spell_name, target)
+        result = game.cast_spell(spell_name, target, caster_id=caster_id)
         emit('spell_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('flee')
+def handle_flee(data):
+    """Handle flee from combat."""
+    game_id = data.get('game_id')
+    game = get_game(game_id)
+    if game:
+        result = game.flee()
+        emit('flee_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('use_item')
+def handle_use_item(data):
+    """Use an item (potion, scroll, etc)."""
+    game_id = data.get('game_id')
+    player_id = data.get('player_id')
+    item_index = data.get('item_index')
+    game = get_game(game_id)
+    if game:
+        result = game.use_item(player_id, item_index)
+        emit('item_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('use_healing')
+def handle_healing(data):
+    """Cleric uses healing power."""
+    game_id = data.get('game_id')
+    caster_name = data.get('caster')
+    target_name = data.get('target')
+    game = get_game(game_id)
+    if game:
+        result = game.use_healing(caster_name, target_name)
+        emit('healing_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('use_rage')
+def handle_rage(data):
+    """Barbarian uses rage."""
+    game_id = data.get('game_id')
+    character_name = data.get('character')
+    game = get_game(game_id)
+    if game:
+        result = game.use_rage(character_name)
+        emit('rage_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('use_luck')
+def handle_luck(data):
+    """Halfling uses luck to reroll."""
+    game_id = data.get('game_id')
+    character_name = data.get('character')
+    roll_type = data.get('roll_type', 'reroll')
+    game = get_game(game_id)
+    if game:
+        result = game.use_luck(character_name, roll_type)
+        emit('luck_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('reaction_choice')
+def handle_reaction_choice(data):
+    """Player responds to monster reaction (bribe/fight/quest/etc)."""
+    game_id = data.get('game_id')
+    choice = data.get('choice')
+    game = get_game(game_id)
+    if game:
+        result = game.handle_reaction_choice(choice)
+        emit('reaction_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('xp_roll')
+def handle_xp_roll(data):
+    """Attempt XP roll for a character."""
+    game_id = data.get('game_id')
+    character_name = data.get('character')
+    game = get_game(game_id)
+    if game:
+        result = game.attempt_xp_roll(character_name)
+        emit('xp_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('accept_quest')
+def handle_accept_quest(data):
+    """Accept a new quest."""
+    game_id = data.get('game_id')
+    game = get_game(game_id)
+    if game:
+        result = game.accept_quest()
+        emit('quest_update', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('resolve_event')
+def handle_resolve_event(data):
+    """Player resolves a pending event (healer purchase, statue touch, etc)."""
+    game_id = data.get('game_id')
+    choice = data.get('choice')
+    event_type = data.get('event_type', 'event')
+    game = get_game(game_id)
+    if game:
+        if event_type == 'feature':
+            result = game.resolve_pending_feature(choice)
+        else:
+            result = game.resolve_pending_event(choice)
+        emit('event_result', result, room=game_id)
+        emit('game_update', game.to_dict(), room=game_id)
+
+
+@socketio.on('exit_room')
+def handle_exit_room(data):
+    """Traverse a room during exit phase."""
+    game_id = data.get('game_id')
+    game = get_game(game_id)
+    if game:
+        result = game.exit_room()
+        emit('exit_result', result, room=game_id)
         emit('game_update', game.to_dict(), room=game_id)
 
 
