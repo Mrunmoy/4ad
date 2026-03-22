@@ -113,10 +113,10 @@ class TestWizard:
     def test_wizard_has_spells(self):
         """Wizard knows spells."""
         wizard = Wizard("Merlin")
-        assert len(wizard.spells) > 0
-        assert "Fireball" in wizard.spells
-        assert "Lightning Bolt" in wizard.spells
-        assert "Sleep" in wizard.spells
+        assert len(wizard.spells_known) > 0
+        assert "Fireball" in wizard.spells_known
+        assert "Lightning Bolt" in wizard.spells_known
+        assert "Sleep" in wizard.spells_known
 
 
 class TestBarbarian:
@@ -148,7 +148,7 @@ class TestElf:
     def test_elf_has_spells(self):
         """Elf knows some spells."""
         elf = Elf("Legolas")
-        assert len(elf.spells) > 0
+        assert len(elf.spells_known) > 0
 
 
 class TestDwarf:

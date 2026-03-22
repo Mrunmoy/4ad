@@ -73,6 +73,12 @@ class Character:
     limping: bool = False
     blessed_temple_bonus: bool = False  # +1 vs undead/demons, consumed on kill
     separated: bool = False  # Trapdoor: separated from party
+    protected: bool = False  # Protect spell: +1 defense for current combat
+
+    # Spell system
+    spells_known: List[str] = field(default_factory=list)
+    spells_remaining: int = 0
+    healing_remaining: int = 0  # For clerics (3 per adventure)
 
     def __post_init__(self):
         if self.inventory is None:
@@ -111,6 +117,13 @@ class Character:
 
     def can_cast(self, spell: str) -> bool:
         """Can character cast specific spell."""
+        return False
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """
+        Attempt to use a spell slot. Returns True if successful.
+        Override in subclasses for class-specific behaviour.
+        """
         return False
 
     def get_save_bonus(self, vs: str) -> int:
@@ -158,9 +171,13 @@ class Character:
             "limping": self.limping,
             "blessed_temple_bonus": self.blessed_temple_bonus,
             "separated": self.separated,
+            "protected": self.protected,
             "equipment": self.equipment,
             "gold": self.inventory.gold if self.inventory else self.gold,
             "inventory": self.inventory.to_dict() if self.inventory else None,
+            "spells_known": self.spells_known,
+            "spells_remaining": self.spells_remaining,
+            "healing_remaining": self.healing_remaining,
         }
 
 
@@ -248,6 +265,9 @@ class Cleric(Character):
         )
         self.healing_uses = 3
         self.blessing_uses = 3
+        self.spells_known = ["Blessing"]
+        self.spells_remaining = 3  # 3 Blessing uses per adventure
+        self.healing_remaining = 3  # 3 Healing uses per adventure
 
     def attack_bonus(self, target=None, **kwargs) -> int:
         """Cleric: floor(level/2), full level vs undead/demons."""
@@ -261,20 +281,33 @@ class Cleric(Character):
         """Cleric can cast Blessing if uses remain."""
         return spell == "Blessing" and self.blessing_uses > 0
 
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a Blessing charge."""
+        if spell_name == "Blessing" and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            self.blessing_uses -= 1
+            return True
+        return False
+
     def get_save_bonus(self, vs: str) -> int:
         """Cleric adds level vs undead and demons."""
         if vs in ("undead", "demon"):
             return self.level
         return 0
 
-    def use_healing(self, target_character) -> int:
+    def use_healing(self, target_character=None) -> int:
         """Use healing power on a character.
 
         Returns HP healed, or 0 if no uses remaining.
+        If called without a target (from spell system), returns True/False.
         """
         if self.healing_uses <= 0:
             return 0
         self.healing_uses -= 1
+        self.healing_remaining -= 1
+        if target_character is None:
+            # Called from spell system -- just consume the charge
+            return 1
         from src.dice import roll_d6
         healed = roll_d6() + self.level
         target_character.heal(healed)
@@ -288,6 +321,7 @@ class Cleric(Character):
         if self.blessing_uses <= 0:
             return False
         self.blessing_uses -= 1
+        self.spells_remaining -= 1
         return True
 
     def to_dict(self) -> dict:
@@ -385,8 +419,12 @@ class Wizard(Character):
         self.spells = [
             "Blessing", "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"
         ]
+        self.spells_known = [
+            "Blessing", "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"
+        ]
         self.spell_slots = 2 + level
         self.spells_used = 0
+        self.spells_remaining = 2 + level
 
     def attack_bonus(self, **kwargs) -> int:
         """Wizard: no attack bonus for melee/ranged."""
@@ -405,7 +443,16 @@ class Wizard(Character):
         if not self.can_cast(spell):
             return False
         self.spells_used += 1
+        self.spells_remaining -= 1
         return True
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a spell slot (spell system interface)."""
+        if spell_name in self.spells_known and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            self.spells_used += 1
+            return True
+        return False
 
     def can_use_heavy_armor(self) -> bool:
         return False
@@ -530,8 +577,12 @@ class Elf(Character):
         self.spells = [
             "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"
         ]
+        self.spells_known = [
+            "Fireball", "Lightning Bolt", "Sleep", "Escape", "Protect"
+        ]
         self.spell_slots = level  # 1 per level
         self.spells_used = 0
+        self.spells_remaining = level
 
     def attack_bonus(self, target=None, two_handed: bool = False, **kwargs) -> int:
         """Elf: +level (not with 2H). +1 vs orcs."""
@@ -559,7 +610,16 @@ class Elf(Character):
         if not self.can_cast(spell):
             return False
         self.spells_used += 1
+        self.spells_remaining -= 1
         return True
+
+    def use_spell(self, spell_name: str = None) -> bool:
+        """Use a spell slot (spell system interface)."""
+        if spell_name in self.spells_known and self.spells_remaining > 0:
+            self.spells_remaining -= 1
+            self.spells_used += 1
+            return True
+        return False
 
     def can_use_heavy_armor(self) -> bool:
         """Elf cannot use heavy armor."""
