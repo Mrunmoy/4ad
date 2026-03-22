@@ -196,18 +196,22 @@ class GameManager:
         elif content.type == RoomType.TREASURE:
             self.log_message("Treasure found!")
             content.cleared = True
+            self.peaceful_encounters += 1
 
         elif content.type == RoomType.EMPTY:
             self.log_message("The room appears empty")
             content.cleared = True
+            self.peaceful_encounters += 1
 
         elif content.type == RoomType.SPECIAL_FEATURE:
             self.log_message("You find something unusual...")
             content.cleared = True
+            self.peaceful_encounters += 1
 
         elif content.type == RoomType.SPECIAL_EVENT:
             self.log_message("A special event occurs!")
             content.cleared = True
+            self.peaceful_encounters += 1
 
         elif content.type == RoomType.TREASURE_TRAP:
             self.log_message("Treasure! But there's a trap...")
@@ -648,6 +652,7 @@ class GameManager:
                 "description": self.active_quest.description,
                 "target": self.active_quest.target,
                 "completed": self.active_quest.completed,
+                "progress": self.active_quest.progress,
             } if self.active_quest else None,
             "final_boss_killed": self.final_boss_killed,
             "exiting": self.exiting,

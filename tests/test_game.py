@@ -2,6 +2,7 @@
 from src.game import GameManager
 from src.dungeon import RoomContent, RoomType
 from src.monster import Boss
+from src.quests import Quest
 
 
 def _setup_game_with_combat(num_monsters: int = 2) -> tuple:
@@ -382,3 +383,84 @@ class TestEntranceRoomVisited:
         """The entrance room should be marked visited once the game starts."""
         gm = _setup_started_game()
         assert gm.dungeon.entrance.visited is True
+
+
+class TestPeacefulEncounterIncrement:
+    """Tests that peaceful_encounters increments for non-combat rooms."""
+
+    def _move_into_room(self, room_type: RoomType, description: str) -> GameManager:
+        gm = _setup_started_game()
+        entrance = gm.dungeon.party.current_room
+        room = gm.dungeon.add_room_from(entrance, "north")
+        room.content = RoomContent(room_type, description)
+        gm.move("north")
+        return gm
+
+    def test_empty_room_increments_peaceful(self):
+        gm = self._move_into_room(RoomType.EMPTY, "Empty")
+        assert gm.peaceful_encounters == 1
+
+    def test_treasure_room_increments_peaceful(self):
+        gm = self._move_into_room(RoomType.TREASURE, "Treasure")
+        assert gm.peaceful_encounters == 1
+
+    def test_special_feature_increments_peaceful(self):
+        gm = self._move_into_room(RoomType.SPECIAL_FEATURE, "Feature")
+        assert gm.peaceful_encounters == 1
+
+    def test_special_event_increments_peaceful(self):
+        gm = self._move_into_room(RoomType.SPECIAL_EVENT, "Event")
+        assert gm.peaceful_encounters == 1
+
+    def test_multiple_peaceful_rooms_accumulate(self):
+        gm = _setup_started_game()
+        dungeon = gm.dungeon
+        entrance = dungeon.party.current_room
+
+        r1 = dungeon.add_room_from(entrance, "north")
+        r1.content = RoomContent(RoomType.EMPTY, "Empty")
+        r2 = dungeon.add_room_from(r1, "north")
+        r2.content = RoomContent(RoomType.TREASURE, "Treasure")
+
+        gm.move("north")
+        gm.move("north")
+        assert gm.peaceful_encounters == 2
+
+
+class TestQuestProgressSerialization:
+    """Tests that quest progress survives to_dict() round-trip."""
+
+    def test_to_dict_includes_quest_progress(self):
+        gm = _setup_started_game()
+        gm.active_quest = Quest(
+            quest_type="peace",
+            description="Resolve 3 encounters peacefully",
+            target="3 peaceful encounters",
+            progress={"peaceful_encounters": 2, "required": 3},
+        )
+        data = gm.to_dict()
+        assert data["active_quest"]["progress"] == {
+            "peaceful_encounters": 2,
+            "required": 3,
+        }
+
+    def test_to_dict_quest_progress_roundtrip(self):
+        gm = _setup_started_game()
+        progress = {"target_boss": "Ogre", "killed": False}
+        gm.active_quest = Quest(
+            quest_type="bring_head",
+            description="Bring the head of Ogre",
+            target="Ogre",
+            progress=progress,
+        )
+        data = gm.to_dict()
+        restored_progress = data["active_quest"]["progress"]
+        assert restored_progress == progress
+        assert restored_progress["target_boss"] == "Ogre"
+        assert restored_progress["killed"] is False
+
+    def test_to_dict_no_quest_returns_none(self):
+        gm = _setup_started_game()
+        gm.active_quest = None
+        data = gm.to_dict()
+        assert data["active_quest"] is None
