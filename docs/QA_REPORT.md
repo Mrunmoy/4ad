@@ -12,11 +12,11 @@
 |-------|------|-------|------|------|
 | Existing unit tests | `test_character.py`, `test_combat.py`, `test_dice.py`, `test_dungeon.py`, `test_game.py` | 82 | 82 | 0 |
 | Integration (new) | `test_integration.py` | 35 | 35 | 0 |
-| QA Checklist (new) | `test_qa_checklist.py` | 34 | 34 | 0 |
+| QA Checklist (new) | `test_qa_checklist.py` | 35 | 35 | 0 |
 | Game Balance (new) | `test_game_balance.py` | 6 | 6 | 0 |
-| **Total** | | **157** | **157** | **0** |
+| **Total** | | **158** | **158** | **0** |
 
-All 157 tests pass. Runtime: ~0.4 seconds.
+All 158 tests pass. Runtime: ~0.4 seconds.
 
 ---
 
@@ -102,18 +102,16 @@ The following systems are defined in GAME_DESIGN.md and have open feature branch
 
 ## 5. Recommendations for Phase 2
 
-1. **Merge Phase 1 PRs and re-run this integration suite.** The 75 new tests should continue to pass since they test the core loop, not the new features.
+1. **Merge Phase 1 PRs and re-run this integration suite.** The 76 new tests should continue to pass since they test the core loop, not the new features.
 
-2. **Add combat movement guard.** Block `GameManager.move()` during active combat on the backend, not just the frontend.
+2. **Extend balance tests after equipment merges.** Equipment modifiers will shift combat math significantly. Re-run Monte Carlo tests to verify win rates remain reasonable.
 
-3. **Extend balance tests after equipment merges.** Equipment modifiers will shift combat math significantly. Re-run Monte Carlo tests to verify win rates remain reasonable.
-
-4. **Add integration tests for each Phase 1 feature** as they merge:
+3. **Add integration tests for each Phase 1 feature** as they merge:
    - Spell casting during combat (fireball killing minions, sleep vs undead immunity)
    - Treasure drops with correct table probabilities
    - XP accumulation and level-up triggers
    - Monster reaction flow (flee/bribe decision tree)
 
-5. **Fuzz testing.** The current test suite uses deterministic force_roll inputs. Adding a fuzz layer that feeds random sequences through complete game runs would catch edge cases in state transitions.
+4. **Fuzz testing.** The current test suite uses deterministic force_roll inputs. Adding a fuzz layer that feeds random sequences through complete game runs would catch edge cases in state transitions.
 
-6. **Performance baseline.** 157 tests run in 0.4s. Track this as more tests and systems are added. Monte Carlo tests (especially dungeon completion) will be the first to slow down.
+5. **Performance baseline.** 158 tests run in 0.4s. Track this as more tests and systems are added. Monte Carlo tests (especially dungeon completion) will be the first to slow down.
