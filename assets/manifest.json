@@ -1,0 +1,957 @@
+{
+  "version": "1.0",
+  "style": {
+    "master_prompt": "dark fantasy dungeon crawler game art, painterly style, warm torchlight, stone dungeon environment, medieval fantasy, high detail, dramatic lighting, game asset on dark background, no text, no watermark",
+    "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements, sci-fi, anime style, cartoon, 3d render, photo-realistic",
+    "sampler": "DPM++ 2M Karras",
+    "steps": 30,
+    "cfg_scale": 7.5,
+    "seed_base": 42
+  },
+  "categories": {
+    "characters": {
+      "description": "Character class portraits for party selection and UI",
+      "dimensions": [128, 128],
+      "sdxl_dimensions": [512, 512],
+      "count": 8
+    },
+    "monsters": {
+      "description": "Monster portraits for combat encounters",
+      "dimensions": [256, 256],
+      "sdxl_dimensions": [512, 512],
+      "count": 24
+    },
+    "items": {
+      "description": "Equipment and item icons for inventory and shop",
+      "dimensions": [32, 32],
+      "sdxl_dimensions": [512, 512],
+      "count": 25
+    },
+    "content": {
+      "description": "Room content icons for dungeon events and features",
+      "dimensions": [64, 64],
+      "sdxl_dimensions": [512, 512],
+      "count": 20
+    },
+    "spells": {
+      "description": "Spell effect art for casting UI",
+      "dimensions": [128, 128],
+      "sdxl_dimensions": [512, 512],
+      "count": 6
+    },
+    "ui": {
+      "description": "UI elements — borders, panels, buttons",
+      "dimensions": null,
+      "sdxl_dimensions": null,
+      "count": 10
+    }
+  },
+  "assets": [
+    {
+      "id": "warrior_portrait",
+      "category": "characters",
+      "filename": "warrior.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a warrior adventurer, male, plate armor, longsword, shield, scarred face, determined expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#c0392b",
+      "label": "Warrior"
+    },
+    {
+      "id": "cleric_portrait",
+      "category": "characters",
+      "filename": "cleric.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a cleric adventurer, male, white and gold robes, holy symbol around neck, mace, warm light aura, determined expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#f1c40f",
+      "label": "Cleric"
+    },
+    {
+      "id": "rogue_portrait",
+      "category": "characters",
+      "filename": "rogue.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a rogue adventurer, female, leather armor, daggers, hood, shadows, cunning expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#2c3e50",
+      "label": "Rogue"
+    },
+    {
+      "id": "wizard_portrait",
+      "category": "characters",
+      "filename": "wizard.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a wizard adventurer, elderly male, flowing purple robes, spell book, glowing staff, arcane symbols, wise expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#8e44ad",
+      "label": "Wizard"
+    },
+    {
+      "id": "barbarian_portrait",
+      "category": "characters",
+      "filename": "barbarian.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a barbarian adventurer, large muscular male, fur cloak, war paint, great axe, fierce expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#d35400",
+      "label": "Barbarian"
+    },
+    {
+      "id": "elf_portrait",
+      "category": "characters",
+      "filename": "elf.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of an elf adventurer, androgynous, elegant leather armor, longbow, pointed ears, forest green cloak, serene expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#27ae60",
+      "label": "Elf"
+    },
+    {
+      "id": "dwarf_portrait",
+      "category": "characters",
+      "filename": "dwarf.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a dwarf adventurer, stocky male, thick braided beard, heavy armor, warhammer, helmet with horns, gruff expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#95a5a6",
+      "label": "Dwarf"
+    },
+    {
+      "id": "halfling_portrait",
+      "category": "characters",
+      "filename": "halfling.png",
+      "dimensions": [128, 128],
+      "priority": "P1",
+      "prompt": "portrait of a halfling adventurer, small cheerful male, curly hair, sling weapon, leather vest, lucky charm, mischievous expression, upper body, facing slightly left, fantasy RPG character portrait",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, deformed hands, extra fingers, modern elements",
+      "color": "#e67e22",
+      "label": "Halfling"
+    },
+
+    {
+      "id": "giant_rat_portrait",
+      "category": "monsters",
+      "filename": "giant_rat.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "giant rat monster, mangy fur, red eyes, sharp teeth, snarling, dungeon floor, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "minion",
+      "level": 1
+    },
+    {
+      "id": "goblin_portrait",
+      "category": "monsters",
+      "filename": "goblin.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "goblin warrior, green skin, crude iron armor, rusty scimitar, snarling, small stature, dungeon setting, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "minion",
+      "level": 3
+    },
+    {
+      "id": "skeleton_portrait",
+      "category": "monsters",
+      "filename": "skeleton.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "animated skeleton warrior, rusted sword and shield, glowing eye sockets, cracked bones, undead, dungeon crypt, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "minion",
+      "level": 3
+    },
+    {
+      "id": "orc_portrait",
+      "category": "monsters",
+      "filename": "orc.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "orc warrior, muscular green-grey skin, tusks, heavy crude armor, battle axe, war paint, aggressive stance, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "minion",
+      "level": 4
+    },
+    {
+      "id": "zombie_portrait",
+      "category": "monsters",
+      "filename": "zombie.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "undead zombie, rotting flesh, torn clothing, shambling pose, glowing dead eyes, dungeon crypt, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "minion",
+      "level": 3
+    },
+    {
+      "id": "kobold_portrait",
+      "category": "monsters",
+      "filename": "kobold.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "kobold, small reptilian humanoid, brown scales, crude spear, mischievous, dungeon tunnels, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "minion",
+      "level": 2
+    },
+    {
+      "id": "chaos_warrior_portrait",
+      "category": "monsters",
+      "filename": "chaos_warrior.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "chaos warrior, massive armored figure, dark spiked plate armor, glowing red eyes, dark flames, demonic horns, corrupted greatsword, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 5
+    },
+    {
+      "id": "ogre_portrait",
+      "category": "monsters",
+      "filename": "ogre.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "ogre, enormous hulking brute, thick grey skin, crude wooden club, loincloth, dull angry eyes, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 5
+    },
+    {
+      "id": "vampire_portrait",
+      "category": "monsters",
+      "filename": "vampire.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "vampire lord, pale aristocratic face, crimson eyes, black cape with red lining, fangs, gothic castle, bat silhouettes, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 6
+    },
+    {
+      "id": "demon_portrait",
+      "category": "monsters",
+      "filename": "demon.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "greater demon, massive red-skinned fiend, curved horns, bat wings, cloven hooves, hellfire, burning eyes, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 7
+    },
+    {
+      "id": "troll_portrait",
+      "category": "monsters",
+      "filename": "troll.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "troll, tall gangly green creature, long arms, regenerating flesh, jagged teeth, cave setting, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 6
+    },
+    {
+      "id": "dragon_portrait",
+      "category": "monsters",
+      "filename": "dragon.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "dungeon dragon, massive scaled beast, fire breathing, ancient red dragon, treasure hoard, enormous wings, glowing eyes, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "boss",
+      "level": 8
+    },
+    {
+      "id": "gelatinous_cube_portrait",
+      "category": "monsters",
+      "filename": "gelatinous_cube.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "gelatinous cube, translucent ooze filling dungeon corridor, bones and weapons visible inside, acidic, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 4
+    },
+    {
+      "id": "rust_monster_portrait",
+      "category": "monsters",
+      "filename": "rust_monster.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "rust monster, insectoid creature, metallic antenna feelers, corroded carapace, orange-brown coloring, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 3
+    },
+    {
+      "id": "carrion_crawler_portrait",
+      "category": "monsters",
+      "filename": "carrion_crawler.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "carrion crawler, giant centipede-like creature, multiple paralytic tentacles, green-grey segmented body, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 4
+    },
+    {
+      "id": "mimic_portrait",
+      "category": "monsters",
+      "filename": "mimic.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "mimic, treasure chest transforming into monster, sharp teeth forming from lid, pseudopod tongue, wooden chest body, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 5
+    },
+    {
+      "id": "medusa_portrait",
+      "category": "monsters",
+      "filename": "medusa.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "medusa, snake hair writhing, stone gaze, serpentine lower body, ancient temple columns, petrified warriors, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 5
+    },
+    {
+      "id": "mind_flayer_portrait",
+      "category": "monsters",
+      "filename": "mind_flayer.png",
+      "dimensions": [256, 256],
+      "priority": "P1",
+      "prompt": "mind flayer, tentacled face, psychic energy, dark purple robes, alien intelligence, glowing eyes, dungeon setting, menacing pose, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements",
+      "monster_type": "weird",
+      "level": 6
+    },
+    {
+      "id": "rats_portrait",
+      "category": "monsters",
+      "filename": "rats.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "swarm of dungeon rats, many small rats, red beady eyes, grimy fur, dungeon floor, swarming, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 0
+    },
+    {
+      "id": "spiders_portrait",
+      "category": "monsters",
+      "filename": "spiders.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "giant dungeon spiders, hairy arachnids, multiple glowing eyes, webs in background, venomous fangs, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 0
+    },
+    {
+      "id": "bats_portrait",
+      "category": "monsters",
+      "filename": "bats.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "swarm of dungeon bats, dark wings, fangs, cave ceiling, swooping, glowing red eyes, dungeon setting, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 0
+    },
+    {
+      "id": "snakes_portrait",
+      "category": "monsters",
+      "filename": "snakes.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "venomous dungeon snakes, coiled serpents, forked tongues, scales glistening in torchlight, dungeon floor, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 1
+    },
+    {
+      "id": "insects_portrait",
+      "category": "monsters",
+      "filename": "insects.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "swarm of giant dungeon insects, beetles and centipedes, chitinous shells, dungeon cracks and crevices, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 0
+    },
+    {
+      "id": "scorpions_portrait",
+      "category": "monsters",
+      "filename": "scorpions.png",
+      "dimensions": [256, 256],
+      "priority": "P2",
+      "prompt": "giant dungeon scorpions, armored carapace, glowing stinger tail, pincers raised, sandy dungeon floor, fantasy monster illustration, creature design",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements, cute",
+      "monster_type": "vermin",
+      "level": 1
+    },
+
+    {
+      "id": "hand_weapon_icon",
+      "category": "items",
+      "filename": "hand_weapon.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, medieval longsword, steel blade, leather grip, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "light_weapon_icon",
+      "category": "items",
+      "filename": "light_weapon.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, medieval dagger, short blade, leather wrapped handle, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "two_handed_weapon_icon",
+      "category": "items",
+      "filename": "two_handed_weapon.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, two-handed greatsword, massive blade, long grip, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "bow_icon",
+      "category": "items",
+      "filename": "bow.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, wooden longbow with arrow nocked, string drawn, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "sling_icon",
+      "category": "items",
+      "filename": "sling.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, leather sling weapon with stone, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "light_armor_icon",
+      "category": "items",
+      "filename": "light_armor.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, leather armor chestpiece, studded, brown leather, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "heavy_armor_icon",
+      "category": "items",
+      "filename": "heavy_armor.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, heavy plate armor chestpiece, steel plates, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "shield_icon",
+      "category": "items",
+      "filename": "shield.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, medieval kite shield, heraldic design, iron rim, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "lantern_icon",
+      "category": "items",
+      "filename": "lantern.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, medieval oil lantern, warm glowing flame, iron frame, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "rope_icon",
+      "category": "items",
+      "filename": "rope.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, coil of hemp rope, brown rope loop, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "bandage_icon",
+      "category": "items",
+      "filename": "bandage.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, linen bandage roll, white cloth strip, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "potion_icon",
+      "category": "items",
+      "filename": "potion.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, glass potion bottle, glowing red healing potion, cork stopper, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "holy_water_icon",
+      "category": "items",
+      "filename": "holy_water.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, holy water vial, glowing blue liquid, silver cross stopper, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "scroll_icon",
+      "category": "items",
+      "filename": "scroll.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, parchment scroll, rolled up, wax seal, arcane writing visible, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "wand_icon",
+      "category": "items",
+      "filename": "wand.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, magic wand, wooden staff tip, glowing crystal end, arcane runes, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ring_icon",
+      "category": "items",
+      "filename": "ring.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, magic ring, gold band, glowing gemstone, arcane aura, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "gold_coin_icon",
+      "category": "items",
+      "filename": "gold_coin.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, gold coin, shining, crown emblem, stacked coins, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "gem_icon",
+      "category": "items",
+      "filename": "gem.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, precious gemstone, cut diamond, sparkling facets, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "jewelry_icon",
+      "category": "items",
+      "filename": "jewelry.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, gold necklace with gemstone pendant, ornate jewelry, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "key_icon",
+      "category": "items",
+      "filename": "key.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, ornate dungeon key, iron skeleton key, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "magic_weapon_icon",
+      "category": "items",
+      "filename": "magic_weapon.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, enchanted sword, glowing blue blade, magical runes, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "fireball_staff_icon",
+      "category": "items",
+      "filename": "fireball_staff.png",
+      "dimensions": [32, 32],
+      "priority": "P2",
+      "prompt": "game icon, wizard staff with fire orb, burning crystal tip, wooden shaft, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "fools_gold_icon",
+      "category": "items",
+      "filename": "fools_gold.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "game icon, pouch of gold coins, leather money bag, coins spilling, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "blade_poison_icon",
+      "category": "items",
+      "filename": "blade_poison.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "game icon, vial of green poison, dripping blade, toxic liquid, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "lucky_charm_icon",
+      "category": "items",
+      "filename": "lucky_charm.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "game icon, four leaf clover charm, golden lucky pendant, glowing, centered composition, clean silhouette, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+
+    {
+      "id": "treasure_chest_content",
+      "category": "content",
+      "filename": "treasure_chest.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, open treasure chest, gold coins inside, wooden chest with iron bands, warm glow, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_dart_content",
+      "category": "content",
+      "filename": "trap_dart.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, wall dart trap, poison darts shooting from stone wall holes, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_poison_gas_content",
+      "category": "content",
+      "filename": "trap_poison_gas.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, green poison gas cloud, billowing toxic fog, skull shape in mist, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_trapdoor_content",
+      "category": "content",
+      "filename": "trap_trapdoor.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, open trapdoor in dungeon floor, dark pit below, wooden hatch, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_bear_content",
+      "category": "content",
+      "filename": "trap_bear.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, iron bear trap, metal jaws open, dungeon floor, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_spears_content",
+      "category": "content",
+      "filename": "trap_spears.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, spear trap, spears thrusting from floor, stone dungeon, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "trap_boulder_content",
+      "category": "content",
+      "filename": "trap_boulder.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, giant rolling boulder, stone corridor, Indiana Jones style trap, dungeon trap, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "fountain_content",
+      "category": "content",
+      "filename": "fountain.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, healing fountain, stone basin, glowing blue water, gentle light, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "temple_content",
+      "category": "content",
+      "filename": "temple.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, blessed temple altar, holy light beam, stone altar with cross, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "armory_content",
+      "category": "content",
+      "filename": "armory.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, dungeon armory, weapon rack with swords and shields, stone wall, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "cursed_altar_content",
+      "category": "content",
+      "filename": "cursed_altar.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, cursed altar, dark stone with purple glow, skull candles, ominous aura, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "statue_content",
+      "category": "content",
+      "filename": "statue.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, ancient stone statue, warrior figure, crumbling stone, mysterious, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "puzzle_room_content",
+      "category": "content",
+      "filename": "puzzle_room.png",
+      "dimensions": [64, 64],
+      "priority": "P1",
+      "prompt": "game icon, puzzle room, stone tiles with runes, magical symbols on floor, mysterious glow, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ghost_content",
+      "category": "content",
+      "filename": "ghost.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, ghostly apparition, translucent spectral figure, wispy form, dungeon event, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "wandering_monster_content",
+      "category": "content",
+      "filename": "wandering_monster.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, footprints in dungeon dust, scratches on wall, something lurking, dungeon event, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "quest_giver_content",
+      "category": "content",
+      "filename": "quest_giver.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, lady in white, ghostly woman, glowing figure offering scroll, dungeon event, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "healer_content",
+      "category": "content",
+      "filename": "healer.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, wandering healer, hooded figure with glowing hands, healing herbs, dungeon event, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "alchemist_content",
+      "category": "content",
+      "filename": "alchemist.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, wandering alchemist, potion bottles, bubbling flask, mysterious merchant, dungeon event, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "secret_door_content",
+      "category": "content",
+      "filename": "secret_door.png",
+      "dimensions": [64, 64],
+      "priority": "P2",
+      "prompt": "game icon, hidden stone door ajar, secret passage revealed, crack of light, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "empty_room_content",
+      "category": "content",
+      "filename": "empty_room.png",
+      "dimensions": [64, 64],
+      "priority": "P3",
+      "prompt": "game icon, empty dungeon room, cobwebs, dust motes in torchlight, stone floor, dungeon feature, centered composition, item illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+
+    {
+      "id": "spell_blessing",
+      "category": "spells",
+      "filename": "blessing.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, divine blessing, golden holy light radiating downward, cross symbol, warm healing aura, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "spell_fireball",
+      "category": "spells",
+      "filename": "fireball.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, fireball explosion, orange and red flames, magical fire burst, intense heat glow, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "spell_lightning",
+      "category": "spells",
+      "filename": "lightning.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, lightning bolt, crackling blue-white electricity, forked lightning, energy discharge, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "spell_sleep",
+      "category": "spells",
+      "filename": "sleep.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, sleep spell, crescent moon, stars, purple mist, dreamy swirling particles, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "spell_escape",
+      "category": "spells",
+      "filename": "escape.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, teleportation escape, swirling blue portal, magical doorway, arcane runes, vanishing figure, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "spell_protect",
+      "category": "spells",
+      "filename": "protect.png",
+      "dimensions": [128, 128],
+      "priority": "P2",
+      "prompt": "spell effect art, protection shield, glowing blue force field, magical barrier, shield rune, defensive aura, fantasy spell illustration",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+
+    {
+      "id": "ui_panel_border",
+      "category": "ui",
+      "filename": "panel_border.png",
+      "dimensions": [64, 64],
+      "priority": "P3",
+      "prompt": "UI border element, medieval stone frame, iron rivets, dark fantasy game UI, tileable, clean edges",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_button_normal",
+      "category": "ui",
+      "filename": "button_normal.png",
+      "dimensions": [200, 48],
+      "priority": "P3",
+      "prompt": "UI button, dark stone button, iron trim, medieval fantasy game UI, clean edges, centered",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_button_hover",
+      "category": "ui",
+      "filename": "button_hover.png",
+      "dimensions": [200, 48],
+      "priority": "P3",
+      "prompt": "UI button hover state, glowing stone button, gold trim, warm light, medieval fantasy game UI, clean edges",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_button_pressed",
+      "category": "ui",
+      "filename": "button_pressed.png",
+      "dimensions": [200, 48],
+      "priority": "P3",
+      "prompt": "UI button pressed state, dark indented stone button, dim lighting, medieval fantasy game UI, clean edges",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_hp_bar_frame",
+      "category": "ui",
+      "filename": "hp_bar_frame.png",
+      "dimensions": [128, 16],
+      "priority": "P3",
+      "prompt": "UI health bar frame, iron bordered rectangle, dark interior, medieval fantasy game UI element",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_inventory_slot",
+      "category": "ui",
+      "filename": "inventory_slot.png",
+      "dimensions": [48, 48],
+      "priority": "P3",
+      "prompt": "UI inventory slot, stone tile square, iron corner rivets, dark center, medieval fantasy game UI element",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_minimap_room",
+      "category": "ui",
+      "filename": "minimap_room.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "UI minimap room tile, small stone room outline, dark interior, minimalist, game UI element",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_minimap_room_current",
+      "category": "ui",
+      "filename": "minimap_room_current.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "UI minimap current room tile, glowing gold outline room, warm light interior, game UI element",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_dice_d6",
+      "category": "ui",
+      "filename": "dice_d6.png",
+      "dimensions": [64, 64],
+      "priority": "P3",
+      "prompt": "game dice, six-sided die, ivory white, black pips, slight shadow, medieval fantasy style, clean render",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    },
+    {
+      "id": "ui_skull_icon",
+      "category": "ui",
+      "filename": "skull_icon.png",
+      "dimensions": [32, 32],
+      "priority": "P3",
+      "prompt": "game icon, small skull, death indicator, bone white, dark background, clean silhouette, game UI element",
+      "negative_prompt": "text, watermark, signature, blurry, low quality, modern elements"
+    }
+  ]
+}
