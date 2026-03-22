@@ -221,25 +221,60 @@ MAX_SHIELDS = 2
 MAX_ITEM_SLOTS = 6
 
 
-@dataclass
 class Inventory:
     """Character inventory with equipment rules enforcement.
 
     Tracks weapons, armor, shields, and items with carry limits.
+    Gold and slot lists are encapsulated via properties to enforce caps.
     """
-    weapons: List[Weapon] = field(default_factory=list)
-    armor: Optional[Armor] = None  # worn armor (not shield)
-    shields: List[Armor] = field(default_factory=list)
-    items: List[Item] = field(default_factory=list)
-    gold: int = 0
-    max_gold: int = MAX_GOLD_DEFAULT
-    class_type: str = "Warrior"  # needed for restriction checks
+
+    def __init__(
+        self,
+        weapons: Optional[List[Weapon]] = None,
+        armor: Optional[Armor] = None,
+        shields: Optional[List[Armor]] = None,
+        items: Optional[List[Item]] = None,
+        gold: int = 0,
+        max_gold: int = MAX_GOLD_DEFAULT,
+        class_type: str = "Warrior",
+    ):
+        self._weapons: List[Weapon] = list(weapons) if weapons else []
+        self.armor: Optional[Armor] = armor
+        self._shields: List[Armor] = list(shields) if shields else []
+        self._items: List[Item] = list(items) if items else []
+        self.max_gold: int = max_gold
+        self._gold: int = max(0, min(gold, max_gold))
+        self.class_type: str = class_type
+
+    # ---- gold property (capped) ----
+
+    @property
+    def gold(self) -> int:
+        return self._gold
+
+    @gold.setter
+    def gold(self, value: int) -> None:
+        self._gold = max(0, min(value, self.max_gold))
+
+    # ---- slot properties (read-only copies) ----
+
+    @property
+    def weapons(self) -> List[Weapon]:
+        return list(self._weapons)
+
+    @property
+    def shields(self) -> List[Armor]:
+        return list(self._shields)
+
+    @property
+    def items(self) -> List[Item]:
+        return list(self._items)
 
     # ---- helpers ----
 
     def _weapon_slots_used(self) -> int:
         """Count weapon slots used (2H = 2 slots)."""
-        return sum(w.hands for w in self.weapons)
+        return sum(w.hands for w in self._weapons)
 
     # ---- public API ----
 
@@ -270,7 +305,7 @@ class Inventory:
             if armor_key not in allowed:
                 return False
             if item.is_shield:
-                if len(self.shields) >= MAX_SHIELDS:
+                if len(self._shields) >= MAX_SHIELDS:
                     return False
             else:
                 # Only one armor set at a time
@@ -287,7 +322,7 @@ class Inventory:
             if item.is_magic and item.name in MAGIC_ITEM_CLASS_RESTRICTIONS:
                 if self.class_type not in MAGIC_ITEM_CLASS_RESTRICTIONS[item.name]:
                     return False
-            if len(self.items) >= MAX_ITEM_SLOTS:
+            if len(self._items) >= MAX_ITEM_SLOTS:
                 return False
             return True
 
@@ -299,37 +334,37 @@ class Inventory:
             return False
 
         if isinstance(item, Weapon):
-            self.weapons.append(item)
+            self._weapons.append(item)
             return True
         if isinstance(item, Armor):
             if item.is_shield:
-                self.shields.append(item)
+                self._shields.append(item)
             else:
                 self.armor = item
             return True
         if isinstance(item, Item):
-            self.items.append(item)
+            self._items.append(item)
             return True
         return False
 
     def remove_item(self, item: EquipmentItem) -> bool:
         """Remove an item from inventory. Returns True on success."""
         if isinstance(item, Weapon):
-            if item in self.weapons:
-                self.weapons.remove(item)
+            if item in self._weapons:
+                self._weapons.remove(item)
                 return True
         elif isinstance(item, Armor):
             if item.is_shield:
-                if item in self.shields:
-                    self.shields.remove(item)
+                if item in self._shields:
+                    self._shields.remove(item)
                     return True
             else:
                 if self.armor is item:
                     self.armor = None
                     return True
         elif isinstance(item, Item):
-            if item in self.items:
-                self.items.remove(item)
+            if item in self._items:
+                self._items.remove(item)
                 return True
         return False
 
@@ -361,16 +396,15 @@ class Inventory:
         bonus = 0
         if self.armor:
             bonus += self.armor.defense_bonus
-        if self.shields:
-            bonus += self.shields[0].defense_bonus  # only first shield active
+        if self._shields:
+            bonus += self._shields[0].defense_bonus  # only first shield active
         return bonus
 
     def get_attack_modifier(self) -> int:
         """Attack modifier from best equipped weapon."""
-        if not self.weapons:
+        if not self._weapons:
             return 0
-        # Return the best modifier among weapons
-        return max(w.attack_modifier for w in self.weapons)
+        return max(w.attack_modifier for w in self._weapons)
 
     def get_save_penalty(self) -> int:
         """Save penalty from heavy armor."""
@@ -380,29 +414,29 @@ class Inventory:
 
     def get_carry_weight(self) -> int:
         """Total number of items carried (for encumbrance)."""
-        count = len(self.weapons) + len(self.shields) + len(self.items)
+        count = len(self._weapons) + len(self._shields) + len(self._items)
         if self.armor:
             count += 1
         return count
 
     def is_over_item_limit(self) -> bool:
         """Check if carrying excess items (over 6 item slots)."""
-        return len(self.items) > MAX_ITEM_SLOTS
+        return len(self._items) > MAX_ITEM_SLOTS
 
     def get_encumbrance_penalty(self) -> int:
         """Defense penalty from carrying too many items."""
-        excess = len(self.items) - MAX_ITEM_SLOTS
+        excess = len(self._items) - MAX_ITEM_SLOTS
         if excess > 0:
             return -excess
         return 0
 
     def has_lantern(self) -> bool:
         """Check if inventory has a lantern."""
-        return any(it.name == "Lantern" for it in self.items)
+        return any(it.name == "Lantern" for it in self._items)
 
     def has_rope(self) -> bool:
         """Check if inventory has rope."""
-        return any(it.name == "Rope" for it in self.items)
+        return any(it.name == "Rope" for it in self._items)
 
     def to_dict(self) -> dict:
         """Serialize inventory to dict."""
@@ -412,7 +446,7 @@ class Inventory:
                  "attack_modifier": w.attack_modifier,
                  "damage_type": w.damage_type,
                  "is_ranged": w.is_ranged, "is_magic": w.is_magic}
-                for w in self.weapons
+                for w in self._weapons
             ],
             "armor": {
                 "name": self.armor.name, "cost": self.armor.cost,
@@ -421,13 +455,13 @@ class Inventory:
             } if self.armor else None,
             "shields": [
                 {"name": s.name, "defense_bonus": s.defense_bonus}
-                for s in self.shields
+                for s in self._shields
             ],
             "items": [
                 {"name": it.name, "cost": it.cost,
                  "one_use": it.one_use, "charges": it.charges,
                  "is_magic": it.is_magic}
-                for it in self.items
+                for it in self._items
             ],
             "gold": self.gold,
         }
