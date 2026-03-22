@@ -10,4 +10,4 @@ if __name__ == '__main__':
     print("Access from LAN using your machine's IP address")
     print("\nPress Ctrl+C to stop\n")
     
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
