@@ -49,7 +49,6 @@ class GameManager:
         self.clues_found = 0
         self.clue_tracker = None
         self.party_gold = 0
-        self.fountain_used = False
         self.pending_feature = None  # EventResult awaiting player choice
         self.pending_event = None    # EventResult awaiting player choice
 
@@ -280,10 +279,6 @@ class GameManager:
         )
         self.log_message(result.description)
 
-        # Track state — only mark fountain used if actually drunk from
-        if result.event_type == "fountain" and result.effects.get("healed") is not None:
-            self.fountain_used = True
-
         # Handle combat from statue
         if result.requires_combat and result.monster_data:
             from src.monster import Boss
@@ -449,8 +444,26 @@ class GameManager:
 
         elif result.event_type == "search_secret_door":
             effects = result.effects or {}
+            safe_exit = effects.get("safe_exit", False)
+
+            # Create a new room connected via the secret door
+            import random
+            directions = ["north", "south", "east", "west"]
+            current_exits = set(room.exits.keys())
+            available_dirs = [d for d in directions if d not in current_exits]
+            if not available_dirs:
+                available_dirs = directions
+            secret_dir = random.choice(available_dirs)
+            new_room = self.dungeon.add_room_from(room, secret_dir)
+            self.log_message(
+                f"A secret door opens to the {secret_dir}, "
+                f"revealing room {new_room.number}!"
+            )
+
             return {"result": "secret_door",
-                    "safe_exit": effects.get("safe_exit", False),
+                    "safe_exit": safe_exit,
+                    "direction": secret_dir,
+                    "new_room": new_room.number,
                     "description": result.description}
 
         elif result.event_type == "search_hidden_treasure":

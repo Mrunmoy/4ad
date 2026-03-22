@@ -100,6 +100,16 @@ _FEATURE_GENERATORS = {
 }
 
 
+_VALID_FEATURE_CHOICES = {
+    "fountain": {"drink", "leave"},
+    "blessed_temple": {"pray", "leave"},
+    "armory": {"swap_equipment", "leave"},
+    "cursed_altar": {"approach", "leave"},
+    "statue": {"touch", "leave"},
+    "puzzle_room": {"attempt", "leave"},
+}
+
+
 def resolve_feature(feature_result: EventResult, party, choice: str,
                     force_roll: int = None,
                     fountain_tracker: dict = None) -> EventResult:
@@ -114,8 +124,16 @@ def resolve_feature(feature_result: EventResult, party, choice: str,
     Returns:
         Updated EventResult with resolution.
     """
-    chars = _get_chars(party)
     feature_type = feature_result.event_type
+    valid = _VALID_FEATURE_CHOICES.get(feature_type)
+    if valid is not None and choice not in valid:
+        return EventResult(
+            event_type=feature_type,
+            description="Invalid choice.",
+            effects={"error": "Invalid choice"},
+        )
+
+    chars = _get_chars(party)
 
     if feature_type == "fountain":
         return _resolve_fountain(chars, choice, force_roll, fountain_tracker)
@@ -421,6 +439,16 @@ _EVENT_GENERATORS = {
 }
 
 
+_VALID_EVENT_CHOICES = {
+    "ghost": None,
+    "wandering_monsters": None,
+    "lady_in_white": {"accept", "refuse"},
+    "trap_event": None,
+    "wandering_healer": {"buy_healing", "leave"},
+    "wandering_alchemist": {"buy", "leave"},
+}
+
+
 def resolve_event(event_result: EventResult, party, choice: str = None,
                   force_roll: int = None, force_rolls: List[int] = None,
                   party_gold: int = None) -> EventResult:
@@ -437,8 +465,16 @@ def resolve_event(event_result: EventResult, party, choice: str = None,
     Returns:
         Updated EventResult with resolution.
     """
-    chars = _get_chars(party)
     event_type = event_result.event_type
+    valid = _VALID_EVENT_CHOICES.get(event_type)
+    if valid is not None and choice not in valid:
+        return EventResult(
+            event_type=event_type,
+            description="Invalid choice.",
+            effects={"error": "Invalid choice"},
+        )
+
+    chars = _get_chars(party)
 
     if event_type == "ghost":
         return _resolve_ghost(chars, force_rolls)

@@ -233,3 +233,136 @@ class TestPendingEventsBlockMovement:
         exits = [d for d in room.exits if room.exits[d] is None]
         if exits:
             assert gm.move(exits[0]) is False
+
+
+# =========================================================================
+# S1: Invalid choice validation in resolve_feature / resolve_event
+# =========================================================================
+
+class TestInvalidFeatureChoice:
+    """resolve_feature must return error on invalid choice without mutating state."""
+
+    def test_fountain_invalid_choice_returns_error(self):
+        chars = _make_party(Warrior)
+        chars[0].take_damage(3)
+        old_life = chars[0].life
+        feat = generate_special_feature(force_roll=1)
+        result = resolve_feature(feat, chars, "splash")
+        assert result.effects.get("error") == "Invalid choice"
+        assert chars[0].life == old_life  # no mutation
+
+    def test_blessed_temple_invalid_choice(self):
+        chars = _make_party(Warrior)
+        feat = generate_special_feature(force_roll=2)
+        result = resolve_feature(feat, chars, "smash")
+        assert result.effects.get("error") == "Invalid choice"
+        assert not getattr(chars[0], 'blessed_temple_bonus', False)
+
+    def test_armory_invalid_choice(self):
+        chars = _make_party(Warrior)
+        feat = generate_special_feature(force_roll=3)
+        result = resolve_feature(feat, chars, "steal")
+        assert result.effects.get("error") == "Invalid choice"
+
+    def test_cursed_altar_invalid_choice(self):
+        chars = _make_party(Warrior)
+        feat = generate_special_feature(force_roll=4)
+        result = resolve_feature(feat, chars, "destroy")
+        assert result.effects.get("error") == "Invalid choice"
+        assert not chars[0].cursed
+
+    def test_statue_invalid_choice(self):
+        chars = _make_party(Warrior)
+        feat = generate_special_feature(force_roll=5)
+        result = resolve_feature(feat, chars, "kick")
+        assert result.effects.get("error") == "Invalid choice"
+
+    def test_puzzle_room_invalid_choice(self):
+        chars = _make_party(Warrior)
+        old_life = chars[0].life
+        feat = generate_special_feature(force_roll=6)
+        result = resolve_feature(feat, chars, "cheat")
+        assert result.effects.get("error") == "Invalid choice"
+        assert chars[0].life == old_life
+
+
+class TestInvalidEventChoice:
+    """resolve_event must return error on invalid choice without mutating state."""
+
+    def test_lady_in_white_invalid_choice(self):
+        chars = _make_party(Warrior)
+        evt = generate_special_event(force_roll=3)
+        result = resolve_event(evt, chars, choice="ignore")
+        assert result.effects.get("error") == "Invalid choice"
+
+    def test_wandering_healer_invalid_choice(self):
+        chars = _make_party(Warrior)
+        chars[0].take_damage(2)
+        old_life = chars[0].life
+        evt = generate_special_event(force_roll=5)
+        result = resolve_event(evt, chars, choice="rob", party_gold=100)
+        assert result.effects.get("error") == "Invalid choice"
+        assert chars[0].life == old_life
+
+    def test_wandering_alchemist_invalid_choice(self):
+        chars = _make_party(Warrior)
+        evt = generate_special_event(force_roll=6)
+        result = resolve_event(evt, chars, choice="steal")
+        assert result.effects.get("error") == "Invalid choice"
+
+
+# =========================================================================
+# S2: Secret door creates traversable room connection
+# =========================================================================
+
+class TestSecretDoorCreatesRoom:
+    """search_room with secret door result must create a connected room."""
+
+    def _setup_game_with_empty_room(self):
+        from src.dungeon import RoomContent, RoomType
+        gm = GameManager("test-secret-door")
+        pid = gm.add_player("Alice")
+        gm.create_character(pid, "Warrior", "Brynn")
+        gm.start()
+        room = gm.dungeon.party.current_room
+        room.content = RoomContent(RoomType.EMPTY, "Room appears empty")
+        return gm
+
+    def test_secret_door_creates_new_room(self):
+        gm = self._setup_game_with_empty_room()
+        rooms_before = len(gm.dungeon.rooms)
+        result = gm.search_room(force_roll=5)
+        assert result["result"] == "secret_door"
+        assert len(gm.dungeon.rooms) > rooms_before
+
+    def test_secret_door_room_is_connected(self):
+        gm = self._setup_game_with_empty_room()
+        room = gm.dungeon.party.current_room
+        result = gm.search_room(force_roll=5)
+        direction = result["direction"]
+        new_room = room.exits[direction]
+        assert new_room is not None
+        # Reciprocal connection exists
+        opposite = {"north": "south", "south": "north",
+                    "east": "west", "west": "east"}
+        assert new_room.exits.get(opposite[direction]) is room
+
+    def test_secret_door_room_is_traversable(self):
+        gm = self._setup_game_with_empty_room()
+        result = gm.search_room(force_roll=5)
+        direction = result["direction"]
+        moved = gm.move(direction)
+        assert moved is True
+        assert gm.dungeon.party.current_room.number == result["new_room"]
+
+
+# =========================================================================
+# S3: fountain_used removed — no attribute on GameManager
+# =========================================================================
+
+class TestFountainUsedRemoved:
+    """GameManager should not have a fountain_used attribute."""
+
+    def test_no_fountain_used_attribute(self):
+        gm = GameManager("test-no-fountain-used")
+        assert not hasattr(gm, "fountain_used")
