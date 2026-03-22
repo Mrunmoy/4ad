@@ -1,12 +1,21 @@
 import Phaser from 'phaser';
+import type { SearchResultEvent, TreasureFound } from '../types';
 
 /**
- * LootScene — treasure chest opening overlay.
- * Shows items found and gold earned.
+ * LootScene -- treasure/search result overlay.
+ * Shows items found and gold earned, then returns to DungeonScene.
  */
 export class LootScene extends Phaser.Scene {
+  private searchResult: SearchResultEvent | null = null;
+  private treasureData: TreasureFound | null = null;
+
   constructor() {
     super({ key: 'LootScene' });
+  }
+
+  init(data?: { searchResult?: SearchResultEvent; treasure?: TreasureFound }): void {
+    this.searchResult = data?.searchResult ?? null;
+    this.treasureData = data?.treasure ?? null;
   }
 
   preload(): void {}
@@ -39,13 +48,65 @@ export class LootScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.add
-      .text(width / 2, height / 2, 'Loot items will appear here', {
-        fontFamily: '"Press Start 2P", monospace',
-        fontSize: '9px',
-        color: '#778899',
-      })
-      .setOrigin(0.5);
+    // Display loot content
+    let contentY = py + 70;
+
+    if (this.treasureData) {
+      // Treasure found from combat or search
+      if (this.treasureData.gold > 0) {
+        this.add
+          .text(width / 2, contentY, 'Gold found: ' + this.treasureData.gold, {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '10px',
+            color: '#D4A017',
+          })
+          .setOrigin(0.5);
+        contentY += 24;
+      }
+
+      if (this.treasureData.items && this.treasureData.items.length > 0) {
+        for (const item of this.treasureData.items) {
+          this.add
+            .text(width / 2, contentY, '+ ' + item.name, {
+              fontFamily: '"Press Start 2P", monospace',
+              fontSize: '9px',
+              color: '#E8DCC8',
+            })
+            .setOrigin(0.5);
+          contentY += 18;
+        }
+      }
+
+      if (this.treasureData.total_party_gold !== undefined) {
+        this.add
+          .text(width / 2, contentY + 10, 'Party total: ' + this.treasureData.total_party_gold + 'gp', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '8px',
+            color: '#778899',
+          })
+          .setOrigin(0.5);
+      }
+    } else if (this.searchResult) {
+      // Search result
+      const desc = this.searchResult.description ?? 'Nothing found.';
+      this.add
+        .text(width / 2, contentY, desc, {
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: '9px',
+          color: '#E8DCC8',
+          wordWrap: { width: panelW - 40 },
+          align: 'center',
+        })
+        .setOrigin(0.5);
+    } else {
+      this.add
+        .text(width / 2, contentY, 'Nothing found.', {
+          fontFamily: '"Press Start 2P", monospace',
+          fontSize: '9px',
+          color: '#778899',
+        })
+        .setOrigin(0.5);
+    }
 
     // Collect button
     this.add

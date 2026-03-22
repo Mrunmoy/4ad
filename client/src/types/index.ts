@@ -1,6 +1,8 @@
 export type {
   GamePhase,
   GameState,
+  PendingEvent,
+  ReactionState,
   Player,
   CharacterState,
   InventoryState,
