@@ -169,7 +169,12 @@ class Party:
     def get_living_characters(self) -> List:
         """Get all living characters."""
         return [c for c in self.characters if not c.is_dead()]
-    
+
+    def has_class(self, class_type: str) -> bool:
+        """Check if party has a living character of the given class."""
+        return any(c.class_type == class_type and not c.is_dead()
+                   for c in self.characters)
+
     def is_wiped_out(self) -> bool:
         """Check if all characters are dead or petrified."""
         return all(c.is_dead() or c.petrified for c in self.characters)

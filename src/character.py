@@ -70,6 +70,9 @@ class Character:
     cursed: bool = False
     poisoned: bool = False
     petrified: bool = False
+    limping: bool = False
+    blessed_temple_bonus: bool = False  # +1 vs undead/demons, consumed on kill
+    separated: bool = False  # Trapdoor: separated from party
 
     def __post_init__(self):
         if self.inventory is None:
@@ -136,6 +139,9 @@ class Character:
             "cursed": self.cursed,
             "poisoned": self.poisoned,
             "petrified": self.petrified,
+            "limping": self.limping,
+            "blessed_temple_bonus": self.blessed_temple_bonus,
+            "separated": self.separated,
             "equipment": self.equipment,
             "gold": self.inventory.gold if self.inventory else self.gold,
             "inventory": self.inventory.to_dict() if self.inventory else None,
