@@ -1,4 +1,5 @@
 """Quest system for 4AD."""
+import random
 from dataclasses import dataclass, field
 from typing import Optional, List
 from src.dice import roll_d6
@@ -76,6 +77,25 @@ class Quest:
     target: str  # specific boss name, gold amount, item name, etc.
     completed: bool = False
     progress: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {
+            "quest_type": self.quest_type,
+            "description": self.description,
+            "target": self.target,
+            "completed": self.completed,
+            "progress": dict(self.progress),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Quest":
+        return cls(
+            quest_type=data["quest_type"],
+            description=data["description"],
+            target=data["target"],
+            completed=data.get("completed", False),
+            progress=data.get("progress", {}),
+        )
 
 
 @dataclass
@@ -210,8 +230,8 @@ def roll_epic_reward(
     """Roll on the epic rewards table.
 
     Each reward can only be earned once per campaign. If the rolled reward
-    has already been earned, reroll up to 5 times. If all rewards are used,
-    returns None.
+    has already been earned, randomly select from remaining available rewards.
+    If all rewards are used, returns None.
 
     Args:
         used_rewards: List of reward names already earned this campaign.
@@ -227,18 +247,29 @@ def roll_epic_reward(
     if len(used_rewards) >= 6:
         return None
 
-    for _ in range(6):
-        roll = force_roll if force_roll is not None else roll_d6()
-        reward_data = EPIC_REWARDS_TABLE[roll]
+    roll = force_roll if force_roll is not None else roll_d6()
+    reward_data = EPIC_REWARDS_TABLE[roll]
 
-        if reward_data["name"] not in used_rewards:
-            return EpicReward(
-                name=reward_data["name"],
-                description=reward_data["description"],
-                effect=reward_data["effect"],
-            )
-        # If force_roll hits a used reward, we can't reroll
-        if force_roll is not None:
-            return None
+    if reward_data["name"] not in used_rewards:
+        return EpicReward(
+            name=reward_data["name"],
+            description=reward_data["description"],
+            effect=reward_data["effect"],
+        )
 
-    return None
+    # If force_roll hits a used reward, we can't reroll
+    if force_roll is not None:
+        return None
+
+    # Deterministically select from remaining available rewards
+    available = [
+        EPIC_REWARDS_TABLE[i]
+        for i in range(1, 7)
+        if EPIC_REWARDS_TABLE[i]["name"] not in used_rewards
+    ]
+    reward_data = random.choice(available)
+    return EpicReward(
+        name=reward_data["name"],
+        description=reward_data["description"],
+        effect=reward_data["effect"],
+    )

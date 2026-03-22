@@ -118,6 +118,37 @@ class TestQuestCompletion:
         assert check_quest_completion(quest, {}) is True
 
 
+class TestQuestSerialization:
+    """Test Quest to_dict / from_dict round-trip."""
+
+    def test_quest_to_dict_includes_all_fields(self):
+        quest = generate_quest(force_roll=5)
+        d = quest.to_dict()
+        assert d["quest_type"] == "peace"
+        assert d["completed"] is False
+        assert "progress" in d
+        assert d["progress"]["required"] == 3
+
+    def test_quest_from_dict_reconstructs(self):
+        quest = generate_quest(force_roll=2)
+        quest.progress["gold_delivered"] = True
+        quest.completed = True
+        d = quest.to_dict()
+        restored = Quest.from_dict(d)
+        assert restored.quest_type == quest.quest_type
+        assert restored.completed is True
+        assert restored.progress["gold_delivered"] is True
+        assert restored.target == quest.target
+
+    def test_quest_round_trip_preserves_progress(self):
+        quest = generate_quest(force_roll=5)
+        quest.progress["peaceful_encounters"] = 2
+        d = quest.to_dict()
+        restored = Quest.from_dict(d)
+        assert restored.progress["peaceful_encounters"] == 2
+        assert restored.progress["required"] == 3
+
+
 class TestEpicRewards:
     """Test epic reward rolling."""
 
@@ -147,3 +178,13 @@ class TestEpicRewards:
         reward = roll_epic_reward(force_roll=1)
         assert isinstance(reward.effect, dict)
         assert "type" in reward.effect
+
+    def test_reroll_always_finds_remaining_reward(self):
+        """With 5/6 used, natural roll must always find the last reward."""
+        all_names = [EPIC_REWARDS_TABLE[i]["name"] for i in range(1, 7)]
+        used = all_names[:5]
+        remaining_name = all_names[5]
+        for _ in range(50):
+            result = roll_epic_reward(used_rewards=used)
+            assert result is not None, "Should always find the remaining reward"
+            assert result.name == remaining_name
