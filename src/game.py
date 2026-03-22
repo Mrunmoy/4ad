@@ -603,6 +603,10 @@ class GameManager:
 
     def cast_spell(self, spell_name: str, target=None, caster_id: str = None) -> dict:
         """Cast a spell during combat or out of combat."""
+        # Reset kills counter at start of each combat round (same as attack())
+        if self.combat_active:
+            self.kills_this_round = 0
+
         # Honor caster_id if provided; otherwise pick first eligible caster
         caster = None
         if caster_id is not None:
@@ -716,7 +720,10 @@ class GameManager:
 
     def _monster_attack(self) -> None:
         """Handle monster attacks."""
-        party = self.dungeon.party.get_living_characters()
+        party = [c for c in self.dungeon.party.get_living_characters()
+                 if not getattr(c, '_escaped', False)]
+        if not party:
+            return
 
         for monster in self.current_monsters:
             if monster.is_dead():
@@ -744,7 +751,8 @@ class GameManager:
                     for c in party:
                         if c.is_dead():
                             self.log_message(f"{c.name} has fallen!")
-                    party = self.dungeon.party.get_living_characters()
+                    party = [c for c in self.dungeon.party.get_living_characters()
+                             if not getattr(c, '_escaped', False)]
                     continue  # Breath replaces melee this turn
 
             results = Combat.resolve_monster_attack(monster, party)
@@ -909,10 +917,11 @@ class GameManager:
         self.dragon_breath_used = False
         self.sleeping_bonus = 0
 
-        # Reset Protect spell on all characters (including fallen ones)
+        # Reset Protect spell and Escape flag on all characters
         if self.dungeon and self.dungeon.party:
             for char in self.dungeon.party.characters:
                 char.protected = False
+                char._escaped = False
 
         self.current_monsters = []
         self.current_monster_names = []
