@@ -7,6 +7,7 @@ import os
 from src.dungeon import Dungeon, Party
 from src.character import create_character, CHARACTER_CLASSES
 from src.game import GameManager
+from src.campaign import CampaignManager
 
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 app = Flask(__name__,
@@ -223,6 +224,99 @@ def handle_cast_spell(data):
 
 
 # SPA catch-all: serve index.html for any non-API client-side route
+# ---------------------------------------------------------------------------
+# Campaign persistence endpoints
+# ---------------------------------------------------------------------------
+
+campaign_mgr = CampaignManager()
+
+
+@app.route('/api/campaigns', methods=['GET'])
+def list_campaigns():
+    """List all saved campaigns."""
+    campaigns = campaign_mgr.list_campaigns()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'created_at': c.created_at,
+        'dungeons_completed': c.dungeons_completed,
+        'total_gold_earned': c.total_gold_earned,
+        'characters': c.characters,
+    } for c in campaigns])
+
+
+@app.route('/api/campaign/create', methods=['POST'])
+def create_campaign():
+    """Create a new campaign with initial party.
+
+    Request: { "name": "My Campaign", "characters": [{"class_name": ..., "char_name": ...}, ...] }
+    """
+    data = request.json
+    name = data.get('name')
+    if not name:
+        return jsonify({"error": "Campaign name required"}), 400
+
+    char_specs = data.get('characters', [])
+    if not char_specs:
+        return jsonify({"error": "At least one character required"}), 400
+
+    characters = []
+    for spec in char_specs:
+        try:
+            char = create_character(spec['class_name'], spec['char_name'])
+            characters.append(char)
+        except (ValueError, KeyError) as e:
+            return jsonify({"error": f"Invalid character: {e}"}), 400
+
+    campaign_id = campaign_mgr.create_campaign(name, characters)
+    return jsonify({"campaign_id": campaign_id, "name": name})
+
+
+@app.route('/api/campaign/<campaign_id>', methods=['GET'])
+def get_campaign(campaign_id):
+    """Load a campaign by ID."""
+    campaign = campaign_mgr.load_campaign(campaign_id)
+    if not campaign:
+        return jsonify({"error": "Campaign not found"}), 404
+
+    # Serialize characters back to dicts for JSON
+    campaign['characters'] = [c.to_dict() for c in campaign['characters']]
+    return jsonify(campaign)
+
+
+@app.route('/api/campaign/<campaign_id>/save', methods=['POST'])
+def save_campaign(campaign_id):
+    """Save game state after a dungeon run.
+
+    Request: { "game_id": "...", "run_data": { ... } }
+    """
+    data = request.json or {}
+    game_id = data.get('game_id')
+
+    # Get the game to extract characters
+    game = get_game(game_id) if game_id else None
+    if game and game.dungeon and game.dungeon.party:
+        characters = game.dungeon.party.characters
+    else:
+        return jsonify({"error": "Game not found or not started"}), 400
+
+    run_data = data.get('run_data', {})
+    try:
+        campaign_mgr.save_campaign(campaign_id, characters, run_data)
+        return jsonify({"saved": True})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+@app.route('/api/campaign/<campaign_id>', methods=['DELETE'])
+def delete_campaign(campaign_id):
+    """Delete a campaign."""
+    deleted = campaign_mgr.delete_campaign(campaign_id)
+    if not deleted:
+        return jsonify({"error": "Campaign not found"}), 404
+    return jsonify({"deleted": True})
+
+
 @app.route('/<path:path>')
 def catch_all(path):
     """Catch-all route for SPA client-side routing."""
