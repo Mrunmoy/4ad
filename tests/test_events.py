@@ -441,3 +441,65 @@ class TestGameManagerSearch:
         room.content = RoomContent(RoomType.TREASURE, "Treasure!")
         result = gm.search_room()
         assert result["result"] == "nothing_special"
+
+
+# ---------------------------------------------------------------------------
+# Pending choice guards
+# ---------------------------------------------------------------------------
+
+class TestPendingChoiceGuards:
+    """Verify invalid choices don't consume pending features/events."""
+
+    def _setup_game(self):
+        from src.game import GameManager
+        gm = GameManager("test-pending")
+        pid = gm.add_player("Alice")
+        gm.create_character(pid, "Warrior", "Brynn")
+        gm.start()
+        return gm
+
+    def test_invalid_feature_choice_keeps_pending(self):
+        gm = self._setup_game()
+        feat = generate_special_feature(force_roll=1)  # fountain
+        gm.pending_feature = feat
+        result = gm.resolve_pending_feature("invalid_choice")
+        assert "error" in result
+        assert gm.pending_feature is feat  # not consumed
+
+    def test_valid_feature_choice_clears_pending(self):
+        gm = self._setup_game()
+        feat = generate_special_feature(force_roll=1)  # fountain
+        gm.pending_feature = feat
+        room = gm.dungeon.party.current_room
+        from src.dungeon import RoomContent, RoomType
+        room.content = RoomContent(RoomType.SPECIAL_FEATURE, "Fountain")
+        result = gm.resolve_pending_feature("leave")
+        assert "error" not in result
+        assert gm.pending_feature is None
+
+    def test_invalid_event_choice_keeps_pending(self):
+        gm = self._setup_game()
+        evt = generate_special_event(force_roll=3)  # lady_in_white
+        gm.pending_event = evt
+        result = gm.resolve_pending_event("invalid_choice")
+        assert "error" in result
+        assert gm.pending_event is evt  # not consumed
+
+    def test_valid_event_choice_clears_pending(self):
+        gm = self._setup_game()
+        evt = generate_special_event(force_roll=3)  # lady_in_white
+        gm.pending_event = evt
+        room = gm.dungeon.party.current_room
+        from src.dungeon import RoomContent, RoomType
+        room.content = RoomContent(RoomType.SPECIAL_EVENT, "Event")
+        result = gm.resolve_pending_event("accept")
+        assert "error" not in result
+        assert gm.pending_event is None
+
+    def test_event_pending_overwrite_guard(self):
+        """_handle_special_event should not overwrite an existing pending event."""
+        gm = self._setup_game()
+        evt = generate_special_event(force_roll=3)  # lady_in_white
+        gm.pending_event = evt
+        gm._handle_special_event()
+        assert gm.pending_event is evt  # original preserved

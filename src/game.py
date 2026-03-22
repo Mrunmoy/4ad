@@ -241,6 +241,9 @@ class GameManager:
 
     def _handle_special_event(self) -> None:
         """Handle a special event — generate and store for player choice."""
+        if self.pending_event is not None:
+            self.log_message("Cannot handle new event while one is pending.")
+            return
         event = generate_special_event()
 
         # One-time vendor checks — reroll up to 3 times, then accept as-is
@@ -291,6 +294,11 @@ class GameManager:
             self.pending_feature, party, choice,
             fountain_tracker=self.fountain_tracker,
         )
+
+        # Invalid choice → keep pending so the player can retry
+        if result.effects.get("error"):
+            return {"error": result.description}
+
         self.log_message(result.description)
 
         # Handle combat from statue
@@ -313,6 +321,11 @@ class GameManager:
         party = self.dungeon.party
         result = resolve_event(self.pending_event, party, choice,
                                party_gold=self.party_gold)
+
+        # Invalid choice → keep pending so the player can retry
+        if result.effects.get("error"):
+            return {"error": result.description}
+
         self.log_message(result.description)
 
         # Track one-time vendors and deduct gold

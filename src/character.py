@@ -70,7 +70,7 @@ class Character:
     cursed: bool = False
     poisoned: bool = False
     petrified: bool = False
-    limping: bool = False
+    limping: bool = False  # TODO: Add mechanic to cure limping (healer, temple, or rest)
     blessed_temple_bonus: bool = False  # +1 vs undead/demons, consumed on kill
     separated: bool = False  # Trapdoor: separated from party
 

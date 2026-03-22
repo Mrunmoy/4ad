@@ -644,7 +644,9 @@ def search_room(party, force_roll: int = None, force_complication_roll: int = No
       5 = Secret door
       6 = Hidden treasure (with complication roll)
 
-    Dwarf bonus: +1 to search roll.
+    Dwarf bonus: +1 to search roll.  This means dwarves effectively
+    roll 2-7, so they can never trigger wandering monsters (roll <= 1)
+    and have a chance at hidden treasure on a natural 5.
     """
     chars = _get_chars(party)
     roll = force_roll if force_roll is not None else roll_d6()
