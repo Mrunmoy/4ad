@@ -13,17 +13,18 @@ class Monster:
     is_undead: bool = False
     is_demon: bool = False
     is_dragon: bool = False
-    
+    is_final_boss: bool = False
+
     def take_damage(self, amount: int) -> None:
         """Take damage."""
         self.life -= amount
         if self.life < 0:
             self.life = 0
-    
+
     def is_dead(self) -> bool:
         """Check if monster is dead."""
         return self.life <= 0
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return {
@@ -34,6 +35,7 @@ class Monster:
             "is_undead": self.is_undead,
             "is_demon": self.is_demon,
             "is_dragon": self.is_dragon,
+            "is_final_boss": self.is_final_boss,
         }
 
 

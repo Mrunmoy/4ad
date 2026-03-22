@@ -119,7 +119,10 @@ class TestCompleteDungeonRun:
 
         gm.move(direction)
         result = gm.search_room()
-        assert result["result"] in ("hidden_treasure", "clue", "nothing")
+        assert result["result"] in (
+            "hidden_treasure", "nothing", "secret_door",
+            "wandering_monster", "already_searched",
+        )
 
     def test_message_log_captures_key_events(self):
         """The message log records join, start, move, and combat events."""
@@ -346,15 +349,16 @@ class TestCombatEdgeCases:
 class TestCharacterClassValidation:
     """Verify every class creates with correct starting stats."""
 
+    # Stats at level 1: life = base + level (level=1)
     EXPECTED_STATS = {
-        "Warrior":   {"attack": 4, "defense": 5, "life": 6, "max_life": 6},
-        "Cleric":    {"attack": 3, "defense": 4, "life": 5, "max_life": 5},
-        "Rogue":     {"attack": 3, "defense": 4, "life": 4, "max_life": 4},
-        "Wizard":    {"attack": 2, "defense": 3, "life": 3, "max_life": 3},
-        "Barbarian": {"attack": 5, "defense": 4, "life": 8, "max_life": 8},
-        "Elf":       {"attack": 3, "defense": 4, "life": 4, "max_life": 4},
-        "Dwarf":     {"attack": 4, "defense": 5, "life": 7, "max_life": 7},
-        "Halfling":  {"attack": 2, "defense": 5, "life": 4, "max_life": 4},
+        "Warrior":   {"attack": 4, "defense": 5, "life": 7, "max_life": 7},
+        "Cleric":    {"attack": 3, "defense": 4, "life": 6, "max_life": 6},
+        "Rogue":     {"attack": 3, "defense": 4, "life": 5, "max_life": 5},
+        "Wizard":    {"attack": 2, "defense": 3, "life": 4, "max_life": 4},
+        "Barbarian": {"attack": 5, "defense": 4, "life": 9, "max_life": 9},
+        "Elf":       {"attack": 3, "defense": 4, "life": 5, "max_life": 5},
+        "Dwarf":     {"attack": 4, "defense": 5, "life": 8, "max_life": 8},
+        "Halfling":  {"attack": 2, "defense": 5, "life": 5, "max_life": 5},
     }
 
     @pytest.mark.parametrize("class_name", list(CHARACTER_CLASSES.keys()))
@@ -405,7 +409,7 @@ class TestSearchMechanics:
         assert "combat" in result["error"].lower()
 
     def test_search_empty_room_possible_outcomes(self):
-        """Searching an empty room returns one of the three defined outcomes."""
+        """Searching an empty room returns one of the defined outcomes."""
         gm, _ = _make_game()
         room = gm.dungeon.party.current_room
         direction = _first_unexplored_exit(room) or "north"
@@ -416,7 +420,10 @@ class TestSearchMechanics:
         gm.move(direction)
 
         result = gm.search_room()
-        assert result["result"] in ("hidden_treasure", "clue", "nothing")
+        assert result["result"] in (
+            "hidden_treasure", "nothing", "secret_door",
+            "wandering_monster", "already_searched",
+        )
 
     def test_search_non_empty_room_returns_nothing_special(self):
         """Searching a room that had non-empty content returns nothing_special."""
@@ -432,8 +439,8 @@ class TestSearchMechanics:
         result = gm.search_room()
         assert result["result"] == "nothing_special"
 
-    def test_search_hidden_treasure_on_roll_12(self):
-        """A forced 2d6 roll of 12 during search yields hidden_treasure."""
+    def test_search_hidden_treasure_on_roll_6(self):
+        """A forced d6 roll of 6 during search yields hidden_treasure."""
         gm, _ = _make_game()
         room = gm.dungeon.party.current_room
         direction = _first_unexplored_exit(room) or "north"
@@ -443,12 +450,11 @@ class TestSearchMechanics:
         empty_room.content = RoomContent(RoomType.EMPTY, "Empty")
         gm.move(direction)
 
-        with patch("src.game.roll_2d6", return_value=12):
-            result = gm.search_room()
+        result = gm.search_room(force_roll=6)
         assert result["result"] == "hidden_treasure"
 
-    def test_search_clue_on_roll_10(self):
-        """A forced 2d6 roll of 10 during search yields clue."""
+    def test_search_secret_door_on_roll_5(self):
+        """A forced d6 roll of 5 during search yields secret_door."""
         gm, _ = _make_game()
         room = gm.dungeon.party.current_room
         direction = _first_unexplored_exit(room) or "north"
@@ -458,12 +464,11 @@ class TestSearchMechanics:
         empty_room.content = RoomContent(RoomType.EMPTY, "Empty")
         gm.move(direction)
 
-        with patch("src.game.roll_2d6", return_value=10):
-            result = gm.search_room()
-        assert result["result"] == "clue"
+        result = gm.search_room(force_roll=5)
+        assert result["result"] == "secret_door"
 
     def test_search_nothing_on_low_roll(self):
-        """A forced 2d6 roll of 5 during search yields nothing."""
+        """A forced d6 roll of 3 during search yields nothing."""
         gm, _ = _make_game()
         room = gm.dungeon.party.current_room
         direction = _first_unexplored_exit(room) or "north"
@@ -473,6 +478,5 @@ class TestSearchMechanics:
         empty_room.content = RoomContent(RoomType.EMPTY, "Empty")
         gm.move(direction)
 
-        with patch("src.game.roll_2d6", return_value=5):
-            result = gm.search_room()
+        result = gm.search_room(force_roll=3)
         assert result["result"] == "nothing"
